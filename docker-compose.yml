@@ -1,0 +1,30 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+
+  engine:
+    build: ./engine
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./engine/.env
+    command: serve run main:entropy_app
+
+  server:
+    build: ./server
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+      - engine
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/entropy
+      - RAY_URL=http://engine:8000/analyze
+
+  client:
+    build: ./client
+    ports:
+      - "5173:5173"
