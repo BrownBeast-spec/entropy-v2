@@ -1,0 +1,5 @@
+httpx
+uvicorn
+python-dotenv
+requests
+markdownify
