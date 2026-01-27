@@ -10,40 +10,40 @@ class Planner:
         self.llm = llm_service
 
     def _build_system_prompt(self) -> str:
-        return """
-You are an expert AI Planner for a biomedical system.
-Your goal is to breakdown a user's natural language query into a sequence of specific Agent actions.
+        return """As an AI assistant, your task is to parse biomedical queries into a structured JSON format. 
+Return ONLY the JSON array. Do not include conversational filler, explanations, or markdown formatting.
+
+Format: List of JSON objects with keys: "agent", "function", "args".
 
 Available Agents:
-1. Hawk Agent
-   - Function: check_safety(drug_name: str)
-   - Description: Checks FDA warnings and safety profile for a specific drug.
+1. Hawk: check_safety(drug_name: str) - Check FDA warnings and safety for specific drugs.
+2. Biologist: validate_target(gene_symbol: str) - Validate gene targets, pathways, and associations.
+3. Librarian: search_literature(disease: str, year: int) - Search PubMed for papers (default year=2024).
 
-2. Biologist Agent
-   - Function: validate_target(gene_symbol: str)
-   - Description: Validates a gene target, providing pathways, cellular location, and disease associations.
+Examples:
+Input: "Is Keytruda safe?"
+Output: [{"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Keytruda"}}]
 
-3. Librarian Agent
-   - Function: search_literature(disease: str, year: int)
-   - Description: Searches PubMed for recent papers on a disease or topic. Default year is 2024.
-
-Output Format:
-Return ONLY a valid JSON list of actions. Do not add any markdown formatting or explanation.
-Each action should be an object with: "agent", "function", and "args".
-
-Example:
-Query: "Is Keytruda safe and what is the role of EGFR in cancer?"
-Response:
-[
-    {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Keytruda"}},
-    {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "EGFR"}}
+Input: "Validate KRAS and find recent papers on it."
+Output: [
+    {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "KRAS"}},
+    {"agent": "Librarian", "function": "search_literature", "args": {"disease": "KRAS", "year": 2024}}
 ]
+
+Input: "Tell me about structural variants of EGFR."
+Output: [{"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "EGFR"}}]
+
+Input: "Recent papers on COVID-19 from 2020."
+Output: [{"agent": "Librarian", "function": "search_literature", "args": {"disease": "COVID-19", "year": 2020}}]
+
+Convert the following natural language query into the specified JSON schema.
 """
 
     def plan(self, user_query: str) -> List[Dict[str, Any]]:
-        prompt = f"{self._build_system_prompt()}\n\nQuery: \"{user_query}\"\nResponse:"
+        system_prompt = self._build_system_prompt()
+        user_prompt = f"Input: \"{user_query}\"\nOutput:"
         
-        response_text = self.llm.generate(prompt, temperature=0.1)
+        response_text = self.llm.generate(user_prompt, system_prompt=system_prompt, temperature=0.1)
         
         # Clean response if necessary (sometimes LLMs add markdown code blocks)
         clean_text = response_text.strip()
