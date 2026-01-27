@@ -4,3 +4,5 @@ python-dotenv
 requests
 markdownify
 huggingface_hub
+openai
+perplexityai

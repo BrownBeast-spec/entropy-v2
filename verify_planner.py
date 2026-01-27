@@ -1,5 +1,15 @@
+from engine.middleware.llm import PerplexityLLMService
 import logging
+try:
+    from dotenv import load_dotenv
+    # Load environment variables
+    load_dotenv()  # Load from .env in current directory if it exists
+    load_dotenv("engine/.env")  # Load from engine/.env as a fallback or primary
+except ImportError:
+    pass
+
 import os
+
 from engine.middleware.llm import HuggingFaceLLMService
 from engine.middleware.planner import Planner
 
@@ -17,7 +27,8 @@ def main():
     # Initialize
     print("1. Initializing LLM Service...")
     # Using the specific Novita/HF model ID requested or default
-    llm = HuggingFaceLLMService(model_id="meta-llama/Llama-3.1-8B-Instruct:novita")
+    # llm = HuggingFaceLLMService(model_id="meta-llama/Llama-3.1-8B-Instruct:novita")
+    llm = PerplexityLLMService(model_id="sonar-pro", api_key=os.getenv("PERPLEXITY_API_KEY"))
     
     print("2. Initializing Planner...")
     planner = Planner(llm)

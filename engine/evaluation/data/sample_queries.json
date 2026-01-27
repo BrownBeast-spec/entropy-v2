@@ -1,0 +1,613 @@
+[
+  {
+    "id": "tc_001",
+    "query": "Tell me about the design of clinical trials for Glioblastoma and check if Avastin has any boxed warnings.",
+    "expected_agents": ["Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Glioblastoma", "year": 2024}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Avastin"}}
+    ],
+    "description": "Complex query requiring literature search and drug safety check."
+  },
+  {
+    "id": "tc_002",
+    "query": "What are the structural variants of EGFR?",
+    "expected_agents": ["Biologist"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "EGFR"}}
+    ],
+    "description": "Biological query about protein structure/variants."
+  },
+  {
+    "id": "tc_003",
+    "query": "Find recent papers on CRISPR off-target effects.",
+    "expected_agents": ["Librarian"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "CRISPR off-target effects", "year": 2024}}
+    ],
+    "description": "Literature search query."
+  },
+  {
+    "id": "tc_004",
+    "query": "Check safety for Aspirin and Ibuprofen.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Aspirin"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Ibuprofen"}}
+    ],
+    "description": "Multiple items for the same agent (Multiple drugs safety Check)."
+  },
+  {
+    "id": "tc_005",
+    "query": "Is Metformin safe? Also validate BRCA1 and find recent breast cancer papers.",
+    "expected_agents": ["Hawk", "Biologist", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Metformin"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "BRCA1"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "breast cancer", "year": 2024}}
+    ],
+    "description": "Full combination of all three agents."
+  },
+  {
+    "id": "tc_006",
+    "query": "Papers on COVID-19 from 2020.",
+    "expected_agents": ["Librarian"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "COVID-19", "year": 2020}}
+    ],
+    "description": "Literature search with explicit year."
+  },
+  {
+    "id": "tc_007",
+    "query": "Validate targets KRAS and TP53.",
+    "expected_agents": ["Biologist"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "KRAS"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "TP53"}}
+    ],
+    "description": "Multiple biology targets in one query."
+  },
+  {
+    "id": "tc_008",
+    "query": "I have a patient with KRAS mutation. Is there any literature on this from 2022? Also check if Sotorasib is safe.",
+    "expected_agents": ["Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "KRAS mutation", "year": 2022}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Sotorasib"}}
+    ],
+    "description": "Contextual medical query requiring extraction of disease, year, and drug."
+  },
+  {
+    "id": "tc_009",
+    "query": "Effect of Tylenol on liver.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Tylenol"}}
+    ],
+    "description": "Implicit safety check request."
+  },
+  {
+    "id": "tc_010",
+    "query": "Find papers on Malaria (2019) and Dengue (2021).",
+    "expected_agents": ["Librarian"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Malaria", "year": 2019}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Dengue", "year": 2021}}
+    ],
+    "description": "Multiple literature searches with different years."
+  },
+  {
+    "id": "tc_011",
+    "query": "Analyze the safety profiles of Keytruda, Opdivo, and Tecentriq.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Keytruda"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Opdivo"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Tecentriq"}}
+    ],
+    "description": "Bulk drug safety check for PD-1/PD-L1 inhibitors."
+  },
+  {
+    "id": "tc_012",
+    "query": "Verify the targets ALK, ROS1, and RET for lung cancer therapy.",
+    "expected_agents": ["Biologist"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "ALK"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "ROS1"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "RET"}}
+    ],
+    "description": "Bulk gene validation for lung cancer biomarkers."
+  },
+  {
+    "id": "tc_013",
+    "query": "Search for Alzheimer's clinical trial results from 2023 and check if Lecanemab has boxed warnings.",
+    "expected_agents": ["Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Alzheimer's clinical trial results", "year": 2023}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Lecanemab"}}
+    ],
+    "description": "Recent Alzheimer's research and drug safety."
+  },
+  {
+    "id": "tc_014",
+    "query": "What is the function of the ACE2 receptor in COVID-19? Also, are there any safety issues with Paxlovid?",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "ACE2"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Paxlovid"}}
+    ],
+    "description": "Mechanism (target) and treatment (drug) safety for COVID-19."
+  },
+  {
+    "id": "tc_015",
+    "query": "Fetch literature on CAR-T cell therapy from 2021, 2022, and 2023.",
+    "expected_agents": ["Librarian"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "CAR-T cell therapy", "year": 2021}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "CAR-T cell therapy", "year": 2022}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "CAR-T cell therapy", "year": 2023}}
+    ],
+    "description": "Temporal progression of CAR-T research."
+  },
+  {
+    "id": "tc_016",
+    "query": "Validate HER2 status in gastric cancer and check the safety of Herceptin and Enhertu.",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "HER2"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Herceptin"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Enhertu"}}
+    ],
+    "description": "Target validation plus multiple related drug safety checks."
+  },
+  {
+    "id": "tc_017",
+    "query": "Summarize recent papers on obesity drugs like Wegovy and Zepbound from 2024.",
+    "expected_agents": ["Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "obesity drugs Wegovy Zepbound", "year": 2024}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Wegovy"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Zepbound"}}
+    ],
+    "description": "Literature search and safety for specific competitive drugs."
+  },
+  {
+    "id": "tc_018",
+    "query": "I need info on STK11 and LKB1 gene mutations. Is there literature from 2020? Is there a safety profile for Everolimus?",
+    "expected_agents": ["Biologist", "Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "STK11"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "LKB1"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "STK11 LKB1 mutation", "year": 2020}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Everolimus"}}
+    ],
+    "description": "Exhaustive multi-agent query with multiple targets."
+  },
+  {
+    "id": "tc_019",
+    "query": "What are the latest findings on Parkinson's disease? Search 2024 papers and check safety for Levodopa.",
+    "expected_agents": ["Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Parkinson's disease", "year": 2024}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Levodopa"}}
+    ],
+    "description": "Standard disease research flow."
+  },
+  {
+    "id": "tc_020",
+    "query": "Validate targets MYC and MAX. Are there any search results for MYC inhibition from 2022? Is there a drug named OTX015 and is it safe?",
+    "expected_agents": ["Biologist", "Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "MYC"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "MAX"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "MYC inhibition", "year": 2022}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "OTX015"}}
+    ],
+    "description": "Complex interwoven biology and literature request."
+  },
+  {
+    "id": "tc_021",
+    "query": "Check if Humira and Enbrel have boxed warnings for infections.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Humira"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Enbrel"}}
+    ],
+    "description": "Drug safety with specific context (infections)."
+  },
+  {
+    "id": "tc_022",
+    "query": "Search for gene therapy for Hemophilia A from 2023. Also validate F8 gene.",
+    "expected_agents": ["Librarian", "Biologist"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "gene therapy for Hemophilia A", "year": 2023}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "F8"}}
+    ],
+    "description": "Gene therapy focus."
+  },
+  {
+    "id": "tc_023",
+    "query": "Is Ozempic safe? What is the role of GLP-1? Find papers on GLP-1 agonists from 2024.",
+    "expected_agents": ["Hawk", "Biologist", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Ozempic"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "GLP1"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "GLP-1 agonists", "year": 2024}}
+    ],
+    "description": "GLP-1 context covering all agents."
+  },
+  {
+    "id": "tc_024",
+    "query": "Analyze safety for Warfarin, Eliquis, and Xarelto. Also search for anticoagulation guidelines from 2021.",
+    "expected_agents": ["Hawk", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Warfarin"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Eliquis"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Xarelto"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "anticoagulation guidelines", "year": 2021}}
+    ],
+    "description": "Bulk drug safety and literature guidelines."
+  },
+  {
+    "id": "tc_025",
+    "query": "Show me structural information for P53. Is there a drug called Nutlin-3 that targets it? Safety?",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "P53"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Nutlin-3"}}
+    ],
+    "description": "Target and specific inhibitor safety."
+  },
+  {
+    "id": "tc_026",
+    "query": "Find recent papers on Sickle Cell Disease from 2024 and check the safety of Casgevy.",
+    "expected_agents": ["Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Sickle Cell Disease", "year": 2024}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Casgevy"}}
+    ],
+    "description": "CRISPR-based therapy for SCD."
+  },
+  {
+    "id": "tc_027",
+    "query": "Validate targets GATA3 and ERBB2. Also find breast cancer subtype papers from 2022.",
+    "expected_agents": ["Biologist", "Librarian"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "GATA3"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "ERBB2"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "breast cancer subtype", "year": 2022}}
+    ],
+    "description": "Subtype-specific investigation."
+  },
+  {
+    "id": "tc_028",
+    "query": "Is there literature on CAR-NK cells from 2023? Also check the safety of any NK cell therapy if it exists (e.g. TAK-007).",
+    "expected_agents": ["Librarian", "Hawk"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "CAR-NK cells", "year": 2023}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "TAK-007"}}
+    ],
+    "description": "Experimental therapy literature and specific candidate safety."
+  },
+  {
+    "id": "tc_029",
+    "query": "Validate gene APOE and its association with Alzheimer's. Search for papers from 2020.",
+    "expected_agents": ["Biologist", "Librarian"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "APOE"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "APOE Alzheimer's", "year": 2020}}
+    ],
+    "description": "Genetic risk factor investigation."
+  },
+  {
+    "id": "tc_030",
+    "query": "Check safety for Entresto and search for Heart Failure papers from 2024.",
+    "expected_agents": ["Hawk", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Entresto"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Heart Failure", "year": 2024}}
+    ],
+    "description": "Cardiology focus."
+  },
+  {
+    "id": "tc_031",
+    "query": "Investigate the competitive landscape for non-small cell lung cancer (NSCLC) targeting KRAS G12C. Are there ongoing trials?",
+    "expected_agents": ["Scout", "Biologist"],
+    "expected_steps": [
+      {"agent": "Scout", "function": "search", "args": {"disease": "NSCLC KRAS G12C"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "KRAS"}}
+    ],
+    "description": "Validating a hot oncology target and finding active competitors."
+  },
+  {
+    "id": "tc_032",
+    "query": "Check the safety profile of Thalidomide. Also, find recent papers on its use in Leprosy from 2020.",
+    "expected_agents": ["Hawk", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Thalidomide"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Leprosy Thalidomide", "year": 2020}}
+    ],
+    "description": "Historical safety audit (Teratogenicity) vs. modern repurposed use."
+  },
+  {
+    "id": "tc_033",
+    "query": "Validate the target PCSK9 for hypercholesterolemia. Are there safety warnings for Repatha?",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "PCSK9"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Repatha"}}
+    ],
+    "description": "Cardiovascular target validation and commercial drug safety check."
+  },
+  {
+    "id": "tc_034",
+    "query": "Find clinical trials for Duchenne Muscular Dystrophy involving gene editing. Also validate the BCL11A target.",
+    "expected_agents": ["Scout", "Biologist"],
+    "expected_steps": [
+      {"agent": "Scout", "function": "search", "args": {"disease": "Duchenne Muscular Dystrophy gene editing"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "BCL11A"}}
+    ],
+    "description": "Rare disease gene therapy landscape analysis."
+  },
+  {
+    "id": "tc_035",
+    "query": "Is there any literature from 2023 linking Epstein-Barr Virus to Multiple Sclerosis?",
+    "expected_agents": ["Librarian"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Epstein-Barr Virus Multiple Sclerosis", "year": 2023}}
+    ],
+    "description": "Viral etiology research for autoimmune disease."
+  },
+  {
+    "id": "tc_036",
+    "query": "Analyze safety for the JAK inhibitors: Xeljanz, Rinvoq, and Olumiant.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Xeljanz"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Rinvoq"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Olumiant"}}
+    ],
+    "description": "Class-wide safety audit for JAK inhibitors (Black Box warning check)."
+  },
+  {
+    "id": "tc_037",
+    "query": "Validate biological target HTT for Huntington's Disease. Find trials for huntingtin lowering therapies.",
+    "expected_agents": ["Biologist", "Scout"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "HTT"}},
+      {"agent": "Scout", "function": "search", "args": {"disease": "Huntington's Disease huntingtin lowering"}}
+    ],
+    "description": "Neurodegenerative disease target and trial landscape."
+  },
+  {
+    "id": "tc_038",
+    "query": "What is the safety of Clozapine? Find papers on treatment-resistant schizophrenia from 2022.",
+    "expected_agents": ["Hawk", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Clozapine"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "treatment-resistant schizophrenia", "year": 2022}}
+    ],
+    "description": "Psychiatry safety check (REMS program drug)."
+  },
+  {
+    "id": "tc_039",
+    "query": "Validate targets PDCD1 (PD-1) and CD274 (PD-L1). Check safety for Keytruda.",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "PDCD1"}},
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "CD274"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Keytruda"}}
+    ],
+    "description": "Immuno-oncology checkpoint inhibitor validation."
+  },
+  {
+    "id": "tc_040",
+    "query": "Find trials for Pancreatic Cancer using mRNA vaccines.",
+    "expected_agents": ["Scout"],
+    "expected_steps": [
+      {"agent": "Scout", "function": "search", "args": {"disease": "Pancreatic Cancer mRNA vaccine"}}
+    ],
+    "description": "Novel modality (mRNA) search in hard-to-treat cancer."
+  },
+  {
+    "id": "tc_041",
+    "query": "Check safety for Accutane (Isotretinoin). Find papers on acne protocols 2021.",
+    "expected_agents": ["Hawk", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Accutane"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "acne treatment protocols", "year": 2021}}
+    ],
+    "description": "Dermatology safety audit (high-risk drug)."
+  },
+  {
+    "id": "tc_042",
+    "query": "Validate target CFTR for Cystic Fibrosis. Check safety for Trikafta.",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "CFTR"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Trikafta"}}
+    ],
+    "description": "Precision medicine validation for genetic disease."
+  },
+  {
+    "id": "tc_043",
+    "query": "Search for clinical trials on Long COVID. Find literature from 2023.",
+    "expected_agents": ["Scout", "Librarian"],
+    "expected_steps": [
+      {"agent": "Scout", "function": "search", "args": {"disease": "Long COVID"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Long COVID", "year": 2023}}
+    ],
+    "description": "Emerging infectious disease sequel research."
+  },
+  {
+    "id": "tc_044",
+    "query": "Validate target CTLA4. Check safety for Yervoy.",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "CTLA4"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Yervoy"}}
+    ],
+    "description": "Checkpoint inhibitor mechanism and safety."
+  },
+  {
+    "id": "tc_045",
+    "query": "Find trials for CAR-T in Acute Lymphoblastic Leukemia (ALL). Check safety for Kymriah.",
+    "expected_agents": ["Scout", "Hawk"],
+    "expected_steps": [
+      {"agent": "Scout", "function": "search", "args": {"disease": "Acute Lymphoblastic Leukemia CAR-T"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Kymriah"}}
+    ],
+    "description": "Cell therapy clinical landscape and safety."
+  },
+  {
+    "id": "tc_046",
+    "query": "Analyze safety for the weight loss drugs: Saxenda, Wegovy, and Mounjaro.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Saxenda"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Wegovy"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Mounjaro"}}
+    ],
+    "description": "Metabolic disease/obesity market safety comparison."
+  },
+  {
+    "id": "tc_047",
+    "query": "Validate target SOD1 for ALS. Find papers on antisense oligonucleotides for ALS from 2022.",
+    "expected_agents": ["Biologist", "Librarian"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "SOD1"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "ALS antisense oligonucleotides", "year": 2022}}
+    ],
+    "description": "Neurodegenerative genetic target validation."
+  },
+  {
+    "id": "tc_048",
+    "query": "Search for trials using Psilocybin for Depression. Check safety for Spravato.",
+    "expected_agents": ["Scout", "Hawk"],
+    "expected_steps": [
+      {"agent": "Scout", "function": "search", "args": {"disease": "Depression Psilocybin"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Spravato"}}
+    ],
+    "description": "Psychodelic/Novel antidepressant research."
+  },
+  {
+    "id": "tc_049",
+    "query": "Validate target IL17A. Check safety for Cosentyx and Taltz.",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "IL17A"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Cosentyx"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Taltz"}}
+    ],
+    "description": "Immunology/Psoriasis target and drug comparison."
+  },
+  {
+    "id": "tc_050",
+    "query": "Find papers on AI in Drug Discovery from 2024.",
+    "expected_agents": ["Librarian"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "AI in Drug Discovery", "year": 2024}}
+    ],
+    "description": "Meta-research on the pharmaceutical industry itself."
+  },
+  {
+    "id": "tc_051",
+    "query": "Validate target FGFR3. Check safety for Kalydeco.",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "FGFR3"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Kalydeco"}}
+    ],
+    "description": "Genetic mutation target check (Note: FGFR3 is achondroplasia, Kalydeco is CF - tests disjoint logic)."
+  },
+  {
+    "id": "tc_052",
+    "query": "Search for clinical trials for Nonalcoholic Steatohepatitis (NASH).",
+    "expected_agents": ["Scout"],
+    "expected_steps": [
+      {"agent": "Scout", "function": "search", "args": {"disease": "Nonalcoholic Steatohepatitis"}}
+    ],
+    "description": "High-interest metabolic liver disease trial search."
+  },
+  {
+    "id": "tc_053",
+    "query": "Check safety for Vioxx. Find papers on COX-2 inhibitors risks from 2005.",
+    "expected_agents": ["Hawk", "Librarian"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Vioxx"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "COX-2 inhibitors risks", "year": 2005}}
+    ],
+    "description": "Historical failure analysis (Withdrawn drug)."
+  },
+  {
+    "id": "tc_054",
+    "query": "Validate target CD19. Find trials for CD19 bispecific antibodies.",
+    "expected_agents": ["Biologist", "Scout"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "CD19"}},
+      {"agent": "Scout", "function": "search", "args": {"disease": "CD19 bispecific antibody"}}
+    ],
+    "description": "Hematologic oncology mechanism and trial search."
+  },
+  {
+    "id": "tc_055",
+    "query": "Check safety for Fentanyl and OxyContin.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Fentanyl"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "OxyContin"}}
+    ],
+    "description": "Opioid safety audit (Black Box warnings)."
+  },
+  {
+    "id": "tc_056",
+    "query": "Validate target VEGF. Check safety for Avastin and Lucentis.",
+    "expected_agents": ["Biologist", "Hawk"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "VEGFA"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Avastin"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Lucentis"}}
+    ],
+    "description": "Angiogenesis inhibition validation across indications (Oncology vs. Ophthalmology)."
+  },
+  {
+    "id": "tc_057",
+    "query": "Find recent papers on CRISPR therapy for Beta Thalassemia (2023).",
+    "expected_agents": ["Librarian"],
+    "expected_steps": [
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "CRISPR Beta Thalassemia", "year": 2023}}
+    ],
+    "description": "Gene editing literature search."
+  },
+  {
+    "id": "tc_058",
+    "query": "Validate target JAK1. Find trials for Alopecia Areata.",
+    "expected_agents": ["Biologist", "Scout"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "JAK1"}},
+      {"agent": "Scout", "function": "search", "args": {"disease": "Alopecia Areata"}}
+    ],
+    "description": "Dermatology autoimmune target validation."
+  },
+  {
+    "id": "tc_059",
+    "query": "Check safety for Ritalin and Adderall.",
+    "expected_agents": ["Hawk"],
+    "expected_steps": [
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Ritalin"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Adderall"}}
+    ],
+    "description": "ADHD medication safety check (Stimulants)."
+  },
+  {
+    "id": "tc_060",
+    "query": "Full due diligence on Glioblastoma: Validate EGFR, check Avastin safety, and find 2024 papers.",
+    "expected_agents": ["Biologist", "Hawk", "Librarian"],
+    "expected_steps": [
+      {"agent": "Biologist", "function": "validate_target", "args": {"gene_symbol": "EGFR"}},
+      {"agent": "Hawk", "function": "check_safety", "args": {"drug_name": "Avastin"}},
+      {"agent": "Librarian", "function": "search_literature", "args": {"disease": "Glioblastoma", "year": 2024}}
+    ],
+    "description": "Complete multi-agent pipeline test."
+  }
+]
