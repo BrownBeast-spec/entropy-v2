@@ -149,7 +149,8 @@ class BiologistAgent:
                 "total_pathways": len(pathways),
                 "mechanism_of_action": function[:500] + "..." if len(function) > 500 else function,
                 "analysis": insight,
-                "top_associations": associations
+                "top_associations": associations,
+                "link": f"https://platform.opentargets.org/target/{ensembl_id}"
             }
         
         return {"error": "Target not found or API error.", "raw": ot_result}

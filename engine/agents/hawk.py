@@ -100,7 +100,8 @@ class HawkAgent:
                 "clinical_data": {
                     "dosage_instructions": dosage,
                     "indications": indications
-                }
+                },
+                "link": f"https://open.fda.gov/drug/label?search=openfda.brand_name:{drug_name}"
             }
             
         except httpx.HTTPError as e:

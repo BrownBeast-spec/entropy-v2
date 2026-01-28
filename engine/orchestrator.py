@@ -6,6 +6,8 @@ from engine.agents.hawk import HawkAgent
 from engine.agents.biologist import BiologistAgent
 from engine.agents.librarian import LibrarianAgent
 
+from engine.middleware.synthesizer import ReportSynthesizer
+
 logger = logging.getLogger(__name__)
 
 class Orchestrator:
@@ -18,9 +20,11 @@ class Orchestrator:
         planner: Planner, 
         hawk: HawkAgent, 
         biologist: BiologistAgent, 
-        librarian: LibrarianAgent
+        librarian: LibrarianAgent,
+        synthesizer: Optional[ReportSynthesizer] = None
     ):
         self.planner = planner
+        self.synthesizer = synthesizer
         self.agents = {
             "Hawk": hawk,
             "Biologist": biologist,
@@ -108,12 +112,20 @@ class Orchestrator:
         tasks = [self._execute_action(action) for action in plan]
         results = await asyncio.gather(*tasks)
 
-        # 3. Aggregate Results
-        # For now, we just return the raw list of results. 
-        # Future: Send to a Synthesizer/Writer agent.
-        
-        return {
+        # 3. Aggregate Results and Synthesize Report
+        response = {
             "query": user_query,
             "plan_count": len(plan),
-            "results": results
+            "results": results,
+            "report": None
         }
+
+        if self.synthesizer:
+             # Synthesize report using the results
+             # We can default to current directory or a specific artifacts folder. 
+             # For now, let's use current working directory or pass it in via process_query if needed.
+             # but keeping it simple: current dir.
+             report_result = self.synthesizer.synthesize_report(user_query, results, output_dir=".")
+             response["report"] = report_result
+        
+        return response
