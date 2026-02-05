@@ -377,27 +377,37 @@ class ReportWriter:
                     search_results=state.search_results
                 )
             
-            # Generate LaTeX and PDF if requested
+            # Generate PDF using Pandoc
             pdf_path = None
             try:
                 # Assuming output dir is current working directory or specific report dir
                 output_dir = "reports"
                 os.makedirs(output_dir, exist_ok=True)
                 
-                # Format to LaTeX
-                tex_content = await self._generate_latex(final_report, state.research_topic)
-                
-                # Save .tex
                 # Strict sanitization: replace spaces/non-word chars with underscores
                 safe_title = re.sub(r'[^\w\-_\.]', '_', state.research_topic)[:50]
-                tex_path = os.path.join(output_dir, f"{safe_title}.tex")
-                with open(tex_path, "w") as f:
-                    f.write(tex_content)
                 
-                # Compile PDF
-                pdf_path = self._compile_pdf(tex_path, output_dir)
-                if pdf_path:
+                # Save Markdown
+                md_path = os.path.join(output_dir, f"{safe_title}.md")
+                og_md_path = os.path.join(output_dir, f"{safe_title}_og.md")
+                
+                # Sanitize common problematic chars for LaTeX/Pandoc
+                sanitized_report = final_report.replace("≥", "$\\ge$").replace("≤", "$\\le$")
+                
+                with open(md_path, "w") as f:
+                    f.write(sanitized_report)
+
+                with open(og_md_path, "w") as f:
+                    f.write(final_report)
+                
+                # Convert to PDF
+                pdf_filename = f"{safe_title}.pdf"
+                pdf_path = os.path.join(output_dir, pdf_filename)
+                
+                if self._generate_pdf_pandoc(md_path, pdf_path):
                     logger.info(f"PDF generated successfully at {pdf_path}")
+                else:
+                    pdf_path = None
                 
             except Exception as e:
                 logger.error(f"Failed to generate PDF: {e}")
@@ -470,81 +480,59 @@ Write the section content now."""
         report_sections = getattr(state, 'report_sections', []) or []
         
         report_parts = [
-            f"# {state.research_topic}\\n\\n",
-            f"**Deep Research Report**\\n\\n",
-            "## Executive Summary\\n\\n",
-            f"Comprehensive analysis of {state.research_topic} based on {len(search_results)} sources.\\n\\n"
+            f"# {state.research_topic}\n\n",
+            f"**Deep Research Report**\n\n",
+            "## Executive Summary\n\n",
+            f"Comprehensive analysis of {state.research_topic} based on {len(search_results)} sources.\n\n"
         ]
         
+        # Collect all unique source URLs used in the report
+        unique_urls = []
+        seen_urls = set()
+        
         for section in report_sections:
-            report_parts.append(f"## {section.title}\\n\\n{section.content}\\n\\n")
+            report_parts.append(f"## {section.title}\n\n{section.content}\n\n")
+            if section.sources:
+                for url in section.sources:
+                    if url not in seen_urls:
+                        unique_urls.append(url)
+                        seen_urls.add(url)
             
-        report_parts.append("## References\\n\\n")
+        report_parts.append("## References\n\n")
+        
+        # Populate references if available, otherwise CitationFormatter will handle formatting if URLs exist
+        # But if we rely on CitationFormatter to find URLs in text, we might be missing them if they are just [1]
+        # So let's list them here explicitly.
+        for i, url in enumerate(unique_urls, 1):
+             report_parts.append(f"{i}. [{url}]({url})\n")
         
         return "".join(report_parts)
 
-    async def _generate_latex(self, markdown_content: str, title: str) -> str:
-        """Convert synthesized Markdown report to LaTeX."""
-        logger.info("Converting report to LaTeX...")
-        
-        system_prompt = r"""You are an expert technical writer and LaTeX specialist.
-Convert the provided Markdown report into a professional LaTeX document.
-
-REQUIREMENTS:
-1. Use `\documentclass{article}` with `geometry` package.
-2. Use `hyperref` for links.
-3. Use `booktabs` for tables if any.
-4. Use `graphicx` for images if any.
-5. Ensure all special characters (%, $, _, &, #) are properly escaped.
-6. Create a professional Title page using `\maketitle`.
-7. Convert Markdown headers (#, ##) to \section and \subsection.
-8. Convert Markdown bold/italic to \textbf and \textit.
-9. Convert Markdown lists to itemize/enumerate.
-10. KEEP all citations and URL links intact.
-11. Output ONLY valid LaTeX code. No wrapping ```latex blocks.
-12. REQUIRED: consistently use \begin{document} and \end{document}.
-
-CRITICAL: DO NOT use 'sectsty', 'titlesec', or any non-standard packages. 
-Stick to standard LaTeX packages available in basic TeX Live distributions.
-"""
-        
-        user_prompt = f"""Title: {title}
-
-Markdown Content:
-{markdown_content}
-
-Convert to LaTeX now."""
-        
-        tex_content = self.llm.generate(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            temperature=0.3
-        )
-        
-        # Cleanup
-        if tex_content.startswith("```latex"):
-            tex_content = tex_content[8:]
-        elif tex_content.startswith("```"):
-            tex_content = tex_content[3:]
-        if tex_content.endswith("```"):
-            tex_content = tex_content[:-3]
-            
-        return tex_content.strip()
-
-    def _compile_pdf(self, tex_path: str, output_dir: str) -> Optional[str]:
-        """Compile LaTeX to PDF."""
+    def _generate_pdf_pandoc(self, input_path: str, output_path: str) -> bool:
+        """Convert Markdown to PDF using Pandoc."""
         try:
-            cmd = ["pdflatex", "-interaction=nonstopmode", f"-output-directory={output_dir}", tex_path]
-            # Run twice for refs
-            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Check pandoc availability
+            try:
+                subprocess.run(["pandoc", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                logger.error("Pandoc not found. Cannot generate PDF.")
+                return False
+
+            cmd = ["pandoc", input_path, "-o", output_path, "--pdf-engine=xelatex"]
+            
+            # Optional: Add extra arguments for better formatting
+            # cmd.extend(["--pdf-engine=pdflatex"]) # Default is usually pdflatex
+            # cmd.extend(["-V", "geometry:margin=1in"])
+            
+            logger.info(f"Running pandoc: {' '.join(cmd)}")
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             
             if result.returncode == 0:
-                pdf_filename = os.path.basename(tex_path).replace(".tex", ".pdf")
-                return os.path.join(output_dir, pdf_filename)
+                return True
             else:
-                logger.error(f"PDF compilation failed: {result.stdout.decode('utf-8')[:500]}...")
-                return None
+                logger.error(f"Pandoc failed: {result.stderr.decode('utf-8')}")
+                return False
+                
         except Exception as e:
-            logger.error(f"PDF compilation error: {e}")
-            return None
+            logger.error(f"Pandoc processing error: {e}")
+            return False
