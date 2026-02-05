@@ -387,15 +387,26 @@ class ReportWriter:
                 # Strict sanitization: replace spaces/non-word chars with underscores
                 safe_title = re.sub(r'[^\w\-_\.]', '_', state.research_topic)[:50]
                 
-                # Save Markdown
+                # Save Markdown with correct Unicode cleaning
                 md_path = os.path.join(output_dir, f"{safe_title}.md")
                 og_md_path = os.path.join(output_dir, f"{safe_title}_og.md")
                 
-                # Sanitize common problematic chars for LaTeX/Pandoc
-                sanitized_report = final_report.replace("≥", "$\\ge$").replace("≤", "$\\le$")
+                # Add YAML Frontmatter for formatting
+                yaml_frontmatter = """---
+geometry: margin=1in
+fontsize: 11pt
+header-includes:
+  - \\usepackage{setspace}
+  - \\onehalfspacing
+  - \\usepackage{amsmath}
+  - \\usepackage{unicode-math}
+---
+
+"""
+                full_md_content = yaml_frontmatter + final_report
                 
                 with open(md_path, "w") as f:
-                    f.write(sanitized_report)
+                    f.write(full_md_content)
 
                 with open(og_md_path, "w") as f:
                     f.write(final_report)
@@ -438,7 +449,7 @@ Use markdown. Cite sources [1], [2]. Return ONLY the markdown content."""
         sources_context = "\\n".join(
             f"[{i+1}] {r.title}" for i, r in enumerate(search_results[:15])
         )
-        
+                
         user_prompt = f"""Topic: {topic}
 Section: {section_title}
 Key Findings:
@@ -447,8 +458,12 @@ Key Findings:
 Sources:
 {sources_context}
 
-Write the section content now."""
-        
+Write the section content now.
+IMPORTANT:
+- Use standard LaTeX math delimiters `$...$` for all mathematical symbols (e.g., $\ge$, $\le$, $\pm$).
+- Do NOT use unicode symbols for math (like ≥, ≤).
+- Ensure citations [1], [2] correspond EXACTLY to the provided Sources list order."""
+
         try:
             content = self.llm.generate(
                 prompt=user_prompt,
@@ -479,6 +494,19 @@ Write the section content now."""
         search_results = getattr(state, 'search_results', []) or []
         report_sections = getattr(state, 'report_sections', []) or []
         
+        # 1. Collect all unique URLs to build global reference list
+        global_urls = []
+        url_to_global_index = {}
+        
+        for section in report_sections:
+            if section.sources:
+                for url in section.sources:
+                    if url not in url_to_global_index:
+                        global_urls.append(url)
+                        # Store 1-based index
+                        url_to_global_index[url] = len(global_urls)
+
+        # 2. Build Report Content with Re-indexed Citations
         report_parts = [
             f"# {state.research_topic}\n\n",
             f"**Deep Research Report**\n\n",
@@ -486,24 +514,37 @@ Write the section content now."""
             f"Comprehensive analysis of {state.research_topic} based on {len(search_results)} sources.\n\n"
         ]
         
-        # Collect all unique source URLs used in the report
-        unique_urls = []
-        seen_urls = set()
-        
         for section in report_sections:
-            report_parts.append(f"## {section.title}\n\n{section.content}\n\n")
+            content = section.content
+            
+            # Re-index citations if sources exist
             if section.sources:
-                for url in section.sources:
-                    if url not in seen_urls:
-                        unique_urls.append(url)
-                        seen_urls.add(url)
+                # Map local index (i+1) -> global index
+                local_to_global = {}
+                for idx, url in enumerate(section.sources):
+                    local_idx = idx + 1
+                    if url in url_to_global_index:
+                        local_to_global[local_idx] = url_to_global_index[url]
+                
+                # Regex to replace [N] with [GLOBAL_N]
+                # We use a callback to ensure robust replacement
+                def replace_citation(match):
+                    try:
+                        local_num = int(match.group(1))
+                        if local_num in local_to_global:
+                            return f"[{local_to_global[local_num]}]"
+                    except ValueError:
+                        pass
+                    return match.group(0)
+                
+                content = re.sub(r'\[(\d+)\]', replace_citation, content)
+
+            report_parts.append(f"## {section.title}\n\n{content}\n\n")
             
         report_parts.append("## References\n\n")
         
-        # Populate references if available, otherwise CitationFormatter will handle formatting if URLs exist
-        # But if we rely on CitationFormatter to find URLs in text, we might be missing them if they are just [1]
-        # So let's list them here explicitly.
-        for i, url in enumerate(unique_urls, 1):
+        # 3. List Global References
+        for i, url in enumerate(global_urls, 1):
              report_parts.append(f"{i}. [{url}]({url})\n")
         
         return "".join(report_parts)
