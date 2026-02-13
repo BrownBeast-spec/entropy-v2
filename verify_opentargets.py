@@ -1,13 +1,13 @@
 import asyncio
 import logging
-from engine.agents.biologist import BiologistAgent
+from engine.mastra.agents.opentargets import OpenTargetsAgent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 async def test_biologist_agent():
-    print("--- Testing Async Biologist Agent with UniProt Integration ---")
-    agent = BiologistAgent()
+    print("--- Testing Async OpenTargets Agent with UniProt Integration ---")
+    agent = OpenTargetsAgent()
     
     try:
         # Test with a known target (EGFR)

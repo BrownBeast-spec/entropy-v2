@@ -1,12 +1,13 @@
 import httpx
 import logging
 import json
-from engine.services.uniprot_client import UniProtClient
+from typing import Dict, Any, Optional, List
+from mastra.tools.uniprot_client import UniProtClient
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-class BiologistAgent:
+class OpenTargetsAgent:
     def __init__(self):
         self.base_url = "https://api.platform.opentargets.org/api/v4/graphql"
         self.client = httpx.AsyncClient(timeout=30.0)
