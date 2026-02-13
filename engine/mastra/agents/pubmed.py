@@ -1,6 +1,7 @@
 import httpx
 import logging
 import os
+import asyncio
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -9,14 +10,34 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 logger = logging.getLogger(__name__)
 
 class PubMedAgent:
+    """
+    PubMed Agent (Librarian)
+    
+    API Capabilities (Literature Focus):
+    - PubMed Search: Scientific literature by topic/disease
+    - Citation Networks: Related papers via elink
+    - Preprints: bioRxiv and medRxiv searches
+    
+    Note: Gene/Protein/ClinVar data handled by OpenTargetsAgent
+    to maintain architectural separation (Literature vs. Biology)
+    
+    Rate Limit: 3 req/sec (10 req/sec with API key)
+    """
     def __init__(self):
         # Base URLs for NCBI E-utilities
         self.search_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
         self.fetch_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+        self.link_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi"
         
         # NCBI requires an email for API access
         self.email = os.getenv("NCBI_EMAIL", "surajharlekar@gmail.com")
         self.api_key = os.getenv("NCBI_API_KEY")
+        
+        # Rate limiting: 3 req/sec without key, 10 req/sec with key
+        rate = 0.1 if self.api_key else 0.34
+        self._rate_limit_delay = rate
+        self._last_request_time = 0.0
+        
         # FORCE IPv4: Workaround for environment network issues preferring IPv6 which fails
         self.client = httpx.AsyncClient(
             timeout=20.0, 
@@ -26,12 +47,21 @@ class PubMedAgent:
     async def close(self):
         """Close the underlying HTTP client."""
         await self.client.aclose()
+    
+    async def _rate_limit(self):
+        """Enforce rate limiting between API calls."""
+        current_time = asyncio.get_event_loop().time()
+        time_since_last = current_time - self._last_request_time
+        if time_since_last < self._rate_limit_delay:
+            await asyncio.sleep(self._rate_limit_delay - time_since_last)
+        self._last_request_time = asyncio.get_event_loop().time()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     async def _make_request(self, url: str, params: Dict[str, Any]) -> httpx.Response:
         """
         Production Wrapper: Handles retries, timeouts, and API keys automatically.
         """
+        await self._rate_limit()
         if self.api_key:
             params['api_key'] = self.api_key
         
@@ -40,7 +70,7 @@ class PubMedAgent:
         return response
 
     async def search_literature(self, disease: str, year: int = 2024, limit: int = 5) -> Dict[str, Any]:
-        logger.info(f"Librarian searching PubMed for: {disease} ({year})")
+        logger.info(f"PubMed Agent searching for: {disease} ({year})")
         
         # --- STEP 1: Search for IDs ---
         search_params = {
@@ -139,7 +169,7 @@ class PubMedAgent:
             return {"error": "Failed to parse PubMed XML response"}
             
         return {
-            "agent": "Librarian",
+            "agent": "PubMed",
             "topic": topic,
             "total_found": total_found,
             "top_papers": papers
@@ -189,7 +219,7 @@ class PubMedAgent:
                     })
                     
             return {
-                "agent": "Librarian",
+                "agent": "PubMed",
                 "source": server,
                 "topic": topic,
                 "interval": interval,
