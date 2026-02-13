@@ -8,7 +8,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 # Configure logging
 logger = logging.getLogger(__name__)
 
-class LibrarianAgent:
+class PubMedAgent:
     def __init__(self):
         # Base URLs for NCBI E-utilities
         self.search_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
@@ -144,3 +144,63 @@ class LibrarianAgent:
             "total_found": total_found,
             "top_papers": papers
         }
+
+    async def get_preprints(self, topic: str, server: str = "biorxiv", days: int = 30) -> Dict[str, Any]:
+        """
+        Fetch recent preprints from bioRxiv/medRxiv and filter by topic.
+        API: https://api.biorxiv.org/details/[server]/[interval]
+        Note: The API does not have search, so we fetch recent and filter.
+        """
+        import datetime
+        
+        # Calculate interval: YYYY-MM-DD/YYYY-MM-DD
+        end_date = datetime.date.today()
+        start_date = end_date - datetime.timedelta(days=days)
+        interval = f"{start_date}/{end_date}"
+        
+        url = f"https://api.biorxiv.org/details/{server}/{interval}"
+        
+        logger.info(f"Librarian searching {server} preprints for: {topic}")
+        
+        try:
+            response = await self.client.get(url)
+            if response.status_code != 200:
+                return {"error": f"Preprint API error: {response.status_code}"}
+                
+            data = response.json()
+            collection = data.get("collection", [])
+            
+            # Local Filter
+            matches = []
+            term = topic.lower()
+            
+            for paper in collection:
+                title = paper.get("title", "").lower()
+                abstract = paper.get("abstract", "").lower()
+                
+                if term in title or term in abstract:
+                    matches.append({
+                        "id": paper.get("doi"),
+                        "title": paper.get("title"),
+                        "date": paper.get("date"),
+                        "server": server,
+                        "link": f"https://doi.org/{paper.get('doi')}",
+                        "abstract": paper.get("abstract")
+                    })
+                    
+            return {
+                "agent": "Librarian",
+                "source": server,
+                "topic": topic,
+                "interval": interval,
+                "total_scanned": len(collection),
+                "matched": len(matches),
+                "top_papers": matches[:10] # Limit to top 10
+            }
+            
+        except httpx.HTTPError as e:
+             logger.error(f"Preprint Request failed: {e}")
+             return {"error": str(e)}
+        except Exception as e:
+             logger.error(f"Preprint Error: {e}")
+             return {"error": str(e)}

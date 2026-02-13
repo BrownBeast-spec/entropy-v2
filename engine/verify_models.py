@@ -1,5 +1,5 @@
 import json
-from core.clinical_trials import ClinicalTrialsResponse
+from mastra.core.clinical_trials import ClinicalTrialsResponse
 
 sample_json = {
     "studies": [

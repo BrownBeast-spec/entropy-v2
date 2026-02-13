@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from engine.agents.hawk import HawkAgent
+from engine.mastra.agents.openfda import OpenFDAAgent
 from dotenv import load_dotenv
 
 # Configure logging to see agent output
@@ -10,8 +10,8 @@ logging.basicConfig(level=logging.INFO)
 load_dotenv("./engine/.env")
 
 async def test_hawk_agent():
-    print("--- Testing Async Hawk Agent with Markdown Sanitization ---")
-    agent = HawkAgent()
+    print("--- Testing Async OpenFDA Agent with Markdown Sanitization ---")
+    agent = OpenFDAAgent()
     
     try:
         # Test with a known drug

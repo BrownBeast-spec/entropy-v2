@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Query, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
-from core.clinical_trials import ClinicalTrialsV2
-from agents.hawk import HawkAgent
-from agents.biologist import BiologistAgent
-from agents.librarian import LibrarianAgent
+from mastra.core.clinical_trials import ClinicalTrialsV2
+from mastra.agents.openfda import OpenFDAAgent
+from mastra.agents.opentargets import OpenTargetsAgent
+from mastra.agents.pubmed import PubMedAgent
+from mastra.agents.pubchem import PubChemAgent
+from mastra.agents.ensembl import EnsemblAgent
 import uvicorn
 import logging
 from contextlib import asynccontextmanager
@@ -15,9 +17,11 @@ logger = logging.getLogger(__name__)
 
 # Global clients
 ct_client = None
-hawk_agent = None
-biologist_agent = None
-librarian_agent = None
+openfda_agent = None
+opentargets_agent = None
+pubmed_agent = None
+pubchem_agent = None
+ensembl_agent = None
 
 class BiologistResponse(BaseModel):
     agent: str
@@ -52,30 +56,40 @@ class LibrarianResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global ct_client, hawk_agent, biologist_agent, librarian_agent
+    global ct_client, openfda_agent, opentargets_agent, pubmed_agent, pubchem_agent, ensembl_agent
     logger.info("Initializing ClinicalTrialsV2 client...")
     ct_client = ClinicalTrialsV2()
     
-    logger.info("Initializing HawkAgent...")
-    hawk_agent = HawkAgent()
+    logger.info("Initializing OpenFDAAgent...")
+    openfda_agent = OpenFDAAgent()
     
-    logger.info("Initializing BiologistAgent...")
-    biologist_agent = BiologistAgent()
+    logger.info("Initializing OpenTargetsAgent...")
+    opentargets_agent = OpenTargetsAgent()
     
-    logger.info("Initializing LibrarianAgent...")
-    librarian_agent = LibrarianAgent()
+    logger.info("Initializing PubMedAgent...")
+    pubmed_agent = PubMedAgent()
+
+    logger.info("Initializing PubChemAgent...")
+    pubchem_agent = PubChemAgent()
+
+    logger.info("Initializing EnsemblAgent...")
+    ensembl_agent = EnsemblAgent()
     
     yield
     # Shutdown
     logger.info("Closing clients...")
     if ct_client:
         await ct_client.close()
-    if hawk_agent:
-        await hawk_agent.close()
-    if biologist_agent:
-        await biologist_agent.close()
-    if librarian_agent:
-        await librarian_agent.close()
+    if openfda_agent:
+        await openfda_agent.close()
+    if opentargets_agent:
+        await opentargets_agent.close()
+    if pubmed_agent:
+        await pubmed_agent.close()
+    if pubchem_agent:
+        await pubchem_agent.close()
+    if ensembl_agent:
+        await ensembl_agent.close()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -95,11 +109,29 @@ async def search_studies(term: str = Query(..., description="The search term for
 @app.get("/safety")
 async def check_drug_safety(drug: str = Query(..., description="Brand name of the drug")):
     """
-    Check drug safety using OpenFDA (Async).
+    Check drug safety (Label + Boxed Warning) using OpenFDA (Async).
     """
-    if not hawk_agent:
-        return {"error": "HawkAgent not initialized"}
-    return await hawk_agent.check_safety(drug)
+    if not openfda_agent:
+        return {"error": "OpenFDAAgent not initialized"}
+    return await openfda_agent.check_safety(drug)
+
+@app.get("/safety/events")
+async def check_adverse_events(drug: str = Query(..., description="Drug Name"), limit: int = 10):
+    """
+    Get top adverse events for a drug (OpenFDA Agent).
+    """
+    if not openfda_agent:
+        return {"error": "OpenFDAAgent not initialized"}
+    return await openfda_agent.get_adverse_events(drug, limit)
+
+@app.get("/safety/recalls")
+async def check_recalls(drug: str = Query(..., description="Drug Name")):
+    """
+    Get recent recalls for a drug (OpenFDA Agent).
+    """
+    if not openfda_agent:
+        return {"error": "OpenFDAAgent not initialized"}
+    return await openfda_agent.get_recalls(drug)
 
 @app.get("/validate", response_model=BiologistResponse | ErrorResponse)
 async def validate_target(gene: str = Query(..., description="Gene symbol (e.g., EGFR)")):
@@ -107,9 +139,45 @@ async def validate_target(gene: str = Query(..., description="Gene symbol (e.g.,
     Validate target using Open Targets (GraphQL) and UniProt.
     Returns comprehensive target analysis including pathways.
     """
-    if not biologist_agent:
-        return {"error": "BiologistAgent not initialized"}
-    return await biologist_agent.validate_target(gene)
+    if not opentargets_agent:
+        return {"error": "OpenTargetsAgent not initialized"}
+    return await opentargets_agent.validate_target(gene)
+
+@app.get("/gene/info")
+async def get_gene_info(symbol: str = Query(..., description="Gene Symbol")):
+    """
+    Get Gene Information from Ensembl (Ensembl Agent).
+    """
+    if not ensembl_agent:
+         return {"error": "EnsemblAgent not initialized"}
+    return await ensembl_agent.get_gene_info(symbol)
+
+@app.get("/gene/sequence")
+async def get_gene_sequence(id: str = Query(..., description="Gene ID (ENSG...)")):
+    """
+    Get Genomic Sequence from Ensembl (Ensembl Agent).
+    """
+    if not ensembl_agent:
+         return {"error": "EnsemblAgent not initialized"}
+    return await ensembl_agent.get_sequence(id)
+
+@app.get("/compound/props")
+async def get_compound_props(name: str = Query(..., description="Compound Name")):
+    """
+    Get Compound Properties from PubChem (PubChem Agent).
+    """
+    if not pubchem_agent:
+        return {"error": "PubChemAgent not initialized"}
+    return await pubchem_agent.get_compound_props(name)
+
+@app.get("/compound/search")
+async def search_chembl(query: str = Query(..., description="Molecule Name")):
+    """
+    Search for molecules in ChEMBL (PubChem Agent).
+    """
+    if not pubchem_agent:
+        return {"error": "PubChemAgent not initialized"}
+    return await pubchem_agent.search_chembl(query)
 
 @app.get("/literature", response_model=LibrarianResponse | ErrorResponse)
 async def search_literature(
@@ -121,9 +189,22 @@ async def search_literature(
     Search PubMed for scientific papers (Async).
     Returns formatted list of papers with direct links.
     """
-    if not librarian_agent:
-        return {"error": "LibrarianAgent not initialized"}
-    return await librarian_agent.search_literature(term, year, limit)
+    if not pubmed_agent:
+        return {"error": "PubMedAgent not initialized"}
+    return await pubmed_agent.search_literature(term, year, limit)
+
+@app.get("/literature/preprints")
+async def search_preprints(
+    topic: str = Query(..., description="Topic"),
+    server: str = Query("biorxiv", description="biorxiv or medrxiv"),
+    days: int = 30
+):
+    """
+    Search recent preprints on bioRxiv/medRxiv.
+    """
+    if not pubmed_agent:
+        return {"error": "PubMedAgent not initialized"}
+    return await pubmed_agent.get_preprints(topic, server, days)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -7,7 +7,7 @@ from markdownify import markdownify as md
 # Configure logging
 logger = logging.getLogger(__name__)
 
-class HawkAgent:
+class OpenFDAAgent:
     def __init__(self):
         self.base_url = "https://api.fda.gov/drug/label.json"
         self.api_key = os.getenv("OPENFDA_API_KEY")
@@ -109,3 +109,83 @@ class HawkAgent:
         except Exception as e:
             logger.error(f"Unexpected error in HawkAgent for '{drug_name}': {str(e)}")
             return {"error": f"Unexpected error: {str(e)}"}
+
+    async def get_adverse_events(self, drug_name: str, limit: int = 10) -> Dict[str, Any]:
+        """
+        Get adverse event associated with a drug.
+        Uses the 'count' feature to return top reported reactions.
+        """
+        url = "https://api.fda.gov/drug/event.json"
+        
+        # We assume the drug name is the medicinal product
+        params = {
+            "search": f"patient.drug.medicinalproduct:{drug_name}",
+            "count": "patient.reaction.reactionmeddrapt.exact",
+            "limit": limit
+        }
+        
+        if self.api_key:
+            params["api_key"] = self.api_key
+            
+        try:
+            response = await self.client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # OpenFDA count results are in 'results' as a list of {term, count}
+            events = [
+                {"reaction": item["term"], "count": item["count"]}
+                for item in data.get("results", [])
+            ]
+            
+            return {
+                "drug": drug_name,
+                "total_events_analyzed": "Count Query",
+                "top_reactions": events
+            }
+            
+        except httpx.HTTPError as e:
+            logger.error(f"OpenFDA Event count failed: {e}")
+            return {"error": str(e)}
+
+    async def get_recalls(self, drug_name: str) -> Dict[str, Any]:
+        """
+        Get recent enforcement reports (recalls).
+        """
+        url = "https://api.fda.gov/drug/enforcement.json"
+        params = {
+            "search": f"product_description:{drug_name}",
+            "limit": 5,
+            "sort": "report_date:desc"
+        }
+        
+        if self.api_key:
+            params["api_key"] = self.api_key
+            
+        try:
+            response = await self.client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            recalls = []
+            for item in data.get("results", []):
+                recalls.append({
+                    "reason": item.get("reason_for_recall"),
+                    "status": item.get("status"),
+                    "date": item.get("report_date"),
+                    "product_description": item.get("product_description"),
+                    "classification": item.get("classification")
+                })
+                
+            return {
+                "drug": drug_name,
+                "found": len(recalls),
+                "recalls": recalls
+            }
+            
+        except httpx.HTTPError as e:
+            # Often 404 if no recalls
+            if e.response.status_code == 404:
+                return {"drug": drug_name, "found": 0, "recalls": []}
+            logger.error(f"OpenFDA Enforcement failed: {e}")
+            return {"error": str(e)}

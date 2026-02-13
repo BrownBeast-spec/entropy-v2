@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 sys.path.append(os.path.abspath("engine"))
 
 def test_librarian_endpoint():
-    print("--- Testing /literature Endpoint ---")
+    print("--- Testing /literature Endpoint (PubMed) ---")
     
     with TestClient(app) as client:
         term = "Glioblastoma"
