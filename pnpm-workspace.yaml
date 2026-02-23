@@ -3,4 +3,5 @@ packages:
   - "packages/mcp-clinical"
   - "packages/mcp-safety"
   - "packages/mcp-commercial"
+  - "packages/audit"
   - "apps/mastra-app"
