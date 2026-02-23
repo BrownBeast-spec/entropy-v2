@@ -3,6 +3,7 @@ import { biologistAgent } from "../agents/biologist.js";
 import { clinicalScoutAgent } from "../agents/clinical-scout.js";
 import { hawkAgent } from "../agents/hawk.js";
 import { librarianAgent } from "../agents/librarian.js";
+import { gapAnalystAgent } from "../agents/gap-analyst.js";
 import { mastra } from "../mastra/index.js";
 import {
   getBiologyTools,
@@ -135,12 +136,10 @@ describe("Hawk Safety Agent", () => {
       ],
     };
 
-    const generateSpy = vi
-      .spyOn(hawkAgent, "generate")
-      .mockResolvedValueOnce({
-        text: JSON.stringify(mockOutput),
-        object: mockOutput,
-      } as any);
+    const generateSpy = vi.spyOn(hawkAgent, "generate").mockResolvedValueOnce({
+      text: JSON.stringify(mockOutput),
+      object: mockOutput,
+    } as any);
 
     const response = await hawkAgent.generate(
       "Assess safety profile of metformin for elderly patients",
@@ -201,6 +200,24 @@ describe("Librarian Agent", () => {
 
     expect(generateSpy).toHaveBeenCalledOnce();
     expect((response as any).text).toContain("metformin");
+  });
+});
+
+describe("Gap Analyst Agent", () => {
+  it("should have the correct id and name", () => {
+    expect(gapAnalystAgent.id).toBe("gap-analyst");
+    expect(gapAnalystAgent.name).toBe("Gap Analyst Agent");
+  });
+
+  it("should be registered with the Mastra instance", () => {
+    const agent = mastra.getAgent("gapAnalystAgent");
+    expect(agent).toBeDefined();
+    expect(agent.id).toBe("gap-analyst");
+  });
+
+  it("should have no tools attached", () => {
+    const config = (gapAnalystAgent as any).__config;
+    expect(config?.tools).toBeUndefined();
   });
 });
 
@@ -269,11 +286,12 @@ describe("MCP Client Wiring", () => {
 // ─── All Agents Registered ───────────────────────────────────────────────
 
 describe("Mastra Instance", () => {
-  it("should have all 5 agents registered", () => {
+  it("should have all 6 agents registered", () => {
     expect(mastra.getAgent("plannerAgent")).toBeDefined();
     expect(mastra.getAgent("biologistAgent")).toBeDefined();
     expect(mastra.getAgent("clinicalScoutAgent")).toBeDefined();
     expect(mastra.getAgent("hawkAgent")).toBeDefined();
     expect(mastra.getAgent("librarianAgent")).toBeDefined();
+    expect(mastra.getAgent("gapAnalystAgent")).toBeDefined();
   });
 });
