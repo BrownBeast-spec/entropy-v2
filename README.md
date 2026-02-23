@@ -358,4 +358,5 @@ curl "http://localhost:8000/literature?term=Immunotherapy&year=2024&limit=3"
 This project is open-source and available for research purposes.
 
 For detailed implementation notes and Phase 1 enhancement summary, see [phase1_summary.md](engine/phase1_summary.md).
+For a list of technical challenges encountered and resolved during the V2 TypeScript rewrite, see [SOLVED_PROBLEMS.md](SOLVED_PROBLEMS.md).
 

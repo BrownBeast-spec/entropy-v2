@@ -10,126 +10,46 @@
 > [!IMPORTANT]
 > The Mastra framework is a **TypeScript/JavaScript** library. Your current engine is in **Python**. There are two valid paths:
 >
-> **Option A (Recommended):** Keep the Python FastAPI layer as a self-contained **MCP server** and build the Mastra orchestration layer in TypeScript as a separate `engine-ts/` service. This gives you the full Mastra ecosystem (typed tools, `suspend()`, workflow engine) while keeping your existing Python data agents intact.
+> **Option A:** Keep the Python FastAPI layer as a self-contained **MCP server** and build the Mastra orchestration layer in TypeScript as a separate `engine-ts/` service. This gives you the full Mastra ecosystem (typed tools, `suspend()`, workflow engine) while keeping your existing Python data agents intact.
 >
-> **Option B:** Rewrite the Python agents in TypeScript using the Mastra native tool system with Zod schemas. This is a larger rewrite but produces a single-language stack.
+> **Option B (Selected & Completed):** Rewrite the Python agents in TypeScript using the Mastra native tool system with Zod schemas. This produces a cleaner, unified single-language stack.
 >
-> This document assumes **Option A** as it preserves all existing Phase 1 work.
+> This document is updated to reflect that **Option B** has been implemented. All existing data APIs are now natively integrated in `engine-ts/src/tools/`, and the central orchestrator is inside `engine-ts/src/agents/co-pharma.ts`.
 
 ---
 
-## Phase 2: MCP Server Wrapping (Python)
+## Phase 2: Finished (Native TypeScript Rewrite)
 
-### Goal
-Expose the existing FastAPI endpoints as a proper **Model Context Protocol (MCP) server** so the Mastra TypeScript layer can call them as LLM tools.
-b
-### What to build: `engine/mcp_server.py`
-
-Use the `mcp` Python SDK (`pip install mcp`). Create a single MCP server that exposes each agent capability as a `tool`. Example structure:
-
-```python
-# engine/mcp_server.py
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
-import json
-
-app = Server("entropy-engine")
-
-@app.list_tools()
-async def list_tools():
-    return [
-        Tool(
-            name="check_drug_safety",
-            description="Check FDA drug safety, boxed warnings, recalls for a given drug name",
-            inputSchema={
-                "type": "object",
-                "properties": {"drug": {"type": "string", "description": "Brand name of the drug"}},
-                "required": ["drug"]
-            }
-        ),
-        Tool(name="validate_gene_target", ...),
-        Tool(name="search_literature", ...),
-        Tool(name="get_compound_properties", ...),
-        Tool(name="search_clinical_trials", ...),
-        # ... one Tool per agent method
-    ]
-
-@app.call_tool()
-async def call_tool(name: str, arguments: dict):
-    if name == "check_drug_safety":
-        result = await openfda_agent.check_safety(arguments["drug"])
-        return [TextContent(type="text", text=json.dumps(result))]
-    # ... route all 26 endpoints
-```
-
-Run it as: `python engine/mcp_server.py` (uses stdio transport for Mastra to connect).
-
-### Alternatively: HTTP/SSE MCP transport
-For production, use `mcp.server.fastapi` to expose the MCP server over HTTP. The Mastra TypeScript layer then connects to `http://localhost:8001/mcp`.
+### Goal Accomplished
+The Python FastAPI logic was rewritten completely in TypeScript. The `engine-ts/src/tools/` directory contains all 6 core data capabilities natively bound to Mastra as `createTool()` with Zod schemas handling input/output validation.
 
 ---
 
-## Phase 3: Mastra TypeScript Orchestration Layer
+## Phase 3: Mastra TypeScript Orchestration Layer (In Progress)
 
 ### Setup: `engine-ts/` directory
+Mastra has been configured with `npm install @mastra/core @ai-sdk/google zod`.
 
-```bash
-mkdir engine-ts && cd engine-ts
-npm init -y
-npm install @mastra/core @mastra/mcp zod
-```
-
-### 3.1 MCP Client + Tool Registration
+### 3.1 Specialized LLM Agents
 
 ```typescript
-// engine-ts/src/tools/pharma-tools.ts
-import { MCPClient } from "@mastra/mcp";
-import { z } from "zod";
-
-export const entropyMcp = new MCPClient({
-  servers: {
-    entropy: {
-      transport: {
-        type: "stdio",                         // or "http" for production
-        command: "python",
-        args: ["../engine/mcp_server.py"]
-      }
-    }
-  }
-});
-// Returns Mastra Tool objects that wrap every MCP tool from the Python server
-export const pharmaTools = await entropyMcp.getTools();
-```
-
-### 3.2 Specialized LLM Agents
-
-```typescript
-// engine-ts/src/agents/biologist.ts
+// engine-ts/src/agents/co-pharma.ts
+// (COMPLETED)
 import { Agent } from "@mastra/core/agent";
-import { google } from "@ai-sdk/google";          // or openai, anthropic
+import { google } from "@ai-sdk/google";
 
-export const biologistAgent = new Agent({
-  name: "Biologist",
-  instructions: `You are a molecular biologist specializing in target validation.
-    Given a gene symbol, use your tools to:
-    1. Validate the target using OpenTargets and UniProt
-    2. Retrieve genomic sequences and variants from Ensembl
-    3. Summarize the target's druggability, key pathways, and disease associations.
-    Return a structured JSON summary.`,
-  model: google("gemini-2.0-flash"),
+export const coPharmaAgent = new Agent({
+  name: "Co-Pharma Researcher",
+  instructions: `...`,
+  model: google("gemini-2.5-flash"),
   tools: {
-    validate_gene_target: pharmaTools.validate_gene_target,
-    get_gene_info: pharmaTools.get_gene_info,
-    get_variation: pharmaTools.get_variation,
+    // Over 26 native Zod-typed Mastra tools
   }
 });
+```
 
-// Repeat pattern for:
-// clinicalScoutAgent  → search_clinical_trials, get_disease_info
-// hawkAgent           → check_drug_safety, search_drugs_fda, get_adverse_events
-// chemistAgent        → get_compound_properties, get_bioassays, search_chembl
-// librarianAgent      → search_literature, search_preprints
+// Pending specialized agents:
+// clinicalScoutAgent  → focus exclusively on clinical trial design and endpoints
 // gapAnalystAgent     → (no tools, pure LLM synthesis over prior agents' outputs)
 // criticAgent         → (validates the dossier against regulatory standards)
 // strategistAgent     → perplexityTool, iqviaTool (custom tools, see Phase 8)
@@ -486,21 +406,16 @@ This satisfies pharma GxP audit trail requirements.
 
 ```
 entropy-v2/
-├── engine/                       # ✅ Existing Python FastAPI (Phase 1)
-│   ├── main.py                   # REST API (26 endpoints)
-│   ├── mcp_server.py             # ← NEW: MCP server wrapping agents (Phase 2)
+├── engine/                       # ✅ Existing Python FastAPI (Phase 1 - Deprecated for Phase 2)
+│   ├── main.py                   # REST API
 │   └── mastra/
-│       ├── agents/               # ✅ 5 data agents
-│       ├── tools/                # ✅ UniProt client
-│       ├── core/                 # ✅ ClinicalTrialsV2
-│       └── scorers/
 │
-├── engine-ts/                    # ← NEW: Mastra TypeScript layer (Phases 3-5, 8-9)
+├── engine-ts/                    # ✅ Native TS Rewrite & Mastra logic (Phases 2-5, 8-9)
 │   ├── src/
-│   │   ├── mastra.ts             # Mastra instance + PostgreSQL store
-│   │   ├── agents/               # LLM orchestration agents (Biologist, Scout, etc.)
+│   │   ├── mastra/               # Mastra instance
+│   │   ├── agents/               # ✅ coPharmaAgent implemented
 │   │   ├── workflows/            # drugRepurposingWorkflow with HITL
-│   │   ├── tools/                # Perplexity, IQVIA, custom tools
+│   │   ├── tools/                # ✅ Native TS tools for OpenFDA, PubMed, Ensembl, etc.
 │   │   └── routes/
 │   │       └── copilotkit.ts     # AG-UI SSE endpoint (Phase 6)
 │   └── package.json
@@ -552,13 +467,8 @@ npm install react react-dom
 
 ```mermaid
 graph TD
-    A[Phase 2: mcp_server.py] --> B[Phase 3: Mastra agents + tools in TS]
+    A[Phase 2: Native TS Tools] --> B[Phase 3: Mastra agents in TS]
     B --> C[Phase 4: Workflow with suspend()]
-    C --> D[Phase 5: PostgreSQL persistence]
-    D --> E[Phase 6: /api/copilotkit SSE endpoint]
-    E --> F[Phase 7: CopilotKit React frontend]
-    F --> G[Phase 8: Strategist Agent]
-    G --> H[Phase 9: OTEL + Langfuse]
 ```
 
 > [!TIP]
