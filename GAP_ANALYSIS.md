@@ -31,15 +31,12 @@ The current implementation is a **well-built Phase 1 research data layer** — e
 
 ## What is NOT Built (❌ Missing)
 
-### Layer 1: MCP Protocol Wrapping (0%)
-The five agents are called as **direct Python class methods**. There is no MCP server wrapping them. The proposed architecture requires each data source to be exposed as a proper **Model Context Protocol server** so that Mastra agents can call them as `tool-use` via a standardized, type-safe interface (Zod schemas on the JS side, or equivalently a JSON-RPC MCP server on the Python side).
+### Layer 1: MCP Protocol Wrapping / Native TS Tools (100%)
+*Update: We chose to rewrite the Python agents natively in TypeScript using Mastra's `createTool` with Zod schemas.*
+All data tools (OpenFDA, OpenTargets, PubMed, PubChem, Ensembl, ClinicalTrials) are now natively implemented in `engine-ts/src/tools/`.
 
-### Layer 2: AI LLM Orchestration (0%)
-There is no LLM layer at all. The current system returns raw structured JSON from APIs. No agent is "reasoning" or "synthesizing" — there is no:
-- Orchestrator agent that interprets a user's research question
-- Biologist, Clinical Scout, Gap Analyst, or Critic specialized LLM agents
-- Strategist Agent (IQVIA + Perplexity Sonar Pro integration)
-- LLM calls to Gemini, GPT-4o, or Claude anywhere in the codebase
+### Layer 2: AI LLM Orchestration (20%)
+We have implemented the `coPharmaAgent` in `engine-ts/src/agents/co-pharma.ts` using `gemini-2.5-flash` to coordinate target validation, biology, pharmacology, and literature searches. Additional specialized agents (Gap Analyst, Critic, Strategist) are pending.
 
 ### Layer 3: Mastra Workflow Engine (0%)
 The `engine/mastra/workflows/__init__.py` file exists but is **completely empty** (`__all__ = []`). There is no:
@@ -88,16 +85,16 @@ No OpenTelemetry (OTEL) setup, no Langfuse/Datadog integration, no immutable aud
 ## Gap Summary
 
 ```
-Completed  [████░░░░░░░░░░░░░░░░]  ~18%
-Remaining  [░░░░████████████████]  ~82%
+Completed  [████████░░░░░░░░░░░░]  ~40%
+Remaining  [░░░░░░░░████████████]  ~60%
 ```
 
 | Phase | Description | % Done |
 |---|---|---|
-| **Phase 1 (Data Layer)** | 5 specialized API agents + REST server | ✅ 100% |
-| **Phase 2 (MCP Wrapping)** | Convert agents into MCP servers | 0% |
-| **Phase 3 (LLM Agents)** | Orchestrator + 5 reasoning agents | 0% |
-| **Phase 4 (Workflow)** | Mastra `createWorkflow()` pipeline | 0% |
+| **Phase 1 (Data Layer)** | 5 Python agents (Deprecated/Ported) | ✅ 100% |
+| **Phase 2 (Native TS Tools)** | Convert agents into native Mastra TS tools | ✅ 100% |
+| **Phase 3 (LLM Agents)** | Orchestrator (`coPharmaAgent`) + reasoning agents | 20% |
+| **Phase 4 (Workflow)** | Mastra `createWorkflow()` pipeline | 10% |
 | **Phase 5 (HITL)** | `suspend()` + PostgreSQL state | 0% |
 | **Phase 6 (AG-UI)** | SSE streaming endpoint | 0% |
 | **Phase 7 (Frontend)** | CopilotKit React app | 0% |

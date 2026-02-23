@@ -22,7 +22,7 @@
 
 ### Goal
 Expose the existing FastAPI endpoints as a proper **Model Context Protocol (MCP) server** so the Mastra TypeScript layer can call them as LLM tools.
-
+b
 ### What to build: `engine/mcp_server.py`
 
 Use the `mcp` Python SDK (`pip install mcp`). Create a single MCP server that exposes each agent capability as a `tool`. Example structure:

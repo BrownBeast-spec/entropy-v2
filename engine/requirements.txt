@@ -1,8 +1,0 @@
-fastapi
-httpx
-uvicorn
-python-dotenv
-requests
-markdownify
-tenacity
-pydantic
