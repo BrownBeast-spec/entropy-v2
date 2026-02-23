@@ -10,5 +10,16 @@
     "dev": "tsc --watch",
     "lint": "prettier --check src/"
   },
-  "devDependencies": {}
+  "dependencies": {
+    "@mastra/core": "latest",
+    "@ai-sdk/google": "latest",
+    "@ai-sdk/openai": "latest",
+    "@ai-sdk/anthropic": "latest",
+    "@ai-sdk/provider": "latest",
+    "zod": "^3.23.8",
+    "dotenv": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest"
+  }
 }
