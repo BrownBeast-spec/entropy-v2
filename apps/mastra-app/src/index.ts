@@ -4,7 +4,13 @@ export { biologistAgent } from "./agents/biologist.js";
 export { clinicalScoutAgent } from "./agents/clinical-scout.js";
 export { hawkAgent } from "./agents/hawk.js";
 export { librarianAgent } from "./agents/librarian.js";
+export { researchPipelineWorkflow } from "./workflows/research-pipeline.js";
 export {
   PlannerOutputSchema,
   type PlannerOutput,
 } from "./schemas/planner-output.js";
+export {
+  EvidenceSchema,
+  type Evidence,
+  type AgentEvidence,
+} from "./schemas/evidence.js";
