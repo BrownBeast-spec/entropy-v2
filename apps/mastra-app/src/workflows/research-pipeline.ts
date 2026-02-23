@@ -5,6 +5,7 @@ import { biologistAgent } from "../agents/biologist.js";
 import { clinicalScoutAgent } from "../agents/clinical-scout.js";
 import { hawkAgent } from "../agents/hawk.js";
 import { librarianAgent } from "../agents/librarian.js";
+import { gapAnalystAgent } from "../agents/gap-analyst.js";
 import {
   PlannerOutputSchema,
   type PlannerOutput,
@@ -14,6 +15,8 @@ import {
   type Evidence,
   type AgentEvidence,
 } from "../schemas/evidence.js";
+import { GapAnalysisSchema } from "../schemas/gap-analysis.js";
+import { DEFAULT_TPP_CHECKLIST } from "../lib/tpp-checklist.js";
 
 const plannerStep = createStep(plannerAgent, {
   structuredOutput: { schema: PlannerOutputSchema },
@@ -23,6 +26,10 @@ const biologistStep = createStep(biologistAgent);
 const clinicalScoutStep = createStep(clinicalScoutAgent);
 const hawkStep = createStep(hawkAgent);
 const librarianStep = createStep(librarianAgent);
+
+const gapAnalystStep = createStep(gapAnalystAgent, {
+  structuredOutput: { schema: GapAnalysisSchema },
+});
 
 const parallelResultsSchema = z.object({
   biologist: z.any(),
@@ -170,10 +177,19 @@ const mergeEvidenceStep = createStep({
   },
 });
 
+const buildGapAnalystPrompt = (evidence: Evidence) =>
+  [
+    "TPP Checklist:",
+    JSON.stringify(DEFAULT_TPP_CHECKLIST, null, 2),
+    "",
+    "Merged Evidence:",
+    JSON.stringify(evidence, null, 2),
+  ].join("\n");
+
 export const researchPipelineWorkflow = createWorkflow({
   id: "research-pipeline",
   inputSchema: z.object({ prompt: z.string() }),
-  outputSchema: EvidenceSchema,
+  outputSchema: GapAnalysisSchema,
 })
   .then(plannerStep)
   .map(async ({ inputData }) => ({
@@ -181,4 +197,8 @@ export const researchPipelineWorkflow = createWorkflow({
   }))
   .parallel([biologistStep, clinicalScoutStep, hawkStep, librarianStep])
   .then(mergeEvidenceStep)
+  .map(async ({ inputData }) => ({
+    prompt: buildGapAnalystPrompt(inputData),
+  }))
+  .then(gapAnalystStep)
   .commit();
