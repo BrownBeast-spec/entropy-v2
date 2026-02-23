@@ -1,0 +1,39 @@
+# Ralph state files
+.ralph/
+
+# OpenCode config
+.opencode/
+
+# Session files
+session-*.md
+
+# Dependencies
+node_modules/
+
+# Mastra build output
+.mastra/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+
+# Editor
+.vscode/
+.idea/
+*.sw?
