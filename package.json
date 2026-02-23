@@ -1,0 +1,16 @@
+{
+  "name": "@entropy/root",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4",
+    "prettier": "^3.4.2"
+  }
+}
