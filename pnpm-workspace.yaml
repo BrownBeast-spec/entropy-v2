@@ -4,4 +4,5 @@ packages:
   - "packages/mcp-safety"
   - "packages/mcp-commercial"
   - "packages/audit"
+  - "packages/telemetry"
   - "apps/mastra-app"
