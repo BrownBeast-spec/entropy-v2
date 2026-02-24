@@ -23,3 +23,9 @@ export {
   type VerifiedClaim,
 } from "./schemas/verification-report.js";
 export { DEFAULT_TPP_CHECKLIST } from "./lib/tpp-checklist.js";
+export {
+  HitlResumeSchema,
+  HitlOutputSchema,
+  type HitlResume,
+  type HitlOutput,
+} from "./schemas/hitl.js";
