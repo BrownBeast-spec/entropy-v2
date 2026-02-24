@@ -29,3 +29,13 @@ export {
   type HitlResume,
   type HitlOutput,
 } from "./schemas/hitl.js";
+export {
+  generateReport,
+  generateMarkdown,
+  compileReport,
+  getReportTempDir,
+  ReportInputSchema,
+  type ReportInput,
+  type CompileFormat,
+  type CompileResult,
+} from "./report/index.js";

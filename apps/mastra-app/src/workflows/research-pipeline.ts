@@ -16,10 +16,18 @@ import {
   type Evidence,
   type AgentEvidence,
 } from "../schemas/evidence.js";
-import { GapAnalysisSchema } from "../schemas/gap-analysis.js";
+import {
+  GapAnalysisSchema,
+  type GapAnalysis,
+} from "../schemas/gap-analysis.js";
 import { VerificationReportSchema } from "../schemas/verification-report.js";
-import { HitlResumeSchema, HitlOutputSchema } from "../schemas/hitl.js";
+import {
+  HitlResumeSchema,
+  HitlOutputSchema,
+  type HitlOutput,
+} from "../schemas/hitl.js";
 import { DEFAULT_TPP_CHECKLIST } from "../lib/tpp-checklist.js";
+import { generateMarkdown, compileReport } from "../report/index.js";
 
 const plannerStep = createStep(plannerAgent, {
   structuredOutput: { schema: PlannerOutputSchema },
@@ -221,10 +229,65 @@ const buildGapAnalystPrompt = (evidence: Evidence) =>
     JSON.stringify(evidence, null, 2),
   ].join("\n");
 
+export const ReportOutputSchema = z.object({
+  hitlOutput: HitlOutputSchema,
+  texPath: z.string(),
+  pdfPath: z.string(),
+  pdfSuccess: z.boolean(),
+  pdfStderr: z.string(),
+});
+
+export type ReportOutput = z.infer<typeof ReportOutputSchema>;
+
+const reportStep = createStep({
+  id: "generate-report",
+  inputSchema: HitlOutputSchema,
+  outputSchema: ReportOutputSchema,
+  execute: async ({ inputData, getStepResult }) => {
+    const hitl = inputData as HitlOutput;
+    const evidence = getStepResult<Evidence>("merge-evidence");
+    const gapAnalysis = getStepResult<GapAnalysis>("gap-analyst");
+
+    const sessionId = `report-${Date.now()}`;
+
+    const reportInput = {
+      query: evidence.query,
+      evidence,
+      gapAnalysis,
+      verificationReport: hitl.verificationReport,
+      reviewerDecision: {
+        approved: hitl.approved,
+        reviewer: hitl.reviewer,
+        notes: hitl.notes,
+      },
+      metadata: {
+        sessionId,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const markdown = generateMarkdown(reportInput);
+
+    // Compile .tex first (fast, no pdflatex needed)
+    const texResult = await compileReport(markdown, sessionId, "latex");
+
+    // Compile .pdf via xelatex
+    const pdfResult = await compileReport(markdown, sessionId, "pdf");
+
+    return {
+      hitlOutput: hitl,
+      texPath: texResult.outputPath,
+      pdfPath: pdfResult.outputPath,
+      pdfSuccess: pdfResult.success,
+      pdfStderr: pdfResult.stderr,
+    };
+  },
+});
+
 export const researchPipelineWorkflow = createWorkflow({
   id: "research-pipeline",
   inputSchema: z.object({ prompt: z.string() }),
-  outputSchema: HitlOutputSchema,
+  outputSchema: ReportOutputSchema,
 })
   .then(plannerStep)
   .map(async ({ inputData }) => ({
@@ -250,4 +313,5 @@ export const researchPipelineWorkflow = createWorkflow({
   })
   .then(verifierStep)
   .then(humanReviewStep)
+  .then(reportStep)
   .commit();
