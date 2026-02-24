@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { getModel } from "../lib/llm.js";
+import { getModelForAgent } from "../lib/llm.js";
 import { getBiologyTools } from "../lib/mcp-client.js";
 
 export const biologistAgent = new Agent({
@@ -20,6 +20,6 @@ Return a structured scientific summary covering:
 
 CRITICAL: Every claim must include source citations with database name, endpoint, and retrieval timestamp.
 Format: [Source: DatabaseName/endpoint, retrieved: ISO-timestamp]`,
-  model: getModel(),
+  model: getModelForAgent("biologist"),
   tools: async () => await getBiologyTools(),
 });

@@ -5,6 +5,7 @@ export { clinicalScoutAgent } from "./agents/clinical-scout.js";
 export { hawkAgent } from "./agents/hawk.js";
 export { librarianAgent } from "./agents/librarian.js";
 export { gapAnalystAgent } from "./agents/gap-analyst.js";
+export { verifierAgent } from "./agents/verifier.js";
 export { researchPipelineWorkflow } from "./workflows/research-pipeline.js";
 export {
   PlannerOutputSchema,
@@ -16,4 +17,9 @@ export {
   type AgentEvidence,
 } from "./schemas/evidence.js";
 export { GapAnalysisSchema, type GapAnalysis } from "./schemas/gap-analysis.js";
+export {
+  VerificationReportSchema,
+  type VerificationReport,
+  type VerifiedClaim,
+} from "./schemas/verification-report.js";
 export { DEFAULT_TPP_CHECKLIST } from "./lib/tpp-checklist.js";

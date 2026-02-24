@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { getModel } from "../lib/llm.js";
+import { getModelForAgent } from "../lib/llm.js";
 
 export const gapAnalystAgent = new Agent({
   id: "gap-analyst",
@@ -35,5 +35,5 @@ IMPORTANT:
 - Do NOT invent data. Only reference evidence provided in the input.
 - Every claim must trace back to a specific agent's output.
 - Be conservative in readiness assessment — when in doubt, flag as a gap.`,
-  model: getModel(),
+  model: getModelForAgent("gap-analyst"),
 });

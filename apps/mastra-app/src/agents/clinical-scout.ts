@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { getModel } from "../lib/llm.js";
+import { getModelForAgent } from "../lib/llm.js";
 import { getClinicalTrialsTools } from "../lib/mcp-client.js";
 
 export const clinicalScoutAgent = new Agent({
@@ -23,6 +23,6 @@ Return a structured clinical landscape summary covering:
 
 CRITICAL: Every claim must include source citations with NCT IDs and retrieval timestamps.
 Format: [Source: ClinicalTrials.gov/NCT_ID, retrieved: ISO-timestamp]`,
-  model: getModel(),
+  model: getModelForAgent("clinical-scout"),
   tools: async () => await getClinicalTrialsTools(),
 });

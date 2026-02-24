@@ -21,3 +21,17 @@ export function getModel(modelId?: string): LanguageModelV3 {
       );
   }
 }
+
+/**
+ * Get model for a specific agent. Resolution order:
+ * 1. Agent-specific env var: e.g., PLANNER_MODEL, BIOLOGIST_MODEL, GAP_ANALYST_MODEL
+ * 2. Global default: LLM_MODEL env var
+ * 3. Hardcoded fallback: "google:gemini-2.5-flash"
+ *
+ * Agent ID conversion: "gap-analyst" → "GAP_ANALYST_MODEL", "hawk-safety" → "HAWK_SAFETY_MODEL"
+ */
+export function getModelForAgent(agentId: string): LanguageModelV3 {
+  const envKey = `${agentId.replace(/-/g, "_").toUpperCase()}_MODEL`;
+  const agentModelId = process.env[envKey];
+  return getModel(agentModelId);
+}
