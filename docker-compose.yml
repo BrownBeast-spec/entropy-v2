@@ -1,30 +1,38 @@
-version: '3.8'
+version: "3.8"
 services:
-  mongo:
-    image: mongo:latest
+  postgres:
+    image: postgres:16-alpine
     ports:
-      - "27017:27017"
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: entropy
+      POSTGRES_PASSWORD: entropy
+      POSTGRES_DB: entropy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
-  engine:
-    build: ./engine
+  api:
+    build: ./apps/api
     ports:
-      - "8000:8000"
-    env_file:
-      - ./engine/.env
-    command: serve run main:entropy_app
+      - "3001:3001"
+    environment:
+      - PORT=3001
+    depends_on:
+      - postgres
 
   server:
     build: ./server
     ports:
       - "5000:5000"
     depends_on:
-      - mongo
-      - engine
+      - postgres
     environment:
-      - MONGO_URI=mongodb://mongo:27017/entropy
-      - RAY_URL=http://engine:8000/analyze
+      - DATABASE_URL=postgresql://entropy:entropy@postgres:5432/entropy
 
   client:
     build: ./client
     ports:
       - "5173:5173"
+
+volumes:
+  postgres_data:
