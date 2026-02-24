@@ -6,6 +6,7 @@
     "dev": "pnpm -r dev",
     "build": "pnpm -r build",
     "test": "vitest run",
+    "test:e2e": "RUN_INTEGRATION_TESTS=1 vitest run",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

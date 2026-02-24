@@ -8,6 +8,14 @@ export { gapAnalystAgent } from "./agents/gap-analyst.js";
 export { verifierAgent } from "./agents/verifier.js";
 export { researchPipelineWorkflow } from "./workflows/research-pipeline.js";
 export {
+  getAuditStore,
+  getCacheStore,
+  isAuditEnabled,
+  getCurrentSessionId,
+  setCurrentSessionId,
+  clearCurrentSessionId,
+} from "./lib/audit.js";
+export {
   PlannerOutputSchema,
   type PlannerOutput,
 } from "./schemas/planner-output.js";

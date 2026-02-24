@@ -21,4 +21,5 @@ export interface SessionState {
   result: unknown | null;
   agents: Record<AgentName, AgentStatus>;
   reportTexPath?: string;
+  reportPdfPath?: string;
 }

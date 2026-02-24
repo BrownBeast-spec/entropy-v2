@@ -33,6 +33,10 @@ Thumbs.db
 # Build output
 dist/
 
+# Local artifacts
+engine/
+reports/
+
 # Editor
 .vscode/
 .idea/

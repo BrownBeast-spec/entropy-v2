@@ -1,12 +1,18 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { HitlResumeSchema } from "@entropy/mastra-app";
+import { HitlResumeSchema } from "@entropy/mastra-app/src/schemas/hitl.js";
+import { readFile } from "node:fs/promises";
 import {
   createSession,
   getSession,
   updateSession,
 } from "../store/session-store.js";
 import { errorResponse } from "../middleware/error-handler.js";
+import { workflowRunner } from "../lib/workflow-runner.js";
+import {
+  getAuditStore,
+  isAuditEnabled,
+} from "@entropy/mastra-app/src/lib/audit.js";
 
 const research = new Hono();
 
@@ -31,6 +37,12 @@ research.post("/", async (c) => {
   }
 
   const session = createSession(parsed.data.query);
+  workflowRunner.start(parsed.data.query, session.sessionId).catch((err) => {
+    updateSession(session.sessionId, {
+      status: "failed",
+      result: err instanceof Error ? err.message : String(err),
+    });
+  });
   return c.json(
     {
       sessionId: session.sessionId,
@@ -89,35 +101,55 @@ research.post("/:sessionId/review", async (c) => {
     });
   }
 
-  updateSession(sessionId, { status: "completed" });
+  try {
+    await workflowRunner.resume(sessionId, parsed.data);
+  } catch (err) {
+    updateSession(sessionId, { status: "completed" });
+  }
+
   return c.json({
     sessionId,
-    status: "completed",
+    status: getSession(sessionId)?.status ?? "completed",
     message: "Review submitted successfully",
   });
 });
 
 // GET /api/research/:sessionId/report
-research.get("/:sessionId/report", (c) => {
+research.get("/:sessionId/report", async (c) => {
   const { sessionId } = c.req.param();
   const session = getSession(sessionId);
   if (!session) {
     return errorResponse(c, 404, "NOT_FOUND", "Session not found");
   }
-  if (session.status !== "completed" || !session.reportTexPath) {
+  if (session.status !== "completed" || !session.reportPdfPath) {
     return errorResponse(c, 404, "NOT_READY", "Report not yet generated");
   }
-  return c.text("% LaTeX report placeholder");
+  const pdfBuffer = await readFile(session.reportPdfPath);
+  c.header("Content-Type", "application/pdf");
+  return c.body(pdfBuffer, 200);
 });
 
 // GET /api/research/:sessionId/audit
-research.get("/:sessionId/audit", (c) => {
+research.get("/:sessionId/audit", async (c) => {
   const { sessionId } = c.req.param();
   const session = getSession(sessionId);
   if (!session) {
     return errorResponse(c, 404, "NOT_FOUND", "Session not found");
   }
-  return c.json({ sessionId, events: [] });
+  if (!isAuditEnabled()) {
+    return c.json({ sessionId, events: [] });
+  }
+
+  try {
+    const trail = await getAuditStore().getSessionTrail(sessionId);
+    return c.json({ sessionId, events: trail });
+  } catch (err) {
+    return c.json({
+      sessionId,
+      events: [],
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 });
 
 export { research };

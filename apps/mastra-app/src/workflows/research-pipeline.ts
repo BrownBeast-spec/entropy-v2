@@ -28,6 +28,15 @@ import {
 } from "../schemas/hitl.js";
 import { DEFAULT_TPP_CHECKLIST } from "../lib/tpp-checklist.js";
 import { generateMarkdown, compileReport } from "../report/index.js";
+import {
+  clearCurrentSessionId,
+  getAuditStore,
+  getCurrentSessionId,
+  setCurrentSessionId,
+} from "../lib/audit.js";
+
+const auditStore = getAuditStore();
+const promptCache: Record<string, string> = {};
 
 const plannerStep = createStep(plannerAgent, {
   structuredOutput: { schema: PlannerOutputSchema },
@@ -65,6 +74,14 @@ const humanReviewStep = createStep({
     }
 
     // Resumed: return the decision
+    const sessionId = getCurrentSessionId() ?? undefined;
+    await auditStore.logHitlDecision({
+      sessionId,
+      reviewer: reviewer ?? "unknown",
+      approved,
+      annotations: notes ? { notes } : undefined,
+    });
+
     return {
       approved,
       reviewer: reviewer ?? "unknown",
@@ -211,6 +228,35 @@ const mergeEvidenceStep = createStep({
   inputSchema: parallelResultsSchema,
   outputSchema: EvidenceSchema,
   execute: async ({ inputData, getStepResult }) => {
+    const sessionId = getCurrentSessionId() ?? undefined;
+    const prompt = promptCache.parallel ?? "";
+    await Promise.all([
+      auditStore.logAgentTrace({
+        sessionId,
+        agentId: "biologist",
+        input: { prompt },
+        output: (inputData.biologist ?? {}) as Record<string, unknown>,
+      }),
+      auditStore.logAgentTrace({
+        sessionId,
+        agentId: "clinical-scout",
+        input: { prompt },
+        output: (inputData["clinical-scout"] ?? {}) as Record<string, unknown>,
+      }),
+      auditStore.logAgentTrace({
+        sessionId,
+        agentId: "hawk-safety",
+        input: { prompt },
+        output: (inputData["hawk-safety"] ?? {}) as Record<string, unknown>,
+      }),
+      auditStore.logAgentTrace({
+        sessionId,
+        agentId: "librarian",
+        input: { prompt },
+        output: (inputData.librarian ?? {}) as Record<string, unknown>,
+      }),
+    ]);
+
     const plannerResult = getStepResult<PlannerOutput>("planner");
 
     return buildEvidence({
@@ -248,7 +294,7 @@ const reportStep = createStep({
     const evidence = getStepResult<Evidence>("merge-evidence");
     const gapAnalysis = getStepResult<GapAnalysis>("gap-analyst");
 
-    const sessionId = `report-${Date.now()}`;
+    const reportSessionId = `report-${Date.now()}`;
 
     const reportInput = {
       query: evidence.query,
@@ -261,7 +307,7 @@ const reportStep = createStep({
         notes: hitl.notes,
       },
       metadata: {
-        sessionId,
+        sessionId: reportSessionId,
         timestamp: new Date().toISOString(),
       },
     };
@@ -269,10 +315,16 @@ const reportStep = createStep({
     const markdown = generateMarkdown(reportInput);
 
     // Compile .tex first (fast, no pdflatex needed)
-    const texResult = await compileReport(markdown, sessionId, "latex");
+    const texResult = await compileReport(markdown, reportSessionId, "latex");
 
     // Compile .pdf via xelatex
-    const pdfResult = await compileReport(markdown, sessionId, "pdf");
+    const pdfResult = await compileReport(markdown, reportSessionId, "pdf");
+
+    const sessionId = getCurrentSessionId() ?? undefined;
+    if (sessionId) {
+      await auditStore.updateSessionStatus(sessionId, "completed");
+      clearCurrentSessionId();
+    }
 
     return {
       hitlOutput: hitl,
@@ -289,29 +341,75 @@ export const researchPipelineWorkflow = createWorkflow({
   inputSchema: z.object({ prompt: z.string() }),
   outputSchema: ReportOutputSchema,
 })
+  .then(
+    createStep({
+      id: "audit-session",
+      inputSchema: z.object({ prompt: z.string() }),
+      outputSchema: z.object({ prompt: z.string() }),
+      execute: async ({ inputData }) => {
+        const sessionId = await auditStore.createSession({
+          query: inputData.prompt,
+        });
+        setCurrentSessionId(sessionId);
+        await auditStore.updateSessionStatus(sessionId, "running");
+        promptCache.planner = inputData.prompt;
+        return inputData;
+      },
+    }),
+  )
   .then(plannerStep)
-  .map(async ({ inputData }) => ({
-    prompt: buildParallelPrompt(inputData),
-  }))
+  .map(async ({ inputData }) => {
+    const sessionId = getCurrentSessionId() ?? undefined;
+    await auditStore.logAgentTrace({
+      sessionId,
+      agentId: "planner",
+      input: { prompt: promptCache.planner ?? "" },
+      output: inputData as Record<string, unknown>,
+    });
+    const prompt = buildParallelPrompt(inputData);
+    promptCache.parallel = prompt;
+    return { prompt };
+  })
   .parallel([biologistStep, clinicalScoutStep, hawkStep, librarianStep])
   .then(mergeEvidenceStep)
-  .map(async ({ inputData }) => ({
-    prompt: buildGapAnalystPrompt(inputData),
-  }))
+  .map(async ({ inputData }) => {
+    const prompt = buildGapAnalystPrompt(inputData);
+    promptCache["gap-analyst"] = prompt;
+    return { prompt };
+  })
   .then(gapAnalystStep)
   .map(async ({ inputData, getStepResult }) => {
+    const sessionId = getCurrentSessionId() ?? undefined;
+    await auditStore.logAgentTrace({
+      sessionId,
+      agentId: "gap-analyst",
+      input: { prompt: promptCache["gap-analyst"] ?? "" },
+      output: inputData as Record<string, unknown>,
+    });
     const evidence = getStepResult<Evidence>("merge-evidence");
+    const prompt = [
+      "Gap Analysis Report:",
+      JSON.stringify(inputData, null, 2),
+      "",
+      "Original Evidence:",
+      JSON.stringify(evidence, null, 2),
+    ].join("\n");
+    promptCache.verifier = prompt;
     return {
-      prompt: [
-        "Gap Analysis Report:",
-        JSON.stringify(inputData, null, 2),
-        "",
-        "Original Evidence:",
-        JSON.stringify(evidence, null, 2),
-      ].join("\n"),
+      prompt,
     };
   })
   .then(verifierStep)
+  .map(async ({ inputData }) => {
+    const sessionId = getCurrentSessionId() ?? undefined;
+    await auditStore.logAgentTrace({
+      sessionId,
+      agentId: "verifier",
+      input: { prompt: promptCache.verifier ?? "" },
+      output: inputData as Record<string, unknown>,
+    });
+    return inputData;
+  })
   .then(humanReviewStep)
   .then(reportStep)
   .commit();

@@ -2,7 +2,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTool } from "@mastra/core/tools";
+import { createHash } from "node:crypto";
 import { z } from "zod";
+import { getAuditStore, getCacheStore, getCurrentSessionId } from "./audit.js";
 
 /**
  * Connect an MCP Client to an McpServer in-process via InMemoryTransport.
@@ -37,6 +39,8 @@ async function wrapMcpTools(
 ): Promise<Record<string, AnyTool>> {
   const { tools } = await client.listTools();
   const wrapped: Record<string, AnyTool> = {};
+  const auditStore = getAuditStore();
+  const cacheStore = getCacheStore();
 
   for (const tool of tools) {
     if (toolFilter && !toolFilter(tool.name)) {
@@ -48,11 +52,57 @@ async function wrapMcpTools(
       description: tool.description ?? `MCP tool: ${tool.name}`,
       inputSchema: z.object({}).passthrough(),
       execute: async (args) => {
-        const result = await client.callTool({
-          name: tool.name,
-          arguments: args as Record<string, unknown>,
-        });
-        return result;
+        const sessionId = getCurrentSessionId() ?? undefined;
+        const start = Date.now();
+        try {
+          const cached = await cacheStore.get(
+            tool.name,
+            args as Record<string, unknown>,
+          );
+          if (cached !== null) {
+            await auditStore.logToolCall({
+              sessionId,
+              toolName: tool.name,
+              parameters: args as Record<string, unknown>,
+              durationMs: Date.now() - start,
+              responseHash: createHash("sha256")
+                .update(JSON.stringify(cached))
+                .digest("hex"),
+            });
+            return cached as unknown;
+          }
+
+          const result = await client.callTool({
+            name: tool.name,
+            arguments: args as Record<string, unknown>,
+          });
+
+          await cacheStore.set(
+            tool.name,
+            args as Record<string, unknown>,
+            result,
+          );
+          await auditStore.logToolCall({
+            sessionId,
+            toolName: tool.name,
+            parameters: args as Record<string, unknown>,
+            durationMs: Date.now() - start,
+            responseHash: createHash("sha256")
+              .update(JSON.stringify(result))
+              .digest("hex"),
+          });
+
+          return result;
+        } catch (err) {
+          await auditStore.logToolCall({
+            sessionId,
+            toolName: tool.name,
+            parameters: args as Record<string, unknown>,
+            durationMs: Date.now() - start,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          throw err;
+        }
       },
     });
   }
@@ -102,7 +152,8 @@ const PUBMED_TOOL_NAMES = new Set([
  */
 export async function getBiologyTools(): Promise<Record<string, AnyTool>> {
   if (biologyTools) return biologyTools;
-  const { createServer } = await import("@entropy/mcp-biology");
+  const { createServer } =
+    await import("../../../../packages/mcp-biology/src/index.js");
   biologyTools = await createMcpTools(createServer, "biology-client");
   return biologyTools;
 }
@@ -115,7 +166,8 @@ export async function getClinicalTrialsTools(): Promise<
   Record<string, AnyTool>
 > {
   if (clinicalTrialsTools) return clinicalTrialsTools;
-  const { createServer } = await import("@entropy/mcp-clinical");
+  const { createServer } =
+    await import("../../../../packages/mcp-clinical/src/index.js");
   clinicalTrialsTools = await createMcpTools(
     createServer,
     "clinical-trials-client",
@@ -130,7 +182,8 @@ export async function getClinicalTrialsTools(): Promise<
  */
 export async function getPubMedTools(): Promise<Record<string, AnyTool>> {
   if (pubmedTools) return pubmedTools;
-  const { createServer } = await import("@entropy/mcp-clinical");
+  const { createServer } =
+    await import("../../../../packages/mcp-clinical/src/index.js");
   pubmedTools = await createMcpTools(createServer, "pubmed-client", (name) =>
     PUBMED_TOOL_NAMES.has(name),
   );
@@ -143,7 +196,8 @@ export async function getPubMedTools(): Promise<Record<string, AnyTool>> {
  */
 export async function getSafetyTools(): Promise<Record<string, AnyTool>> {
   if (safetyTools) return safetyTools;
-  const { createServer } = await import("@entropy/mcp-safety");
+  const { createServer } =
+    await import("../../../../packages/mcp-safety/src/index.js");
   safetyTools = await createMcpTools(createServer, "safety-client");
   return safetyTools;
 }
