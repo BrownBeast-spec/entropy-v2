@@ -77,18 +77,19 @@ describe("Human Review Step in Workflow", () => {
     expect(stepIds).toContain("human-review");
   });
 
-  it("workflow output schema reflects HitlOutputSchema shape", () => {
-    // The workflow outputSchema should have 'approved', 'reviewer', 'notes', 'verificationReport'
+  it("workflow output schema reflects ReportOutputSchema shape", () => {
+    // After the report step was added, the workflow outputSchema has the report fields
     const shape = (
       researchPipelineWorkflow as unknown as {
         outputSchema: { shape: Record<string, unknown> };
       }
     ).outputSchema?.shape;
     if (shape) {
-      expect(shape).toHaveProperty("approved");
-      expect(shape).toHaveProperty("reviewer");
-      expect(shape).toHaveProperty("notes");
-      expect(shape).toHaveProperty("verificationReport");
+      expect(shape).toHaveProperty("hitlOutput");
+      expect(shape).toHaveProperty("texPath");
+      expect(shape).toHaveProperty("pdfPath");
+      expect(shape).toHaveProperty("pdfSuccess");
+      expect(shape).toHaveProperty("pdfStderr");
     } else {
       // If outputSchema doesn't expose shape, just verify the workflow is defined
       expect(researchPipelineWorkflow).toBeDefined();
