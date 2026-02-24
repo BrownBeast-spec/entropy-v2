@@ -13,4 +13,11 @@ export {
   CREATE_TOOL_CALL_LOGS,
   CREATE_AGENT_TRACES,
   CREATE_HITL_RECORDS,
+  CREATE_TOOL_RESPONSE_CACHE,
 } from "./schema.js";
+export {
+  CacheStore,
+  DEFAULT_TTL,
+  type CacheEntry,
+  type CacheMetrics,
+} from "./cache-store.js";

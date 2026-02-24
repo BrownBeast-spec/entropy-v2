@@ -52,9 +52,26 @@ CREATE TABLE IF NOT EXISTS hitl_records (
 );
 `;
 
+export const CREATE_TOOL_RESPONSE_CACHE = `
+CREATE TABLE IF NOT EXISTS tool_response_cache (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cache_key TEXT NOT NULL UNIQUE,
+  tool_name TEXT NOT NULL,
+  parameters_hash TEXT NOT NULL,
+  response JSONB NOT NULL,
+  ttl_seconds INTEGER NOT NULL DEFAULT 3600,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '1 hour')
+);
+
+CREATE INDEX IF NOT EXISTS idx_cache_key ON tool_response_cache(cache_key);
+CREATE INDEX IF NOT EXISTS idx_cache_expires ON tool_response_cache(expires_at);
+`;
+
 export const MIGRATION_SQL = [
   CREATE_RESEARCH_SESSIONS,
   CREATE_TOOL_CALL_LOGS,
   CREATE_AGENT_TRACES,
   CREATE_HITL_RECORDS,
+  CREATE_TOOL_RESPONSE_CACHE,
 ].join("\n");

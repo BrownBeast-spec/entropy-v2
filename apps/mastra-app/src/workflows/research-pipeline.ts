@@ -18,6 +18,7 @@ import {
 } from "../schemas/evidence.js";
 import { GapAnalysisSchema } from "../schemas/gap-analysis.js";
 import { VerificationReportSchema } from "../schemas/verification-report.js";
+import { HitlResumeSchema, HitlOutputSchema } from "../schemas/hitl.js";
 import { DEFAULT_TPP_CHECKLIST } from "../lib/tpp-checklist.js";
 
 const plannerStep = createStep(plannerAgent, {
@@ -35,6 +36,34 @@ const gapAnalystStep = createStep(gapAnalystAgent, {
 
 const verifierStep = createStep(verifierAgent, {
   structuredOutput: { schema: VerificationReportSchema },
+});
+
+const humanReviewStep = createStep({
+  id: "human-review",
+  inputSchema: VerificationReportSchema,
+  outputSchema: HitlOutputSchema,
+  resumeSchema: HitlResumeSchema,
+  suspendSchema: z.object({
+    dossier_preview: z.string(),
+  }),
+  execute: async ({ inputData, resumeData, suspend }) => {
+    const { approved, reviewer, notes } = resumeData ?? {};
+
+    // First execution: suspend and surface the verification report for review
+    if (approved === undefined) {
+      return await suspend({
+        dossier_preview: JSON.stringify(inputData, null, 2),
+      });
+    }
+
+    // Resumed: return the decision
+    return {
+      approved,
+      reviewer: reviewer ?? "unknown",
+      notes: notes ?? "",
+      verificationReport: inputData,
+    };
+  },
 });
 
 const parallelResultsSchema = z.object({
@@ -195,7 +224,7 @@ const buildGapAnalystPrompt = (evidence: Evidence) =>
 export const researchPipelineWorkflow = createWorkflow({
   id: "research-pipeline",
   inputSchema: z.object({ prompt: z.string() }),
-  outputSchema: VerificationReportSchema,
+  outputSchema: HitlOutputSchema,
 })
   .then(plannerStep)
   .map(async ({ inputData }) => ({
@@ -220,4 +249,5 @@ export const researchPipelineWorkflow = createWorkflow({
     };
   })
   .then(verifierStep)
+  .then(humanReviewStep)
   .commit();
