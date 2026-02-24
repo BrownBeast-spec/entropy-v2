@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { getModel } from "../lib/llm.js";
+import { getModelForAgent } from "../lib/llm.js";
 import { getPubMedTools } from "../lib/mcp-client.js";
 
 export const librarianAgent = new Agent({
@@ -30,6 +30,6 @@ For each cited paper, provide:
 
 CRITICAL: Every claim must include source citations with PMID/DOI and retrieval timestamps.
 Format: [Source: PubMed/PMID:12345678, retrieved: ISO-timestamp]`,
-  model: getModel(),
+  model: getModelForAgent("librarian"),
   tools: async () => await getPubMedTools(),
 });

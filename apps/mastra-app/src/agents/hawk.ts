@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { getModel } from "../lib/llm.js";
+import { getModelForAgent } from "../lib/llm.js";
 import { getSafetyTools } from "../lib/mcp-client.js";
 
 export const hawkAgent = new Agent({
@@ -27,6 +27,6 @@ Return a structured safety assessment covering:
 
 CRITICAL: Every claim must include source citations with database name, endpoint, and retrieval timestamp.
 Format: [Source: OpenFDA/endpoint or DrugBank/endpoint, retrieved: ISO-timestamp]`,
-  model: getModel(),
+  model: getModelForAgent("hawk-safety"),
   tools: async () => await getSafetyTools(),
 });

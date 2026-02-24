@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { getModel } from "../lib/llm.js";
+import { getModelForAgent } from "../lib/llm.js";
 
 export const plannerAgent = new Agent({
   id: "planner",
@@ -41,5 +41,5 @@ Your output MUST be a valid JSON object conforming to the required schema. Every
 - A rationale for the decomposition
 
 Be specific in your sub-task queries. Instead of "look up the drug", say "Investigate the mechanism of action of metformin in neuronal insulin signaling pathways and its potential neuroprotective effects."`,
-  model: getModel(),
+  model: getModelForAgent("planner"),
 });
