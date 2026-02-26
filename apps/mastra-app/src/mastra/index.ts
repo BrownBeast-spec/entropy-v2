@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Mastra } from "@mastra/core";
+import { InMemoryStore } from "@mastra/core/storage";
 import { plannerAgent } from "../agents/planner.js";
 import { biologistAgent } from "../agents/biologist.js";
 import { clinicalScoutAgent } from "../agents/clinical-scout.js";
@@ -23,6 +24,7 @@ export const mastra = new Mastra({
   workflows: {
     researchPipelineWorkflow,
   },
+  storage: new InMemoryStore({ id: "entropy-storage" }),
 });
 
 if (isAuditEnabled()) {

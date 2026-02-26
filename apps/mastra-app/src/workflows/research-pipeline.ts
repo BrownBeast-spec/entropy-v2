@@ -38,6 +38,16 @@ import {
 const auditStore = getAuditStore();
 const promptCache: Record<string, string> = {};
 
+/** Fire-and-forget audit call — logs warning on failure, never throws */
+const safeAudit = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+  try {
+    return await fn();
+  } catch (err) {
+    console.warn("[audit] operation failed (degrading gracefully):", err);
+    return fallback;
+  }
+};
+
 const plannerStep = createStep(plannerAgent, {
   structuredOutput: { schema: PlannerOutputSchema },
 });
@@ -75,12 +85,16 @@ const humanReviewStep = createStep({
 
     // Resumed: return the decision
     const sessionId = getCurrentSessionId() ?? undefined;
-    await auditStore.logHitlDecision({
-      sessionId,
-      reviewer: reviewer ?? "unknown",
-      approved,
-      annotations: notes ? { notes } : undefined,
-    });
+    await safeAudit(
+      () =>
+        auditStore.logHitlDecision({
+          sessionId,
+          reviewer: reviewer ?? "unknown",
+          approved,
+          annotations: notes ? { notes } : undefined,
+        }),
+      "noop-hitl-record",
+    );
 
     return {
       approved,
@@ -230,32 +244,39 @@ const mergeEvidenceStep = createStep({
   execute: async ({ inputData, getStepResult }) => {
     const sessionId = getCurrentSessionId() ?? undefined;
     const prompt = promptCache.parallel ?? "";
-    await Promise.all([
-      auditStore.logAgentTrace({
-        sessionId,
-        agentId: "biologist",
-        input: { prompt },
-        output: (inputData.biologist ?? {}) as Record<string, unknown>,
-      }),
-      auditStore.logAgentTrace({
-        sessionId,
-        agentId: "clinical-scout",
-        input: { prompt },
-        output: (inputData["clinical-scout"] ?? {}) as Record<string, unknown>,
-      }),
-      auditStore.logAgentTrace({
-        sessionId,
-        agentId: "hawk-safety",
-        input: { prompt },
-        output: (inputData["hawk-safety"] ?? {}) as Record<string, unknown>,
-      }),
-      auditStore.logAgentTrace({
-        sessionId,
-        agentId: "librarian",
-        input: { prompt },
-        output: (inputData.librarian ?? {}) as Record<string, unknown>,
-      }),
-    ]);
+    await safeAudit(
+      () =>
+        Promise.all([
+          auditStore.logAgentTrace({
+            sessionId,
+            agentId: "biologist",
+            input: { prompt },
+            output: (inputData.biologist ?? {}) as Record<string, unknown>,
+          }),
+          auditStore.logAgentTrace({
+            sessionId,
+            agentId: "clinical-scout",
+            input: { prompt },
+            output: (inputData["clinical-scout"] ?? {}) as Record<
+              string,
+              unknown
+            >,
+          }),
+          auditStore.logAgentTrace({
+            sessionId,
+            agentId: "hawk-safety",
+            input: { prompt },
+            output: (inputData["hawk-safety"] ?? {}) as Record<string, unknown>,
+          }),
+          auditStore.logAgentTrace({
+            sessionId,
+            agentId: "librarian",
+            input: { prompt },
+            output: (inputData.librarian ?? {}) as Record<string, unknown>,
+          }),
+        ]),
+      undefined as unknown as [string, string, string, string],
+    );
 
     const plannerResult = getStepResult<PlannerOutput>("planner");
 
@@ -322,7 +343,10 @@ const reportStep = createStep({
 
     const sessionId = getCurrentSessionId() ?? undefined;
     if (sessionId) {
-      await auditStore.updateSessionStatus(sessionId, "completed");
+      await safeAudit(
+        () => auditStore.updateSessionStatus(sessionId, "completed"),
+        undefined,
+      );
       clearCurrentSessionId();
     }
 
@@ -347,11 +371,15 @@ export const researchPipelineWorkflow = createWorkflow({
       inputSchema: z.object({ prompt: z.string() }),
       outputSchema: z.object({ prompt: z.string() }),
       execute: async ({ inputData }) => {
-        const sessionId = await auditStore.createSession({
-          query: inputData.prompt,
-        });
+        const sessionId = await safeAudit(
+          () => auditStore.createSession({ query: inputData.prompt }),
+          `noop-session-${Date.now()}`,
+        );
         setCurrentSessionId(sessionId);
-        await auditStore.updateSessionStatus(sessionId, "running");
+        await safeAudit(
+          () => auditStore.updateSessionStatus(sessionId, "running"),
+          undefined,
+        );
         promptCache.planner = inputData.prompt;
         return inputData;
       },
@@ -360,12 +388,16 @@ export const researchPipelineWorkflow = createWorkflow({
   .then(plannerStep)
   .map(async ({ inputData }) => {
     const sessionId = getCurrentSessionId() ?? undefined;
-    await auditStore.logAgentTrace({
-      sessionId,
-      agentId: "planner",
-      input: { prompt: promptCache.planner ?? "" },
-      output: inputData as Record<string, unknown>,
-    });
+    await safeAudit(
+      () =>
+        auditStore.logAgentTrace({
+          sessionId,
+          agentId: "planner",
+          input: { prompt: promptCache.planner ?? "" },
+          output: inputData as Record<string, unknown>,
+        }),
+      "noop-agent-trace",
+    );
     const prompt = buildParallelPrompt(inputData);
     promptCache.parallel = prompt;
     return { prompt };
@@ -380,12 +412,16 @@ export const researchPipelineWorkflow = createWorkflow({
   .then(gapAnalystStep)
   .map(async ({ inputData, getStepResult }) => {
     const sessionId = getCurrentSessionId() ?? undefined;
-    await auditStore.logAgentTrace({
-      sessionId,
-      agentId: "gap-analyst",
-      input: { prompt: promptCache["gap-analyst"] ?? "" },
-      output: inputData as Record<string, unknown>,
-    });
+    await safeAudit(
+      () =>
+        auditStore.logAgentTrace({
+          sessionId,
+          agentId: "gap-analyst",
+          input: { prompt: promptCache["gap-analyst"] ?? "" },
+          output: inputData as Record<string, unknown>,
+        }),
+      "noop-agent-trace",
+    );
     const evidence = getStepResult<Evidence>("merge-evidence");
     const prompt = [
       "Gap Analysis Report:",
@@ -402,12 +438,16 @@ export const researchPipelineWorkflow = createWorkflow({
   .then(verifierStep)
   .map(async ({ inputData }) => {
     const sessionId = getCurrentSessionId() ?? undefined;
-    await auditStore.logAgentTrace({
-      sessionId,
-      agentId: "verifier",
-      input: { prompt: promptCache.verifier ?? "" },
-      output: inputData as Record<string, unknown>,
-    });
+    await safeAudit(
+      () =>
+        auditStore.logAgentTrace({
+          sessionId,
+          agentId: "verifier",
+          input: { prompt: promptCache.verifier ?? "" },
+          output: inputData as Record<string, unknown>,
+        }),
+      "noop-agent-trace",
+    );
     return inputData;
   })
   .then(humanReviewStep)

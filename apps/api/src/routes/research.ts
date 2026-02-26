@@ -38,6 +38,7 @@ research.post("/", async (c) => {
 
   const session = createSession(parsed.data.query);
   workflowRunner.start(parsed.data.query, session.sessionId).catch((err) => {
+    console.error("[workflow-runner] start failed:", err);
     updateSession(session.sessionId, {
       status: "failed",
       result: err instanceof Error ? err.message : String(err),
@@ -104,7 +105,11 @@ research.post("/:sessionId/review", async (c) => {
   try {
     await workflowRunner.resume(sessionId, parsed.data);
   } catch (err) {
-    updateSession(sessionId, { status: "completed" });
+    console.error("[workflow-runner] resume failed:", err);
+    updateSession(sessionId, {
+      status: "failed",
+      result: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return c.json({
@@ -121,10 +126,24 @@ research.get("/:sessionId/report", async (c) => {
   if (!session) {
     return errorResponse(c, 404, "NOT_FOUND", "Session not found");
   }
-  if (session.status !== "completed" || !session.reportPdfPath) {
+  if (session.status !== "completed") {
     return errorResponse(c, 404, "NOT_READY", "Report not yet generated");
   }
-  const pdfBuffer = await readFile(session.reportPdfPath);
+
+  let reportPath = session.reportPdfPath;
+  if (!reportPath && session.result && typeof session.result === "object") {
+    const result = session.result as { pdfPath?: string };
+    reportPath = result.pdfPath;
+    if (reportPath) {
+      updateSession(sessionId, { reportPdfPath: reportPath });
+    }
+  }
+
+  if (!reportPath) {
+    return errorResponse(c, 404, "NOT_READY", "Report not yet generated");
+  }
+
+  const pdfBuffer = await readFile(reportPath);
   c.header("Content-Type", "application/pdf");
   return c.body(pdfBuffer, 200);
 });

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { describe, it, expect } from "vitest";
 import { biologistAgent } from "../agents/biologist.js";
 import { researchPipelineWorkflow } from "../workflows/research-pipeline.js";
@@ -7,7 +8,13 @@ import { readFile } from "node:fs/promises";
 const CANONICAL_QUERY =
   "Can aspirin be repurposed to reduce systemic inflammation?";
 
-const describeE2E = describe.skipIf(!process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+const hasLlmKey =
+  !!process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+  !!process.env.PERPLEXITY_API_KEY;
+
+const describeE2E = describe.skipIf(
+  !hasLlmKey || !process.env.RUN_INTEGRATION_TESTS,
+);
 
 describeE2E("E2E: Biologist agent", () => {
   it("responds with domain-relevant biological content", async () => {
