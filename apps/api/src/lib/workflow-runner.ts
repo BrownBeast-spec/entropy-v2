@@ -1,15 +1,18 @@
 import { mastra } from "@entropy/mastra-app/src/mastra/index.js";
 import { HitlResumeSchema } from "@entropy/mastra-app/src/schemas/hitl.js";
-import {
-  getSession,
-  updateSession,
-  type SessionState,
-} from "../store/session-store.js";
-import type { WorkflowRunStatus, Run } from "@mastra/core/workflows";
+import { getSession, updateSession } from "../store/session-store.js";
+import type { SessionState } from "../types.js";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type WorkflowRun = Awaited<
+  ReturnType<ReturnType<typeof mastra.getWorkflow>["createRun"]>
+>;
+
+type RunStatus = "running" | "suspended" | "success" | "failed";
 
 type RunState = {
-  run: Run;
-  status: WorkflowRunStatus;
+  run: WorkflowRun;
+  status: RunStatus;
 };
 
 const activeRuns = new Map<string, RunState>();
@@ -37,7 +40,7 @@ const updateAgentStatus = (
 const updateFromStepResult = (
   sessionId: string,
   stepId: string,
-  status: "success" | "failed" | "suspended",
+  status: string,
 ) => {
   const session = getSession(sessionId);
   if (!session) return;
@@ -60,25 +63,36 @@ export const workflowRunner = {
 
     activeRuns.set(sessionId, { run, status: "running" });
 
-    run.watch((event) => {
-      if (event.type === "workflow-step-start") {
-        const stepId = event.payload.id;
-        if (agentIds.has(stepId)) {
-          const session = getSession(sessionId);
-          if (!session) return;
-          updateAgentStatus(session, stepId, "running");
-          updateSession(sessionId, { agents: session.agents });
+    run.watch(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (event: any) => {
+        if (event.type === "workflow-step-start") {
+          const stepId = event.payload.id;
+          if (agentIds.has(stepId)) {
+            const session = getSession(sessionId);
+            if (!session) return;
+            updateAgentStatus(session, stepId, "running");
+            updateSession(sessionId, { agents: session.agents });
+          }
         }
-      }
 
-      if (event.type === "workflow-step-result") {
-        updateFromStepResult(sessionId, event.payload.id, event.payload.status);
-      }
+        if (event.type === "workflow-step-result") {
+          updateFromStepResult(
+            sessionId,
+            event.payload.id,
+            event.payload.status,
+          );
+        }
 
-      if (event.type === "workflow-step-suspended") {
-        updateFromStepResult(sessionId, event.payload.id, event.payload.status);
-      }
-    });
+        if (event.type === "workflow-step-suspended") {
+          updateFromStepResult(
+            sessionId,
+            event.payload.id,
+            event.payload.status,
+          );
+        }
+      },
+    );
 
     const result = await run.start({ inputData: { prompt: query } });
 
@@ -89,11 +103,12 @@ export const workflowRunner = {
     }
 
     if (result.status === "success") {
+      const output = result.result as { texPath?: string; pdfPath?: string };
       updateSession(sessionId, {
         status: "completed",
         result: result.result,
-        reportTexPath: result.result.texPath,
-        reportPdfPath: result.result.pdfPath,
+        reportTexPath: output.texPath,
+        reportPdfPath: output.pdfPath,
       });
       activeRuns.set(sessionId, { run, status: "success" });
       return;
@@ -103,7 +118,7 @@ export const workflowRunner = {
       status: "failed",
       result: result.status === "failed" ? result.error : result,
     });
-    activeRuns.set(sessionId, { run, status: result.status });
+    activeRuns.set(sessionId, { run, status: result.status as RunStatus });
   },
 
   async resume(sessionId: string, payload: unknown) {
@@ -112,7 +127,7 @@ export const workflowRunner = {
     if (!active) {
       throw new Error(`No active workflow run for session ${sessionId}`);
     }
-    const run = active.run;
+    const { run } = active;
 
     const result = await run.resume({
       step: "human-review",
@@ -120,11 +135,12 @@ export const workflowRunner = {
     });
 
     if (result.status === "success") {
+      const output = result.result as { texPath?: string; pdfPath?: string };
       updateSession(sessionId, {
         status: "completed",
         result: result.result,
-        reportTexPath: result.result.texPath,
-        reportPdfPath: result.result.pdfPath,
+        reportTexPath: output.texPath,
+        reportPdfPath: output.pdfPath,
       });
       activeRuns.set(sessionId, { run, status: "success" });
       return;
