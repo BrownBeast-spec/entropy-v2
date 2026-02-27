@@ -27,6 +27,7 @@ describeE2E("API E2E", () => {
     const createBody = await createRes.json();
     const sessionId = createBody.sessionId as string;
     expect(sessionId).toBeTruthy();
+    console.log(`[api-e2e] session created: ${sessionId}`);
 
     // 2. Poll until suspended or completed (up to 5 minutes)
     let status = "running";
@@ -35,6 +36,7 @@ describeE2E("API E2E", () => {
       const pollRes = await app.request(`/api/research/${sessionId}`);
       const pollBody = await pollRes.json();
       status = pollBody.status as string;
+      console.log(`[api-e2e] poll ${i + 1}: status=${status}`);
       if (
         status === "suspended" ||
         status === "completed" ||
@@ -58,12 +60,14 @@ describeE2E("API E2E", () => {
         }),
       });
       expect(reviewRes.status).toBe(200);
+      console.log("[api-e2e] review submitted");
 
       // The resume call is synchronous (awaits workflow completion),
       // so check status immediately after
       const afterReview = await app.request(`/api/research/${sessionId}`);
       const afterBody = await afterReview.json();
       status = afterBody.status as string;
+      console.log(`[api-e2e] post-review status=${status}`);
     }
 
     // 4. Poll until completed if not already (report generation may take time)
@@ -73,6 +77,7 @@ describeE2E("API E2E", () => {
         const pollRes = await app.request(`/api/research/${sessionId}`);
         const pollBody = await pollRes.json();
         status = pollBody.status as string;
+        console.log(`[api-e2e] completion poll ${i + 1}: status=${status}`);
         if (status === "completed" || status === "failed") break;
       }
     }
@@ -83,6 +88,7 @@ describeE2E("API E2E", () => {
     const reportRes = await app.request(`/api/research/${sessionId}/report`);
     expect(reportRes.status).toBe(200);
     expect(reportRes.headers.get("Content-Type")).toBe("application/pdf");
+    console.log("[api-e2e] report fetched");
 
     const buffer = new Uint8Array(await reportRes.arrayBuffer());
     const header = new TextDecoder().decode(buffer.slice(0, 5));

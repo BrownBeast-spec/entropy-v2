@@ -224,8 +224,8 @@ describe("Gap Analyst Agent", () => {
 // ─── MCP Client Wiring Tests ─────────────────────────────────────────────
 
 describe("MCP Client Wiring", () => {
-  beforeEach(() => {
-    resetToolCaches();
+  beforeEach(async () => {
+    await resetToolCaches();
   });
 
   it("should discover biology tools from mcp-biology server", async () => {
