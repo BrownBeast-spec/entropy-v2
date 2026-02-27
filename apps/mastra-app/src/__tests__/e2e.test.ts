@@ -30,6 +30,34 @@ describeE2E("E2E: Biologist agent", () => {
 describeE2E("E2E: Full pipeline", () => {
   it("runs full workflow and produces a PDF", async () => {
     const run = await researchPipelineWorkflow.createRun();
+
+    run.watch(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (event: any) => {
+        if (event.type === "workflow-step-start") {
+          console.log(`[e2e] step:start ${event.payload?.id ?? "unknown"}`);
+        }
+
+        if (event.type === "workflow-step-suspended") {
+          console.log(
+            `[e2e] step:suspended ${event.payload?.id ?? "unknown"} status=${event.payload?.status ?? "unknown"}`,
+          );
+        }
+
+        if (event.type === "workflow-step-result") {
+          console.log(
+            `[e2e] step:result ${event.payload?.id ?? "unknown"} status=${event.payload?.status ?? "unknown"}`,
+          );
+        }
+
+        if (typeof event.type === "string" && event.type.includes("tool")) {
+          const toolName =
+            event.payload?.toolName ?? event.payload?.name ?? event.payload?.id;
+          console.log(`[e2e] tool:${event.type} ${toolName ?? "unknown"}`);
+        }
+      },
+    );
+
     const result = await run.start({
       inputData: { prompt: CANONICAL_QUERY },
     });

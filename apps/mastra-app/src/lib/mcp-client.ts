@@ -1,144 +1,95 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createTool } from "@mastra/core/tools";
-import { createHash } from "node:crypto";
-import { z } from "zod";
-import { getAuditStore, getCacheStore, getCurrentSessionId } from "./audit.js";
+import { MCPClient } from "@mastra/mcp";
+import type { Tool } from "@mastra/core/tools";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-/**
- * Connect an MCP Client to an McpServer in-process via InMemoryTransport.
- * Returns the connected Client instance.
- */
-async function connectToServer(
-  server: McpServer,
-  clientName: string,
-): Promise<Client> {
-  const [clientTransport, serverTransport] =
-    InMemoryTransport.createLinkedPair();
+// ─── Resolve paths to MCP server entry points ─────────────────────────────
 
-  const client = new Client({ name: clientName, version: "1.0.0" });
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const packagesDir = resolve(__dirname, "../../../../packages");
 
-  // Connect both ends — order doesn't matter since InMemoryTransport buffers
-  await server.connect(serverTransport);
-  await client.connect(clientTransport);
+// ─── MCPClient instance (lazy singleton) ───────────────────────────────────
 
-  return client;
+let mcpClient: MCPClient | null = null;
+
+function getMcpClient(): MCPClient {
+  if (mcpClient) return mcpClient;
+
+  mcpClient = new MCPClient({
+    id: "entropy-mcp",
+    servers: {
+      biology: {
+        command: "node",
+        args: [resolve(packagesDir, "mcp-biology/dist/server.js")],
+      },
+      clinical: {
+        command: "node",
+        args: [resolve(packagesDir, "mcp-clinical/dist/server.js")],
+      },
+      safety: {
+        command: "node",
+        args: [resolve(packagesDir, "mcp-safety/dist/server.js")],
+      },
+    },
+    timeout: 30_000,
+  });
+
+  return mcpClient;
 }
+
+// ─── Tool type alias ───────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyTool = ReturnType<typeof createTool<any, any, any, any, any, any, any>>;
+type AnyTool = Tool<any, any, any, any>;
+
+// ─── Lazy-initialized caches ───────────────────────────────────────────────
+
+let toolsets: Record<string, Record<string, AnyTool>> | null = null;
+
+async function getToolsets(): Promise<Record<string, Record<string, AnyTool>>> {
+  if (toolsets) return toolsets;
+  toolsets = await getMcpClient().listToolsets();
+  return toolsets;
+}
+
+// ─── Per-server tool getters ───────────────────────────────────────────────
 
 /**
- * Discover all tools from an MCP server and wrap them as Mastra-compatible tools.
- * Each tool delegates execution to `client.callTool()`.
+ * Get all biology MCP tools (Open Targets, NCBI, Ensembl, UniProt).
  */
-async function wrapMcpTools(
-  client: Client,
-  toolFilter?: (toolName: string) => boolean,
-): Promise<Record<string, AnyTool>> {
-  const { tools } = await client.listTools();
-  const wrapped: Record<string, AnyTool> = {};
-  const auditStore = getAuditStore();
-  const cacheStore = getCacheStore();
-
-  for (const tool of tools) {
-    if (toolFilter && !toolFilter(tool.name)) {
-      continue;
-    }
-
-    wrapped[tool.name] = createTool({
-      id: tool.name,
-      description: tool.description ?? `MCP tool: ${tool.name}`,
-      inputSchema: z.object({}).passthrough(),
-      execute: async (args) => {
-        const sessionId = getCurrentSessionId() ?? undefined;
-        const start = Date.now();
-        try {
-          const cached = await cacheStore.get(
-            tool.name,
-            args as Record<string, unknown>,
-          );
-          if (cached !== null) {
-            await auditStore.logToolCall({
-              sessionId,
-              toolName: tool.name,
-              parameters: args as Record<string, unknown>,
-              durationMs: Date.now() - start,
-              responseHash: createHash("sha256")
-                .update(JSON.stringify(cached))
-                .digest("hex"),
-            });
-            return cached as unknown;
-          }
-
-          const result = await client.callTool({
-            name: tool.name,
-            arguments: args as Record<string, unknown>,
-          });
-
-          await cacheStore.set(
-            tool.name,
-            args as Record<string, unknown>,
-            result,
-          );
-          await auditStore.logToolCall({
-            sessionId,
-            toolName: tool.name,
-            parameters: args as Record<string, unknown>,
-            durationMs: Date.now() - start,
-            responseHash: createHash("sha256")
-              .update(JSON.stringify(result))
-              .digest("hex"),
-          });
-
-          return result;
-        } catch (err) {
-          await auditStore.logToolCall({
-            sessionId,
-            toolName: tool.name,
-            parameters: args as Record<string, unknown>,
-            durationMs: Date.now() - start,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          throw err;
-        }
-      },
-    });
-  }
-
-  return wrapped;
+export async function getBiologyTools(): Promise<Record<string, AnyTool>> {
+  const ts = await getToolsets();
+  return ts.biology ?? {};
 }
 
 /**
- * Create tools from an MCP server factory function.
- * Handles server creation, client connection, tool discovery, and wrapping.
+ * Get clinical trials tools (ClinicalTrials.gov) from mcp-clinical.
+ * Filters to only clinical trials tools, excluding PubMed tools.
  */
-async function createMcpTools(
-  createServerFn: () => McpServer,
-  clientName: string,
-  toolFilter?: (toolName: string) => boolean,
-): Promise<Record<string, AnyTool>> {
-  const server = createServerFn();
-  const client = await connectToServer(server, clientName);
-  return wrapMcpTools(client, toolFilter);
-}
-
-// ─── Lazy-initialized caches ───────────────────────────────────────────
-
-let biologyTools: Record<string, AnyTool> | null = null;
-let clinicalTrialsTools: Record<string, AnyTool> | null = null;
-let pubmedTools: Record<string, AnyTool> | null = null;
-let safetyTools: Record<string, AnyTool> | null = null;
-
-// Clinical trials tool names (from mcp-clinical's clinicaltrials.ts)
 const CLINICAL_TRIALS_TOOL_NAMES = new Set([
   "search_studies",
   "get_study_details",
   "get_eligibility_criteria",
 ]);
 
-// PubMed tool names (from mcp-clinical's pubmed.ts)
+export async function getClinicalTrialsTools(): Promise<
+  Record<string, AnyTool>
+> {
+  const ts = await getToolsets();
+  const clinical = ts.clinical ?? {};
+  const filtered: Record<string, AnyTool> = {};
+  for (const [name, tool] of Object.entries(clinical)) {
+    if (CLINICAL_TRIALS_TOOL_NAMES.has(name)) {
+      filtered[name] = tool;
+    }
+  }
+  return filtered;
+}
+
+/**
+ * Get PubMed tools (literature search) from mcp-clinical.
+ * Filters to only PubMed tools, excluding clinical trials tools.
+ */
 const PUBMED_TOOL_NAMES = new Set([
   "search_literature",
   "search_preprints",
@@ -146,68 +97,33 @@ const PUBMED_TOOL_NAMES = new Set([
   "get_paper_metadata",
 ]);
 
-/**
- * Get all biology MCP tools (Open Targets, NCBI, Ensembl, UniProt).
- * Lazily connects to mcp-biology on first call.
- */
-export async function getBiologyTools(): Promise<Record<string, AnyTool>> {
-  if (biologyTools) return biologyTools;
-  const { createServer } =
-    await import("../../../../packages/mcp-biology/src/index.js");
-  biologyTools = await createMcpTools(createServer, "biology-client");
-  return biologyTools;
-}
-
-/**
- * Get clinical trials tools (ClinicalTrials.gov) from mcp-clinical.
- * Filters to only clinical trials tools, excluding PubMed tools.
- */
-export async function getClinicalTrialsTools(): Promise<
-  Record<string, AnyTool>
-> {
-  if (clinicalTrialsTools) return clinicalTrialsTools;
-  const { createServer } =
-    await import("../../../../packages/mcp-clinical/src/index.js");
-  clinicalTrialsTools = await createMcpTools(
-    createServer,
-    "clinical-trials-client",
-    (name) => CLINICAL_TRIALS_TOOL_NAMES.has(name),
-  );
-  return clinicalTrialsTools;
-}
-
-/**
- * Get PubMed tools (literature search) from mcp-clinical.
- * Filters to only PubMed tools, excluding clinical trials tools.
- */
 export async function getPubMedTools(): Promise<Record<string, AnyTool>> {
-  if (pubmedTools) return pubmedTools;
-  const { createServer } =
-    await import("../../../../packages/mcp-clinical/src/index.js");
-  pubmedTools = await createMcpTools(createServer, "pubmed-client", (name) =>
-    PUBMED_TOOL_NAMES.has(name),
-  );
-  return pubmedTools;
+  const ts = await getToolsets();
+  const clinical = ts.clinical ?? {};
+  const filtered: Record<string, AnyTool> = {};
+  for (const [name, tool] of Object.entries(clinical)) {
+    if (PUBMED_TOOL_NAMES.has(name)) {
+      filtered[name] = tool;
+    }
+  }
+  return filtered;
 }
 
 /**
  * Get all safety MCP tools (OpenFDA, drug interactions).
- * Lazily connects to mcp-safety on first call.
  */
 export async function getSafetyTools(): Promise<Record<string, AnyTool>> {
-  if (safetyTools) return safetyTools;
-  const { createServer } =
-    await import("../../../../packages/mcp-safety/src/index.js");
-  safetyTools = await createMcpTools(createServer, "safety-client");
-  return safetyTools;
+  const ts = await getToolsets();
+  return ts.safety ?? {};
 }
 
 /**
  * Reset all cached tool connections (useful for testing).
  */
-export function resetToolCaches(): void {
-  biologyTools = null;
-  clinicalTrialsTools = null;
-  pubmedTools = null;
-  safetyTools = null;
+export async function resetToolCaches(): Promise<void> {
+  toolsets = null;
+  if (mcpClient) {
+    await mcpClient.disconnect();
+    mcpClient = null;
+  }
 }

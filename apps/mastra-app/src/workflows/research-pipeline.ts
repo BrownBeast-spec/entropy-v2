@@ -52,16 +52,17 @@ const plannerStep = createStep(plannerAgent, {
   structuredOutput: { schema: PlannerOutputSchema },
 });
 
-const biologistStep = createStep(biologistAgent);
-const clinicalScoutStep = createStep(clinicalScoutAgent);
-const hawkStep = createStep(hawkAgent);
-const librarianStep = createStep(librarianAgent);
+const biologistStep = createStep(biologistAgent, { maxSteps: 10 });
+const clinicalScoutStep = createStep(clinicalScoutAgent, { maxSteps: 10 });
+const hawkStep = createStep(hawkAgent, { maxSteps: 10 });
+const librarianStep = createStep(librarianAgent, { maxSteps: 10 });
 
 const gapAnalystStep = createStep(gapAnalystAgent, {
   structuredOutput: { schema: GapAnalysisSchema },
 });
 
 const verifierStep = createStep(verifierAgent, {
+  maxSteps: 15,
   structuredOutput: { schema: VerificationReportSchema },
 });
 

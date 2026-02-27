@@ -2,6 +2,7 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { google } from "@ai-sdk/google";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { createHuggingFace } from "@ai-sdk/huggingface";
 
 const RATE_LIMIT_PATTERNS = [
   /429/,
@@ -84,6 +85,16 @@ export function getModel(modelId?: string): LanguageModelV3 {
     apiKey: process.env.PERPLEXITY_API_KEY,
   });
 
+  const huggingface = createHuggingFace({
+    apiKey: process.env.HUGGINGFACE_API_KEY,
+  });
+
+  const openrouter = createOpenAI({
+    name: "openrouter",
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+  });
+
   let base: LanguageModelV3;
 
   switch (provider) {
@@ -99,9 +110,15 @@ export function getModel(modelId?: string): LanguageModelV3 {
     case "perplexity":
       base = perplexity.chat(model);
       break;
+    case "huggingface":
+      base = huggingface(model);
+      break;
+    case "openrouter":
+      base = openrouter.chat(model);
+      break;
     default:
       throw new Error(
-        `Unknown LLM provider: ${provider}. Use google:, openai:, anthropic:, or perplexity:`,
+        `Unknown LLM provider: ${provider}. Use google:, openai:, anthropic:, perplexity:, huggingface:, or openrouter:`,
       );
   }
 

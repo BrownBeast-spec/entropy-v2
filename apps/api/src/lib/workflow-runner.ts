@@ -61,6 +61,14 @@ export const workflowRunner = {
     const workflow = mastra.getWorkflow("researchPipelineWorkflow");
     const run = await workflow.createRun({ runId: sessionId });
 
+    const safeStringify = (value: unknown) => {
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch (err) {
+        return `"[unserializable: ${err instanceof Error ? err.message : String(err)}]"`;
+      }
+    };
+
     activeRuns.set(sessionId, { run, status: "running" });
 
     run.watch(
@@ -68,6 +76,9 @@ export const workflowRunner = {
       (event: any) => {
         if (event.type === "workflow-step-start") {
           const stepId = event.payload.id;
+          console.log(
+            `[workflow-runner] step:start ${stepId ?? "unknown"} session=${sessionId}`,
+          );
           if (agentIds.has(stepId)) {
             const session = getSession(sessionId);
             if (!session) return;
@@ -77,6 +88,12 @@ export const workflowRunner = {
         }
 
         if (event.type === "workflow-step-result") {
+          console.log(
+            `[workflow-runner] step:result ${event.payload?.id ?? "unknown"} status=${event.payload?.status ?? "unknown"} session=${sessionId}`,
+          );
+          console.log(
+            `[workflow-runner] step:output ${event.payload?.id ?? "unknown"} session=${sessionId} ${safeStringify(event.payload?.output ?? event.payload?.result ?? event.payload)}`,
+          );
           updateFromStepResult(
             sessionId,
             event.payload.id,
@@ -85,10 +102,21 @@ export const workflowRunner = {
         }
 
         if (event.type === "workflow-step-suspended") {
+          console.log(
+            `[workflow-runner] step:suspended ${event.payload?.id ?? "unknown"} status=${event.payload?.status ?? "unknown"} session=${sessionId}`,
+          );
           updateFromStepResult(
             sessionId,
             event.payload.id,
             event.payload.status,
+          );
+        }
+
+        if (typeof event.type === "string" && event.type.includes("tool")) {
+          const toolName =
+            event.payload?.toolName ?? event.payload?.name ?? event.payload?.id;
+          console.log(
+            `[workflow-runner] tool:${event.type} ${toolName ?? "unknown"} session=${sessionId}`,
           );
         }
       },
