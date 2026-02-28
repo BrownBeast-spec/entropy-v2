@@ -1,242 +1,307 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { ResearchInput } from "@/components/ResearchInput";
-import { PipelineStatus } from "@/components/PipelineStatus";
+import { useState, useCallback, useEffect, useRef, KeyboardEvent } from "react";
+import { PipelineStages } from "@/components/PipelineStages";
 import { HitlReviewPanel } from "@/components/HitlReviewPanel";
 import { ReportDownload } from "@/components/ReportDownload";
-import { CopilotSidebar } from "@/components/CopilotSidebar";
-import { AgentActivityFeed } from "@/components/AgentActivityFeed";
 import { submitResearch, getSession, SessionStatus } from "@/lib/api";
 
+// ─── Types ────────────────────────────────────────────────────────────────
 interface ActiveSession {
   sessionId: string;
   status: SessionStatus;
   query: string;
 }
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
 const SESSION_KEY = "entropy_active_session";
+
+const EXAMPLES = [
+  "Can metformin be repurposed for Alzheimer's disease?",
+  "Could sildenafil treat pulmonary arterial hypertension in pediatric patients?",
+  "Is thalidomide effective for treating multiple myeloma?",
+];
 
 function loadPersistedSession(): ActiveSession | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     return raw ? (JSON.parse(raw) as ActiveSession) : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-function persistSession(session: ActiveSession | null) {
+function persistSession(s: ActiveSession | null) {
   try {
-    if (session) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    } else {
-      localStorage.removeItem(SESSION_KEY);
-    }
-  } catch {
-    // ignore
+    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    else localStorage.removeItem(SESSION_KEY);
+  } catch { /* ignore */ }
+}
+
+// ─── Status-aware assistant message ──────────────────────────────────────
+function assistantMessage(status: SessionStatus, query: string): string {
+  switch (status) {
+    case "pending":
+    case "running":
+      return `I've started researching **"${query}"**. The multi-agent pipeline is now running — you can track each agent's progress in real-time on the right.`;
+    case "suspended":
+      return "The pipeline has paused and needs your review before proceeding. Please check the review panel on the right.";
+    case "completed":
+      return "✅ Research complete! All agents have finished their analysis. Your report is ready to download.";
+    case "failed":
+      return "❌ Something went wrong during the pipeline run. You can start a new query using the input below.";
+    default:
+      return "Processing…";
   }
 }
 
+// ─── Chat bubble ─────────────────────────────────────────────────────────
+function ChatBubble({ msg }: { msg: ChatMessage }) {
+  return (
+    <div className={`chat-bubble chat-bubble-${msg.role}`}>
+      {msg.role === "assistant" && (
+        <div className="chat-avatar">
+          <span>E</span>
+        </div>
+      )}
+      <div className="chat-content">
+        <p dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────
 export default function HomePage() {
   const [session, setSession] = useState<ActiveSession | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Restore session from localStorage on first render
+  // Restore session on mount
   useEffect(() => {
     const saved = loadPersistedSession();
     if (!saved) return;
-
-    // Re-verify the session still exists on the API before restoring
     getSession(saved.sessionId)
       .then((res) => {
-        const restored: ActiveSession = {
-          sessionId: res.sessionId,
-          status: res.status,
-          query: res.query,
-        };
+        const restored: ActiveSession = { sessionId: res.sessionId, status: res.status, query: res.query };
         setSession(restored);
         persistSession(restored);
+        setMessages([
+          { id: "u-0", role: "user", content: res.query },
+          { id: "a-0", role: "assistant", content: assistantMessage(res.status, res.query) },
+        ]);
       })
-      .catch(() => {
-        // Server restarted — session is gone, clear it
-        persistSession(null);
-      });
+      .catch(() => persistSession(null));
   }, []);
 
-  const handleSubmit = useCallback(async (query: string) => {
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSubmit = useCallback(async () => {
+    const trimmed = query.trim();
+    if (!trimmed || isLoading) return;
+
     setIsLoading(true);
     setError(null);
     persistSession(null);
     setSession(null);
 
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: trimmed };
+    setMessages([userMsg]);
+    setQuery("");
+
     try {
-      const res = await submitResearch(query);
-      const newSession: ActiveSession = {
-        sessionId: res.sessionId,
-        status: res.status,
-        query,
-      };
+      const res = await submitResearch(trimmed);
+      const newSession: ActiveSession = { sessionId: res.sessionId, status: res.status, query: trimmed };
       setSession(newSession);
       persistSession(newSession);
+      setMessages((prev) => [
+        ...prev,
+        { id: `a-${Date.now()}`, role: "assistant", content: assistantMessage(res.status, trimmed) },
+      ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Submission failed");
+      const msg = err instanceof Error ? err.message : "Submission failed";
+      setError(msg);
+      setMessages((prev) => [
+        ...prev,
+        { id: `a-err-${Date.now()}`, role: "assistant", content: `❌ ${msg}` },
+      ]);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [query, isLoading]);
 
   const handleStatusChange = useCallback((status: SessionStatus) => {
     setSession((prev) => {
       if (!prev || prev.status === status) return prev;
       const next = { ...prev, status };
       persistSession(next);
+      // Append assistant update message on terminal transition
+      if (status === "completed" || status === "failed" || status === "suspended") {
+        setMessages((msgs) => {
+          const alreadyHas = msgs.some((m) => m.content.includes(status === "completed" ? "✅" : status === "failed" ? "❌" : "paused"));
+          if (alreadyHas) return msgs;
+          return [...msgs, { id: `a-status-${Date.now()}`, role: "assistant", content: assistantMessage(status, prev.query) }];
+        });
+      }
       return next;
     });
   }, []);
 
-  const handleReviewDecision = useCallback(() => {
-    // Don't flip to "running" — leave the real status from the poll to settle.
-    // The HITL panel will hide itself naturally once the session moves to
-    // "running" (resumed) → "completed" via the next poll.
-  }, []);
-
   const handleReset = useCallback(() => {
     setSession(null);
+    setMessages([]);
     setError(null);
     persistSession(null);
   }, []);
 
-  const isTerminal =
-    session?.status === "completed" || session?.status === "failed";
+  const handleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const isTerminal = session?.status === "completed" || session?.status === "failed";
+  const hasSession = !!session;
 
   return (
-    <div className="app-root">
-      {/* ── Header ────────────────────────────────────────────── */}
-      <header className="app-header">
-        <div className="header-brand">
-          <div className="header-logo">E</div>
-          <div className="header-title">
-            <span>Entropy</span>
-          </div>
+    <div className="page-root">
+      {/* ── Top nav ─────────────────────────────────────────────────────── */}
+      <header className="top-nav">
+        <div className="nav-brand">
+          <div className="nav-logo">E</div>
+          <span className="nav-name">Entropy</span>
+          <span className="nav-tag">Multi-Agent Research</span>
         </div>
-        <span className="header-badge">Multi-Agent Research</span>
+        {hasSession && (
+          <button className="btn-new-query" onClick={handleReset}>
+            + New Query
+          </button>
+        )}
       </header>
 
-      <div className="main-layout">
-        <main className={`main-content ${sidebarOpen ? "sidebar-open" : ""}`}>
+      {/* ── Body ────────────────────────────────────────────────────────── */}
+      <div className="page-body">
 
-          {/* ── No active session: show query input ─────────────── */}
-          {!session && (
-            <ResearchInput onSubmit={handleSubmit} isLoading={isLoading} />
-          )}
+        {/* ── Left: Chat column ─────────────────────────────────────────── */}
+        <div className={`chat-col ${hasSession ? "chat-col-active" : "chat-col-landing"}`}>
 
-          {/* ── Error ────────────────────────────────────────────── */}
-          {error && (
-            <div
-              className="glass-panel animate-in"
-              style={{
-                padding: "20px 24px",
-                borderColor: "rgba(239,68,68,0.3)",
-                marginBottom: 32,
-              }}
-            >
-              <strong style={{ color: "var(--accent-error)" }}>⚠ Error: </strong>
-              {error}
-              <button onClick={handleReset} style={{ marginLeft: 16, background: "none", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: "var(--radius-sm)", padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
-                Reset
-              </button>
+          {/* Landing hero */}
+          {!hasSession && (
+            <div className="landing-hero">
+              <div className="hero-glow" />
+              <h1>
+                Autonomous <span className="gradient-text">Drug Repurposing</span>
+                <br />Research Platform
+              </h1>
+              <p>
+                Submit a hypothesis and Entropy will orchestrate 7 specialized AI agents
+                to produce a fully cited research dossier.
+              </p>
             </div>
           )}
 
-          {/* ── Active pipeline session ───────────────────────────── */}
-          {session && (
-            <>
-              {/* Active query pill */}
-              <div className="animate-in" style={{ marginBottom: 32 }}>
-                <p className="section-label">Active Query</p>
-                <div className="glass-panel" style={{ padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                  <p style={{ fontSize: 15, fontStyle: "italic", color: "var(--text-secondary)" }}>
-                    &ldquo;{session.query}&rdquo;
-                  </p>
-                  <button onClick={handleReset} style={{ background: "none", border: "1px solid var(--border)", color: "var(--text-muted)", borderRadius: "var(--radius-sm)", padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontSize: 12, whiteSpace: "nowrap" }}>
-                    New query
-                  </button>
+          {/* Chat messages */}
+          {messages.length > 0 && (
+            <div className="chat-messages">
+              {messages.map((m) => <ChatBubble key={m.id} msg={m} />)}
+              {isLoading && (
+                <div className="chat-bubble chat-bubble-assistant">
+                  <div className="chat-avatar"><span>E</span></div>
+                  <div className="chat-content typing-indicator">
+                    <span /><span /><span />
+                  </div>
                 </div>
-              </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          )}
 
-              {/* Pipeline agent grid — always shown while session active */}
-              <PipelineStatus
+          {/* HITL panel inline */}
+          {session?.status === "suspended" && (
+            <div className="chat-inset">
+              <HitlReviewPanel sessionId={session.sessionId} onDecision={() => {}} />
+            </div>
+          )}
+
+          {/* Report download inline */}
+          {session?.status === "completed" && (
+            <div className="chat-inset">
+              <ReportDownload sessionId={session.sessionId} />
+            </div>
+          )}
+
+          {/* ── Input box ─────────────────────────────────────────────── */}
+          <div className={`chat-input-wrap ${hasSession ? "chat-input-docked" : "chat-input-center"}`}>
+
+            {/* Example chips — only on landing */}
+            {!hasSession && (
+              <div className="example-chips">
+                {EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    className="chip"
+                    onClick={() => setQuery(ex)}
+                    disabled={isLoading}
+                  >
+                    {ex.length > 52 ? ex.slice(0, 52) + "…" : ex}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="chat-input-box">
+              <textarea
+                className="chat-textarea"
+                placeholder="Ask a drug repurposing question… (⌘↵ to send)"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKey}
+                rows={2}
+                disabled={isLoading}
+              />
+              <button
+                className="chat-send-btn"
+                onClick={handleSubmit}
+                disabled={!query.trim() || isLoading}
+              >
+                {isLoading ? <span className="btn-spinner" /> : "↑"}
+              </button>
+            </div>
+
+            {error && <p className="chat-error">⚠ {error}</p>}
+          </div>
+        </div>
+
+        {/* ── Right: Pipeline stages panel ──────────────────────────────── */}
+        {hasSession && (
+          <div className="stages-col">
+            <div className="stages-header">
+              <span className="stages-title">Pipeline</span>
+              <span className={`stages-badge badge-${session.status}`}>
+                {session.status === "running" || session.status === "pending" ? (
+                  <><span className="live-dot" /> Live</>
+                ) : session.status === "completed" ? "Done" : session.status === "failed" ? "Failed" : "Paused"}
+              </span>
+            </div>
+            <div className="stages-scroll">
+              <PipelineStages
                 sessionId={session.sessionId}
                 overallStatus={session.status}
                 onStatusChange={handleStatusChange}
               />
-
-              {/* Live agent activity feed — shows tool calls, step events, etc. */}
-              <AgentActivityFeed
-                sessionId={session.sessionId}
-                isTerminal={isTerminal}
-              />
-
-              {/* HITL review — shown only when workflow is suspended */}
-              {session.status === "suspended" && (
-                <HitlReviewPanel
-                  sessionId={session.sessionId}
-                  onDecision={handleReviewDecision}
-                />
-              )}
-
-              {/* Report download — shown when completed */}
-              {session.status === "completed" && (
-                <ReportDownload sessionId={session.sessionId} />
-              )}
-
-              {/* Running / pending status message (don't show when HITL or complete) */}
-              {(session.status === "running" || session.status === "pending") && (
-                <div className="empty-state">
-                  <div className="empty-state-icon">⚛</div>
-                  <h3>Pipeline is running</h3>
-                  <p>
-                    7 specialized agents are working on your research query.
-                    <br />
-                    Results will appear here automatically.
-                  </p>
-                </div>
-              )}
-
-              {/* Failed state */}
-              {session.status === "failed" && (
-                <div className="empty-state">
-                  <div className="empty-state-icon" style={{ color: "var(--accent-error)" }}>✕</div>
-                  <h3 style={{ color: "var(--accent-error)" }}>Pipeline failed</h3>
-                  <p>Something went wrong. Check the API logs, then try a new query.</p>
-                  <button onClick={handleReset} style={{ marginTop: 16, padding: "8px 20px", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: "var(--radius-md)", cursor: "pointer", fontFamily: "inherit", fontSize: 14 }}>
-                    New query
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── Empty landing state ───────────────────────────────── */}
-          {!session && !isLoading && !error && (
-            <div className="empty-state" style={{ marginTop: 32 }}>
-              <div className="empty-state-icon">🧪</div>
-              <h3>Ready to research</h3>
-              <p>
-                Enter a drug repurposing hypothesis above to start the
-                autonomous multi-agent pipeline.
-              </p>
             </div>
-          )}
-        </main>
-
-        <CopilotSidebar
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen((v) => !v)}
-        />
+          </div>
+        )}
       </div>
     </div>
   );
