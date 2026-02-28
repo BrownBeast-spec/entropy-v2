@@ -1,5 +1,6 @@
 import { mastra } from "@entropy/mastra-app/src/mastra/index.js";
 import { HitlResumeSchema } from "@entropy/mastra-app/src/schemas/hitl.js";
+import { sessionContext } from "@entropy/mastra-app/src/lib/session-context.js";
 import { getSession, updateSession, appendLog } from "../store/session-store.js";
 import { activityBus } from "./activity-bus.js";
 import type { SessionState } from "../types.js";
@@ -38,11 +39,7 @@ function publish(
   sessionId: string,
   partial: Omit<SessionState["log"][number], "id" | "ts">,
 ) {
-  const event = {
-    ...partial,
-    id: nextId(),
-    ts: Date.now(),
-  };
+  const event = { ...partial, id: nextId(), ts: Date.now() };
   appendLog(sessionId, event);
   activityBus.emit(sessionId, event);
 }
@@ -85,22 +82,52 @@ export const workflowRunner = {
     const workflow = mastra.getWorkflow("researchPipelineWorkflow");
     const run = await workflow.createRun({ runId: sessionId });
 
-    const safeStringify = (value: unknown) => {
+    const safeStringify = (value: unknown, maxLen = 400) => {
       try {
-        return JSON.stringify(value, null, 2);
+        const s = JSON.stringify(value, null, 2);
+        return s.length > maxLen ? s.slice(0, maxLen) + "…" : s;
       } catch (err) {
         return `"[unserializable: ${err instanceof Error ? err.message : String(err)}]"`;
       }
     };
 
+    // ── Tool-call hooks that fire from withToolInterception in llm.ts ───────
+    // currentAgentId is mutated by run.watch() when a step starts.
+    const contextHooks = {
+      sessionId,
+      currentAgentId: "unknown",
+      onToolCall: (agentId: string, toolName: string, args: unknown) => {
+        console.log(
+          `[workflow-runner] tool:call ${toolName} agent=${agentId} session=${sessionId}`,
+        );
+        publish(sessionId, {
+          type: "tool:call",
+          agentId,
+          toolName,
+          message: `${toolIcon(toolName)} Calling ${toolName}`,
+          detail: safeStringify(args, 300),
+        });
+      },
+      onToolResult: (agentId: string, toolName: string, result: unknown) => {
+        publish(sessionId, {
+          type: "tool:result",
+          agentId,
+          toolName,
+          message: `${toolIcon(toolName)} ${toolName} returned`,
+          detail: safeStringify(result, 400),
+        });
+      },
+    };
+
     activeRuns.set(sessionId, { run, status: "running" });
 
+    // Subscribe to workflow step events (step-start / step-result / etc.)
     run.watch(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (event: any) => {
         const stepId: string = event.payload?.id ?? "unknown";
 
-        // ── Step started ────────────────────────────────────────
+        // ── Step started ──────────────────────────────────────────────────
         if (event.type === "workflow-step-start") {
           console.log(
             `[workflow-runner] step:start ${stepId} session=${sessionId}`,
@@ -112,6 +139,9 @@ export const workflowRunner = {
               updateAgentStatus(session, stepId, "running");
               updateSession(sessionId, { agents: session.agents });
             }
+            // Propagate the current agent so tool events are labelled correctly
+            contextHooks.currentAgentId = stepId;
+
             publish(sessionId, {
               type: "step:start",
               agentId: stepId,
@@ -120,7 +150,7 @@ export const workflowRunner = {
           }
         }
 
-        // ── Step result ─────────────────────────────────────────
+        // ── Step result ───────────────────────────────────────────────────
         if (event.type === "workflow-step-result") {
           const status: string = event.payload?.status ?? "unknown";
           console.log(
@@ -139,12 +169,6 @@ export const workflowRunner = {
             }
 
             const outputRaw = event.payload?.output ?? event.payload?.result;
-            let detail: string | undefined;
-            if (outputRaw) {
-              const str = safeStringify(outputRaw);
-              detail = str.length > 400 ? str.slice(0, 400) + "…" : str;
-            }
-
             publish(sessionId, {
               type: status === "success" ? "step:done" : "step:fail",
               agentId: stepId,
@@ -152,12 +176,12 @@ export const workflowRunner = {
                 status === "success"
                   ? `${stepId} completed`
                   : `${stepId} failed`,
-              detail,
+              detail: outputRaw ? safeStringify(outputRaw) : undefined,
             });
           }
         }
 
-        // ── Step suspended (HITL) ───────────────────────────────
+        // ── Step suspended (HITL) ─────────────────────────────────────────
         if (event.type === "workflow-step-suspended") {
           console.log(
             `[workflow-runner] step:suspended ${stepId} session=${sessionId}`,
@@ -168,58 +192,14 @@ export const workflowRunner = {
             message: "Pipeline paused — awaiting human review",
           });
         }
-
-        // ── Tool calls ──────────────────────────────────────────
-        if (typeof event.type === "string" && event.type.includes("tool")) {
-          const toolName =
-            event.payload?.toolName ??
-            event.payload?.name ??
-            event.payload?.id ??
-            "unknown";
-          const parentStep =
-            event.payload?.stepId ?? event.payload?.agentId ?? "pipeline";
-
-          console.log(
-            `[workflow-runner] tool:${event.type} ${toolName} session=${sessionId}`,
-          );
-
-          if (event.type.includes("start") || event.type.includes("call")) {
-            const args = event.payload?.args ?? event.payload?.input;
-            let argsStr: string | undefined;
-            if (args) {
-              const s = safeStringify(args);
-              argsStr = s.length > 200 ? s.slice(0, 200) + "…" : s;
-            }
-            publish(sessionId, {
-              type: "tool:call",
-              agentId: parentStep,
-              toolName,
-              message: `${toolIcon(toolName)} Calling ${toolName}`,
-              detail: argsStr,
-            });
-          } else if (
-            event.type.includes("result") ||
-            event.type.includes("end")
-          ) {
-            const result = event.payload?.result ?? event.payload?.output;
-            let resultStr: string | undefined;
-            if (result !== undefined) {
-              const s = safeStringify(result);
-              resultStr = s.length > 300 ? s.slice(0, 300) + "…" : s;
-            }
-            publish(sessionId, {
-              type: "tool:result",
-              agentId: parentStep,
-              toolName,
-              message: `${toolIcon(toolName)} ${toolName} returned`,
-              detail: resultStr,
-            });
-          }
-        }
       },
     );
 
-    const result = await run.start({ inputData: { prompt: query } });
+    // Run the workflow inside the sessionContext so AsyncLocalStorage propagates
+    // the hooks into withToolInterception() deep in the AI SDK call stack.
+    const result = await sessionContext.run(contextHooks, () =>
+      run.start({ inputData: { prompt: query } }),
+    );
 
     if (result.status === "suspended") {
       updateSession(sessionId, { status: "suspended" });
