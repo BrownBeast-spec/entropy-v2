@@ -15,6 +15,12 @@
     "@hono/node-server": "^1.14.0",
     "@entropy/mastra-app": "workspace:*",
     "@entropy/audit": "workspace:*",
+    "@ag-ui/mastra": "latest",
+    "@ag-ui/client": "latest",
+    "@ag-ui/core": "latest",
+    "@copilotkit/runtime": "latest",
+    "@mastra/core": "latest",
+    "dotenv": "latest",
     "zod": "^3.23.8"
   },
   "devDependencies": {

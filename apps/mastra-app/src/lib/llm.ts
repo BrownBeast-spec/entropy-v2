@@ -75,7 +75,7 @@ function withRateLimitRetry(
 }
 
 export function getModel(modelId?: string): LanguageModelV3 {
-  const id = modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-flash";
+  const id = modelId ?? process.env.LLM_MODEL ?? "openrouter:openai/gpt-oss-120b";
   const [provider, ...rest] = id.split(":");
   const model = rest.join(":");
 
@@ -129,7 +129,7 @@ export function getModel(modelId?: string): LanguageModelV3 {
  * Get model for a specific agent. Resolution order:
  * 1. Agent-specific env var: e.g., PLANNER_MODEL, BIOLOGIST_MODEL, GAP_ANALYST_MODEL
  * 2. Global default: LLM_MODEL env var
- * 3. Hardcoded fallback: "google:gemini-2.5-flash"
+ * 3. Hardcoded fallback: "openrouter:meta-llama/llama-3.1-8b-instruct"
  *
  * Agent ID conversion: "gap-analyst" → "GAP_ANALYST_MODEL", "hawk-safety" → "HAWK_SAFETY_MODEL"
  */
