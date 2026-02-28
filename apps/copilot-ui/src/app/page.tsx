@@ -6,6 +6,7 @@ import { PipelineStatus } from "@/components/PipelineStatus";
 import { HitlReviewPanel } from "@/components/HitlReviewPanel";
 import { ReportDownload } from "@/components/ReportDownload";
 import { CopilotSidebar } from "@/components/CopilotSidebar";
+import { AgentActivityFeed } from "@/components/AgentActivityFeed";
 import { submitResearch, getSession, SessionStatus } from "@/lib/api";
 
 interface ActiveSession {
@@ -171,6 +172,12 @@ export default function HomePage() {
                 sessionId={session.sessionId}
                 overallStatus={session.status}
                 onStatusChange={handleStatusChange}
+              />
+
+              {/* Live agent activity feed — shows tool calls, step events, etc. */}
+              <AgentActivityFeed
+                sessionId={session.sessionId}
+                isTerminal={isTerminal}
               />
 
               {/* HITL review — shown only when workflow is suspended */}
