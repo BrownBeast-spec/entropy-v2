@@ -1,5 +1,15 @@
 export type SessionStatus = "running" | "suspended" | "completed" | "failed";
 
+export interface ActivityEvent {
+  id: string;
+  ts: number;
+  type: string;
+  agentId: string;
+  toolName?: string;
+  message: string;
+  detail?: string;
+}
+
 export type AgentName =
   | "planner"
   | "biologist"
@@ -22,4 +32,5 @@ export interface SessionState {
   agents: Record<AgentName, AgentStatus>;
   reportTexPath?: string;
   reportPdfPath?: string;
+  log: ActivityEvent[];
 }

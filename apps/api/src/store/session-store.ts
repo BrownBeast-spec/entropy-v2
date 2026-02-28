@@ -33,6 +33,7 @@ export function createSession(query: string): SessionState {
     createdAt: new Date().toISOString(),
     result: null,
     agents: defaultAgents(),
+    log: [],
   };
   store.set(sessionId, session);
   return session;
@@ -51,6 +52,15 @@ export function updateSession(
   const updated = { ...session, ...updates };
   store.set(sessionId, updated);
   return updated;
+}
+
+export function appendLog(
+  sessionId: string,
+  event: SessionState["log"][number],
+): void {
+  const session = store.get(sessionId);
+  if (!session) return;
+  session.log.push(event);
 }
 
 export function clearStore(): void {
