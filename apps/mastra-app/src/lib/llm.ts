@@ -1,8 +1,9 @@
-import type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { LanguageModelV3, LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import { google } from "@ai-sdk/google";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createHuggingFace } from "@ai-sdk/huggingface";
+import { sessionContext } from "./session-context.js";
 
 const RATE_LIMIT_PATTERNS = [
   /429/,
@@ -74,6 +75,88 @@ function withRateLimitRetry(
   };
 }
 
+/**
+ * Wraps a LanguageModelV3 to intercept AI SDK stream chunks and fire
+ * onToolCall / onToolResult hooks from the current sessionContext.
+ * This is how we surface tool calls that happen INSIDE agent LLM execution
+ * (invisible to workflow-level run.watch() events).
+ *
+ * Uses a duck-typed runtime cast so it works regardless of which AI SDK
+ * version is installed (type names changed between v3/v4).
+ */
+function withToolInterception(model: LanguageModelV3): LanguageModelV3 {
+  return {
+    ...model,
+    async doStream(options) {
+      const result = await model.doStream(options);
+      const ctx = sessionContext.getStore();
+      if (!ctx?.onToolCall && !ctx?.onToolResult) {
+        return result; // no hooks — return unchanged
+      }
+
+      const agentId = ctx.currentAgentId ?? "unknown";
+      // toolCallId → toolName (for matching results back to calls)
+      const toolNames = new Map<string, string>();
+
+      const originalStream = result.stream;
+      const intercepted = new ReadableStream<LanguageModelV3StreamPart>({
+        async start(controller) {
+          const reader = originalStream.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              // Always forward the chunk unchanged — never block the real stream
+              controller.enqueue(value);
+
+              try {
+                // Runtime duck-type: read chunk type robustly across SDK versions
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const c = value as any;
+                const type: string = c?.type ?? "";
+
+                // "tool-input-start" (newer SDK) or "tool-call" start signals
+                if (type === "tool-input-start" || type === "tool-call-start") {
+                  const id: string = c.toolCallId ?? c.id ?? "";
+                  const name: string = c.toolName ?? c.name ?? "unknown";
+                  if (id) toolNames.set(id, name);
+                }
+
+                // "tool-call" = complete tool call (older SDK emits all at once,
+                //   newer SDK emits this after input-end)
+                if (type === "tool-call" || type === "tool-input-end") {
+                  const id: string = c.toolCallId ?? c.id ?? "";
+                  const name: string =
+                    toolNames.get(id) ?? c.toolName ?? c.name ?? "unknown";
+                  // input or args depending on SDK version
+                  const args: unknown = c.args ?? c.input ?? undefined;
+                  ctx.onToolCall?.(agentId, name, args);
+                  if (id) toolNames.set(id, name);
+                }
+
+                // Tool result — SDK-stable type name
+                if (type === "tool-result") {
+                  const id: string = c.toolCallId ?? c.id ?? "";
+                  const name: string = toolNames.get(id) ?? "unknown";
+                  ctx.onToolResult?.(agentId, name, c.result);
+                }
+              } catch {
+                // never let peek errors interrupt the real data stream
+              }
+            }
+          } finally {
+            controller.close();
+            reader.releaseLock();
+          }
+        },
+      });
+
+      return { ...result, stream: intercepted };
+    },
+  };
+}
+
 export function getModel(modelId?: string): LanguageModelV3 {
   const id = modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-flash";
   const [provider, ...rest] = id.split(":");
@@ -122,7 +205,7 @@ export function getModel(modelId?: string): LanguageModelV3 {
       );
   }
 
-  return withRateLimitRetry(base);
+  return withToolInterception(withRateLimitRetry(base));
 }
 
 /**
