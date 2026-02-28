@@ -27,6 +27,7 @@ export const mastra = new Mastra({
   storage: new InMemoryStore({ id: "entropy-storage" }),
 });
 
+
 if (isAuditEnabled()) {
   getAuditStore()
     .migrate()
