@@ -10,6 +10,8 @@ export {
   type CompileFormat,
   type CompileResult,
 } from "./compile-report.js";
+export { renderHtmlReport } from "./render-html.js";
+export { compilePdf, getReportOutputDir, type PdfResult } from "./compile-pdf.js";
 export { escapeLatex } from "./latex-escape.js";
 export {
   extractCitations,

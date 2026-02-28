@@ -27,7 +27,8 @@ import {
   type HitlOutput,
 } from "../schemas/hitl.js";
 import { DEFAULT_TPP_CHECKLIST } from "../lib/tpp-checklist.js";
-import { generateMarkdown, compileReport } from "../report/index.js";
+import { renderHtmlReport } from "../report/render-html.js";
+import { compilePdf } from "../report/compile-pdf.js";
 import {
   clearCurrentSessionId,
   getAuditStore,
@@ -301,10 +302,10 @@ const buildGapAnalystPrompt = (evidence: Evidence) =>
 
 export const ReportOutputSchema = z.object({
   hitlOutput: HitlOutputSchema,
-  texPath: z.string(),
+  htmlPath: z.string(),
   pdfPath: z.string(),
   pdfSuccess: z.boolean(),
-  pdfStderr: z.string(),
+  pdfError: z.string().optional(),
 });
 
 export type ReportOutput = z.infer<typeof ReportOutputSchema>;
@@ -336,13 +337,16 @@ const reportStep = createStep({
       },
     };
 
-    const markdown = generateMarkdown(reportInput);
+    // Render to HTML, then compile to PDF via Puppeteer (no LaTeX needed).
+    const html = renderHtmlReport(reportInput);
+    const pdfResult = await compilePdf(html, reportSessionId);
 
-    // Compile .tex first (fast, no pdflatex needed)
-    const texResult = await compileReport(markdown, reportSessionId, "latex");
+    if (!pdfResult.success) {
+      console.error(`[report-step] PDF compilation failed: ${pdfResult.error}`);
+    }
 
-    // Compile .pdf via xelatex
-    const pdfResult = await compileReport(markdown, reportSessionId, "pdf");
+    // htmlPath is written alongside the PDF by compilePdf()
+    const htmlPath = pdfResult.outputPath.replace(/\.pdf$/, ".html");
 
     const sessionId = getCurrentSessionId() ?? undefined;
     if (sessionId) {
@@ -355,10 +359,10 @@ const reportStep = createStep({
 
     return {
       hitlOutput: hitl,
-      texPath: texResult.outputPath,
+      htmlPath,
       pdfPath: pdfResult.outputPath,
       pdfSuccess: pdfResult.success,
-      pdfStderr: pdfResult.stderr,
+      pdfError: pdfResult.error,
     };
   },
 });

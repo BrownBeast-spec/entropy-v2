@@ -27,6 +27,7 @@
     "@mastra/core": "latest",
     "@mastra/mcp": "^1.0.2",
     "dotenv": "latest",
+    "puppeteer": "^24.37.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

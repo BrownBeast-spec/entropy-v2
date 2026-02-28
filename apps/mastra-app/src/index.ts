@@ -42,9 +42,13 @@ export {
   generateMarkdown,
   compileReport,
   getReportTempDir,
+  renderHtmlReport,
+  compilePdf,
+  getReportOutputDir,
   ReportInputSchema,
   type ReportInput,
   type CompileFormat,
   type CompileResult,
+  type PdfResult,
 } from "./report/index.js";
 

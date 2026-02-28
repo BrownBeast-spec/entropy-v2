@@ -1,10 +1,13 @@
 packages:
-  - "packages/mcp-biology"
-  - "packages/mcp-clinical"
-  - "packages/mcp-safety"
-  - "packages/mcp-commercial"
-  - "packages/audit"
-  - "packages/telemetry"
-  - "apps/mastra-app"
-  - "apps/api"
-  - "apps/copilot-ui"
+  - packages/mcp-biology
+  - packages/mcp-clinical
+  - packages/mcp-safety
+  - packages/mcp-commercial
+  - packages/audit
+  - packages/telemetry
+  - apps/mastra-app
+  - apps/api
+  - apps/copilot-ui
+
+ignoredBuiltDependencies:
+  - puppeteer
