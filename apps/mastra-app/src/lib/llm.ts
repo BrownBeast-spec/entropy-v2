@@ -75,7 +75,7 @@ function withRateLimitRetry(
 }
 
 export function getModel(modelId?: string): LanguageModelV3 {
-  const id = modelId ?? process.env.LLM_MODEL ?? "openrouter:openai/gpt-oss-120b";
+  const id = modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-flash";
   const [provider, ...rest] = id.split(":");
   const model = rest.join(":");
 
