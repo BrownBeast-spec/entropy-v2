@@ -34,6 +34,7 @@ import {
   getCurrentSessionId,
   setCurrentSessionId,
 } from "../lib/audit.js";
+import { sanitizeAgentOutput } from "../lib/sanitize-agent-output.js";
 
 const auditStore = getAuditStore();
 const promptCache: Record<string, string> = {};
@@ -155,7 +156,8 @@ const toAgentEvidence = (
     };
   }
 
-  const text = result?.output?.text ?? result?.text ?? "";
+  const raw = result?.output?.text ?? result?.text ?? "";
+  const text = sanitizeAgentOutput(raw);
   const status = text ? "success" : "failure";
 
   return {
