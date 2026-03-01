@@ -21,22 +21,22 @@ export interface ActivityEvent {
 // ─── Pipeline stage definitions ───────────────────────────────────────────
 const STAGE_PLANNER = {
   id: "planner",
-  icon: "🧭",
+  icon: "Pl",
   name: "Planning",
   desc: "Decomposes the query into PICO sub-tasks",
   step: 1,
 };
 
 const STAGE_PARALLEL = [
-  { id: "biologist",      icon: "🧬", name: "Biologist",      desc: "Molecular targets & pathways" },
-  { id: "clinical-scout", icon: "🏥", name: "Clinical Scout",  desc: "Existing trials & endpoints" },
-  { id: "hawk-safety",    icon: "🦅", name: "Hawk Safety",     desc: "Adverse events & FDA alerts" },
-  { id: "librarian",      icon: "📚", name: "Librarian",       desc: "PubMed literature review" },
+  { id: "biologist",      icon: "Bio",  name: "Biologist",      desc: "Molecular targets & pathways" },
+  { id: "clinical-scout", icon: "Clin", name: "Clinical Scout",  desc: "Existing trials & endpoints" },
+  { id: "hawk-safety",    icon: "Hawk", name: "Hawk Safety",     desc: "Adverse events & FDA alerts" },
+  { id: "librarian",      icon: "Lib",  name: "Librarian",       desc: "PubMed literature review" },
 ];
 
 const STAGE_GAP = {
   id: "gap-analyst",
-  icon: "🔍",
+  icon: "Gap",
   name: "Gap Analyst",
   desc: "Identifies evidence gaps vs. TPP checklist",
   step: 3,
@@ -44,7 +44,7 @@ const STAGE_GAP = {
 
 const STAGE_VERIFIER = {
   id: "verifier",
-  icon: "✅",
+  icon: "Ver",
   name: "Verifier",
   desc: "Cross-checks all claims for accuracy",
   step: 4,
@@ -63,7 +63,7 @@ function ToolCallChip({ event }: { event: ActivityEvent }) {
         onClick={() => event.detail && setOpen((v) => !v)}
         style={{ cursor: event.detail ? "pointer" : "default" }}
       >
-        <span className="tool-chip-icon">{isCall ? "⚙" : isResult ? "↩" : "·"}</span>
+        <span className="tool-chip-icon">{isCall ? "fn" : isResult ? "->" : "."}</span>
         <span className="tool-chip-name">{event.toolName ?? event.message}</span>
         {event.detail && (
           <span className="tool-chip-toggle">{open ? "▲" : "▼"}</span>
@@ -107,7 +107,6 @@ function AgentRow({
       <div className="agent-row-header" onClick={() => setExpanded((v) => !v)}>
         <div className="agent-row-left">
           <span className={`agent-row-dot dot-${status}`} />
-          <span className="agent-row-icon">{icon}</span>
           <div className="agent-row-info">
             <span className="agent-row-name">{name}</span>
             <span className="agent-row-desc">{desc}</span>
@@ -115,8 +114,8 @@ function AgentRow({
         </div>
         <div className="agent-row-right">
           {status === "running" && <span className="agent-row-spinner" />}
-          {status === "completed" && <span className="agent-row-check">✓</span>}
-          {status === "failed" && <span className="agent-row-fail">✗</span>}
+          {status === "completed" && <span className="agent-row-check">done</span>}
+          {status === "failed" && <span className="agent-row-fail">fail</span>}
           {toolEvents.length > 0 && (
             <span className="agent-row-count">{toolEvents.length} calls</span>
           )}
@@ -131,7 +130,7 @@ function AgentRow({
           {stepEvents.map((e) => (
             <div key={e.id} className={`step-event step-${e.type.replace(":", "-")}`}>
               <span className="step-event-icon">
-                {e.type === "step:done" ? "✓" : e.type === "step:fail" ? "✗" : "▶"}
+                {e.type === "step:done" ? "+" : e.type === "step:fail" ? "-" : ">"}
               </span>
               <span className="step-event-msg">{e.message}</span>
             </div>

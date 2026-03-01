@@ -36,6 +36,7 @@ dist/
 # Local artifacts
 engine/
 reports/
+outputs/
 
 # Editor
 .vscode/

@@ -30,8 +30,11 @@ export interface AgentsResponse {
 
 export interface ReviewPayload {
   approved: boolean;
+  /** true = request refinement with suggestions rather than final approve/reject */
+  requestChanges?: boolean;
   reviewer: string;
-  notes?: string;
+  /** Reviewer feedback / required edits sent back for refinement */
+  suggestions?: string;
 }
 
 export async function submitResearch(query: string): Promise<Session> {
@@ -70,4 +73,8 @@ export async function submitReview(
 
 export function getReportUrl(sessionId: string): string {
   return `${API_BASE}/api/research/${sessionId}/report`;
+}
+
+export function getPreviewUrl(sessionId: string): string {
+  return `${API_BASE}/api/research/${sessionId}/preview`;
 }

@@ -27,7 +27,6 @@ import {
   type HitlOutput,
 } from "../schemas/hitl.js";
 import { DEFAULT_TPP_CHECKLIST } from "../lib/tpp-checklist.js";
-import { generateMarkdown, compileReport } from "../report/index.js";
 import {
   clearCurrentSessionId,
   getAuditStore,
@@ -35,6 +34,11 @@ import {
   setCurrentSessionId,
 } from "../lib/audit.js";
 import { sanitizeAgentOutput } from "../lib/sanitize-agent-output.js";
+import { renderHtmlReport } from "../report/render-html.js";
+import { compilePdf, getReportOutputDir } from "../report/compile-pdf.js";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 
 const auditStore = getAuditStore();
 const promptCache: Record<string, string> = {};
@@ -73,39 +77,141 @@ const humanReviewStep = createStep({
   outputSchema: HitlOutputSchema,
   resumeSchema: HitlResumeSchema,
   suspendSchema: z.object({
-    dossier_preview: z.string(),
+    html_preview_path: z.string(),
+    iteration_count: z.number(),
   }),
-  execute: async ({ inputData, resumeData, suspend }) => {
-    const { approved, reviewer, notes } = resumeData ?? {};
+  execute: async ({ inputData, resumeData, suspend, getStepResult }) => {
+    const { approved, requestChanges, reviewer, suggestions } = resumeData ?? {};
 
-    // First execution: suspend and surface the verification report for review
+    // ── Helper: build & write an HTML preview ─────────────────────────────
+    const buildPreview = async (
+      verificationReport: z.infer<typeof VerificationReportSchema>,
+      iteration: number,
+    ): Promise<string> => {
+      const evidence = getStepResult<Evidence>("merge-evidence");
+      const gapAnalysis = getStepResult<GapAnalysis>("gap-analyst");
+      const sessionId = getCurrentSessionId() ?? `preview-${Date.now()}`;
+
+      const html = renderHtmlReport({
+        query: evidence.query,
+        evidence,
+        gapAnalysis,
+        verificationReport,
+        reviewerDecision: {
+          approved: false,
+          reviewer: "Pending Review",
+          notes: `Iteration ${iteration} — awaiting human approval`,
+        },
+        metadata: {
+          sessionId,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      const dir = await getReportOutputDir();
+      const previewPath = join(dir, `preview-${sessionId}-${iteration}.html`);
+      await writeFile(previewPath, html, "utf8");
+      return previewPath;
+    };
+
+    // ── First execution: generate preview and suspend ─────────────────────
     if (approved === undefined) {
+      const previewPath = await buildPreview(inputData, 1);
+      return await suspend({ html_preview_path: previewPath, iteration_count: 1 });
+    }
+
+    // ── Resumed: Request Changes → re-run verifier with suggestions ───────
+    if (requestChanges === true && suggestions) {
+      // Get previous iteration count from the suspend payload
+      // (Mastra doesn't expose the suspend payload directly, but we can track
+      //  it via the number of times we've resumed — re-run with the same inputData)
+      const prevIteration: number = (resumeData as { iterationCount?: number })?.iterationCount ?? 1;
+      const iteration = prevIteration + 1;
+
+      // Re-run the verifier with reviewer suggestions as extra context
+      const evidence = getStepResult<Evidence>("merge-evidence");
+      const gapAnalysis = getStepResult<GapAnalysis>("gap-analyst");
+      const verifierPrompt = [
+        "[REVIEWER FEEDBACK — ITERATION " + iteration + "]",
+        "The following suggestions were provided by the human reviewer.",
+        "Please revise the verification report to address them:",
+        "",
+        suggestions,
+        "",
+        "--- Original Verification Report ---",
+        JSON.stringify(inputData, null, 2),
+        "",
+        "--- Original Evidence ---",
+        JSON.stringify(evidence, null, 2),
+        "",
+        "--- Gap Analysis ---",
+        JSON.stringify(gapAnalysis, null, 2),
+      ].join("\n");
+
+      const verifierResult = await verifierAgent.generate(
+        [{ role: "user", content: verifierPrompt }],
+        { structuredOutput: { schema: VerificationReportSchema } },
+      );
+
+      const refinedReport =
+        (verifierResult.object as z.infer<typeof VerificationReportSchema> | undefined) ?? inputData;
+
+      const previewPath = await buildPreview(refinedReport, iteration);
       return await suspend({
-        dossier_preview: JSON.stringify(inputData, null, 2),
+        html_preview_path: previewPath,
+        iteration_count: iteration,
       });
     }
 
-    // Resumed: return the decision
+    // ── Resumed: Approve or Reject ────────────────────────────────────────
+    // Recover the latest preview path (written at last suspend)
+    const evidence = getStepResult<Evidence>("merge-evidence");
     const sessionId = getCurrentSessionId() ?? undefined;
+
     await safeAudit(
       () =>
         auditStore.logHitlDecision({
           sessionId,
           reviewer: reviewer ?? "unknown",
-          approved,
-          annotations: notes ? { notes } : undefined,
+          approved: approved ?? false,
+          annotations: suggestions ? { suggestions } : undefined,
         }),
       "noop-hitl-record",
     );
 
-    return {
-      approved,
-      reviewer: reviewer ?? "unknown",
-      notes: notes ?? "",
+    // Re-generate the final HTML with the real reviewer info now that we know the decision
+    const gapAnalysis = getStepResult<GapAnalysis>("gap-analyst");
+    const html = renderHtmlReport({
+      query: evidence.query,
+      evidence,
+      gapAnalysis,
       verificationReport: inputData,
+      reviewerDecision: {
+        approved: approved ?? false,
+        reviewer: reviewer ?? "unknown",
+        notes: suggestions ?? "",
+      },
+      metadata: {
+        sessionId: sessionId ?? `report-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    const dir = await getReportOutputDir();
+    const finalHtmlPath = join(dir, `report-${sessionId ?? Date.now()}.html`);
+    await writeFile(finalHtmlPath, html, "utf8");
+
+    return {
+      approved: approved ?? false,
+      reviewer: reviewer ?? "unknown",
+      suggestions: suggestions ?? "",
+      verificationReport: inputData,
+      htmlPreviewPath: finalHtmlPath,
+      iterationCount: (resumeData as { iterationCount?: number })?.iterationCount ?? 1,
     };
   },
 });
+
 
 const parallelResultsSchema = z.object({
   biologist: z.any(),
@@ -301,10 +407,10 @@ const buildGapAnalystPrompt = (evidence: Evidence) =>
 
 export const ReportOutputSchema = z.object({
   hitlOutput: HitlOutputSchema,
-  texPath: z.string(),
+  htmlPath: z.string(),
   pdfPath: z.string(),
   pdfSuccess: z.boolean(),
-  pdfStderr: z.string(),
+  pdfError: z.string().optional(),
 });
 
 export type ReportOutput = z.infer<typeof ReportOutputSchema>;
@@ -313,38 +419,23 @@ const reportStep = createStep({
   id: "generate-report",
   inputSchema: HitlOutputSchema,
   outputSchema: ReportOutputSchema,
-  execute: async ({ inputData, getStepResult }) => {
+  execute: async ({ inputData }) => {
     const hitl = inputData as HitlOutput;
-    const evidence = getStepResult<Evidence>("merge-evidence");
-    const gapAnalysis = getStepResult<GapAnalysis>("gap-analyst");
 
-    const reportSessionId = `report-${Date.now()}`;
+    // The humanReviewStep already generated and wrote the final HTML with
+    // real reviewer info. We just compile it to PDF.
+    const htmlContent = await readFile(hitl.htmlPreviewPath, "utf8");
 
-    const reportInput = {
-      query: evidence.query,
-      evidence,
-      gapAnalysis,
-      verificationReport: hitl.verificationReport,
-      reviewerDecision: {
-        approved: hitl.approved,
-        reviewer: hitl.reviewer,
-        notes: hitl.notes,
-      },
-      metadata: {
-        sessionId: reportSessionId,
-        timestamp: new Date().toISOString(),
-      },
-    };
-
-    const markdown = generateMarkdown(reportInput);
-
-    // Compile .tex first (fast, no pdflatex needed)
-    const texResult = await compileReport(markdown, reportSessionId, "latex");
-
-    // Compile .pdf via xelatex
-    const pdfResult = await compileReport(markdown, reportSessionId, "pdf");
-
+    // Use the sessionId embedded in the html filename if possible
     const sessionId = getCurrentSessionId() ?? undefined;
+    const reportId = `report-${sessionId ?? Date.now()}`;
+
+    const pdfResult = await compilePdf(htmlContent, reportId);
+
+    if (!pdfResult.success) {
+      console.error(`[report-step] PDF compilation failed: ${pdfResult.error}`);
+    }
+
     if (sessionId) {
       await safeAudit(
         () => auditStore.updateSessionStatus(sessionId, "completed"),
@@ -355,13 +446,14 @@ const reportStep = createStep({
 
     return {
       hitlOutput: hitl,
-      texPath: texResult.outputPath,
+      htmlPath: hitl.htmlPreviewPath,
       pdfPath: pdfResult.outputPath,
       pdfSuccess: pdfResult.success,
-      pdfStderr: pdfResult.stderr,
+      pdfError: pdfResult.error,
     };
   },
 });
+
 
 export const researchPipelineWorkflow = createWorkflow({
   id: "research-pipeline",

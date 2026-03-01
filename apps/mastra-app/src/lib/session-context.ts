@@ -19,8 +19,6 @@ export interface SessionContextStore {
   sessionId: string;
   onToolCall?: (agentId: string, toolName: string, args: unknown) => void;
   onToolResult?: (agentId: string, toolName: string, result: unknown) => void;
-  /** Current step/agent being executed — set by each step wrapper */
-  currentAgentId?: string;
 }
 
 export const sessionContext = new AsyncLocalStorage<SessionContextStore>();

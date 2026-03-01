@@ -50,9 +50,9 @@ function assistantMessage(status: SessionStatus, query: string): string {
     case "suspended":
       return "The pipeline has paused and needs your review before proceeding. Please check the review panel on the right.";
     case "completed":
-      return "✅ Research complete! All agents have finished their analysis. Your report is ready to download.";
+      return "Research complete. All agents have finished their analysis. Your report is ready to download.";
     case "failed":
-      return "❌ Something went wrong during the pipeline run. You can start a new query using the input below.";
+      return "Something went wrong during the pipeline run. You can start a new query using the input below.";
     default:
       return "Processing…";
   }
@@ -132,7 +132,7 @@ export default function HomePage() {
       setError(msg);
       setMessages((prev) => [
         ...prev,
-        { id: `a-err-${Date.now()}`, role: "assistant", content: `❌ ${msg}` },
+        { id: `a-err-${Date.now()}`, role: "assistant", content: `Error: ${msg}` },
       ]);
     } finally {
       setIsLoading(false);
@@ -147,7 +147,7 @@ export default function HomePage() {
       // Append assistant update message on terminal transition
       if (status === "completed" || status === "failed" || status === "suspended") {
         setMessages((msgs) => {
-          const alreadyHas = msgs.some((m) => m.content.includes(status === "completed" ? "✅" : status === "failed" ? "❌" : "paused"));
+          const alreadyHas = msgs.some((m) => m.content.includes(status === "completed" ? "complete" : status === "failed" ? "wrong" : "paused"));
           if (alreadyHas) return msgs;
           return [...msgs, { id: `a-status-${Date.now()}`, role: "assistant", content: assistantMessage(status, prev.query) }];
         });
@@ -229,7 +229,25 @@ export default function HomePage() {
           {/* HITL panel inline */}
           {session?.status === "suspended" && (
             <div className="chat-inset">
-              <HitlReviewPanel sessionId={session.sessionId} onDecision={() => {}} />
+              <HitlReviewPanel
+                sessionId={session.sessionId}
+                onDecision={() => {
+                  // After Approve/Reject the pipeline runs async. Poll until
+                  // the session transitions out of "suspended".
+                  const poll = setInterval(() => {
+                    getSession(session.sessionId)
+                      .then((res) => {
+                        if (res.status !== "suspended") {
+                          clearInterval(poll);
+                          handleStatusChange(res.status);
+                        }
+                      })
+                      .catch(() => clearInterval(poll));
+                  }, 2000);
+                  // Safety-guard: stop polling after 10 min
+                  setTimeout(() => clearInterval(poll), 10 * 60 * 1000);
+                }}
+              />
             </div>
           )}
 
@@ -278,7 +296,7 @@ export default function HomePage() {
               </button>
             </div>
 
-            {error && <p className="chat-error">⚠ {error}</p>}
+            {error && <p className="chat-error">Error: {error}</p>}
           </div>
         </div>
 

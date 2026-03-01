@@ -27,3 +27,5 @@ export {
   appendicesSection,
   bibliographySection,
 } from "./sections.js";
+export { renderHtmlReport } from "./render-html.js";
+export { compilePdf, getReportOutputDir, type PdfResult } from "./compile-pdf.js";
