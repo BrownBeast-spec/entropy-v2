@@ -1,6 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  ExternalLink,
+  Loader2,
+  Eye,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { submitReview, getPreviewUrl } from "@/lib/api";
 
 interface HitlReviewPanelProps {
@@ -8,11 +19,16 @@ interface HitlReviewPanelProps {
   onDecision: () => void;
 }
 
-export function HitlReviewPanel({ sessionId, onDecision }: HitlReviewPanelProps) {
+export function HitlReviewPanel({
+  sessionId,
+  onDecision,
+}: HitlReviewPanelProps) {
   const [reviewer, setReviewer] = useState("");
   const [suggestions, setSuggestions] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [action, setAction] = useState<"approve" | "changes" | "reject" | null>(null);
+  const [action, setAction] = useState<"approve" | "changes" | "reject" | null>(
+    null,
+  );
 
   const previewUrl = getPreviewUrl(sessionId);
 
@@ -37,7 +53,6 @@ export function HitlReviewPanel({ sessionId, onDecision }: HitlReviewPanelProps)
           reviewer: reviewer.trim(),
           suggestions: suggestions.trim(),
         });
-        // After requesting changes the pipeline will re-suspend — reset UI
         setSuggestions("");
         setAction(null);
         setSubmitting(false);
@@ -57,73 +72,59 @@ export function HitlReviewPanel({ sessionId, onDecision }: HitlReviewPanelProps)
     }
   };
 
-  const Spinner = () => (
-    <span
-      style={{
-        display: "inline-block",
-        width: 14,
-        height: 14,
-        borderRadius: "50%",
-        border: "2px solid rgba(255,255,255,0.3)",
-        borderTopColor: "#fff",
-        animation: "spin 0.7s linear infinite",
-        verticalAlign: "middle",
-        marginRight: 6,
-      }}
-    />
-  );
-
   return (
-    <>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div className="hitl-panel animate-in">
+    <motion.div
+      className="mb-3 rounded-lg border border-border-default bg-bg-card/80 backdrop-blur-xl overflow-hidden"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.2, 0.65, 0.3, 0.9] }}
+    >
+      {/* Accent top border */}
+      <div className="h-0.5 bg-gradient-to-r from-accent-warn via-[#fbbf24] to-accent-warn" />
+
+      <div className="p-5">
         {/* ── Header ── */}
-        <div className="hitl-header">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-accent-warn/10 flex items-center justify-center shrink-0 mt-0.5">
+            <AlertTriangle className="w-4 h-4 text-[#ffa94d]" />
+          </div>
           <div>
-            <div className="hitl-title">Human Review Required</div>
-            <div className="hitl-subtitle">
-              The pipeline has completed research. Review the dossier and
-              either approve, request changes, or reject.
-            </div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              Human Review Required
+            </h3>
+            <p className="text-xs text-text-secondary mt-1 leading-relaxed">
+              The pipeline has completed research. Review the dossier and either
+              approve, request changes, or reject.
+            </p>
           </div>
         </div>
 
         {/* ── Preview link ── */}
-        <div style={{ margin: "0 0 1.25em" }}>
-          <a
-            href={previewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "0.55em 1.1em",
-              borderRadius: 8,
-              background: "rgba(99,102,241,0.15)",
-              border: "1px solid rgba(99,102,241,0.4)",
-              color: "#a5b4fc",
-              fontWeight: 600,
-              fontSize: "0.9em",
-              textDecoration: "none",
-              transition: "background 0.2s",
-            }}
-          >
-            Open Report Preview
-            <span style={{ fontSize: "0.8em", opacity: 0.8 }}>↗</span>
-          </a>
-          <div style={{ fontSize: "0.78em", color: "var(--text-muted)", marginTop: 4 }}>
-            Opens the full dossier in a new tab — all agent findings, tables, and verification claims.
-          </div>
-        </div>
+        <motion.a
+          href={previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-accent/10 border border-accent/30 text-[#a5b4fc] font-semibold text-[13px] no-underline transition-colors hover:bg-accent/15 mb-4"
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+        >
+          <Eye className="w-3.5 h-3.5" />
+          Open Report Preview
+          <ExternalLink className="w-3 h-3 opacity-70" />
+        </motion.a>
+        <p className="text-[11px] text-text-muted mb-4">
+          Opens the full dossier in a new tab — all agent findings, tables, and
+          verification claims.
+        </p>
 
         {/* ── Fields ── */}
-        <div className="hitl-fields">
-          <div className="hitl-field">
-            <label htmlFor="reviewer-name">Your Name / Reviewer ID *</label>
+        <div className="flex flex-col gap-3 mb-4">
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">
+              Your Name / Reviewer ID *
+            </label>
             <input
-              id="reviewer-name"
-              className="hitl-input"
+              className="w-full px-3 py-2 bg-bg-deep border border-border-default rounded-md text-text-primary text-[13px] font-sans outline-none transition-colors focus:border-white/20 placeholder:text-text-muted"
               placeholder="e.g. Dr. Jane Smith"
               value={reviewer}
               onChange={(e) => setReviewer(e.target.value)}
@@ -131,21 +132,20 @@ export function HitlReviewPanel({ sessionId, onDecision }: HitlReviewPanelProps)
             />
           </div>
 
-          <div className="hitl-field">
-            <label htmlFor="review-suggestions">
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">
               Suggestions / Required Changes
-              <span style={{ color: "var(--text-muted)", fontWeight: 400, marginLeft: 6 }}>
-                (required for "Request Changes")
+              <span className="text-text-muted font-normal ml-1">
+                (required for &quot;Request Changes&quot;)
               </span>
             </label>
             <textarea
-              id="review-suggestions"
-              className="hitl-input hitl-textarea"
+              className="w-full px-3 py-2 bg-bg-deep border border-border-default rounded-md text-text-primary text-[13px] font-sans outline-none transition-colors focus:border-white/20 placeholder:text-text-muted resize-y min-h-[80px]"
               placeholder={
                 "Describe what needs improving, e.g.:\n" +
-                "• Add more data on Phase III clinical trials\n" +
-                "• The safety section is missing FDA adverse event counts\n" +
-                "• Include comparator drug analysis"
+                "\u2022 Add more data on Phase III clinical trials\n" +
+                "\u2022 The safety section is missing FDA adverse event counts\n" +
+                "\u2022 Include comparator drug analysis"
               }
               value={suggestions}
               onChange={(e) => setSuggestions(e.target.value)}
@@ -156,53 +156,76 @@ export function HitlReviewPanel({ sessionId, onDecision }: HitlReviewPanelProps)
         </div>
 
         {/* ── Actions ── */}
-        <div className="hitl-actions" style={{ flexWrap: "wrap", gap: "0.6em" }}>
-          <button
-            className="btn-approve"
+        <div className="flex flex-wrap gap-2.5">
+          <motion.button
             onClick={() => handleDecision("approve")}
             disabled={!reviewer.trim() || submitting}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             title="Approve the dossier and generate the final PDF"
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all",
+              "bg-accent-success/10 border border-accent-success/30 text-[#69db7c]",
+              "hover:bg-accent-success/15",
+              "disabled:opacity-35 disabled:cursor-not-allowed",
+            )}
           >
-            {submitting && action === "approve" ? <Spinner /> : null}
+            {submitting && action === "approve" ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            )}
             Approve & Generate PDF
-          </button>
+          </motion.button>
 
-          <button
+          <motion.button
             onClick={() => handleDecision("changes")}
             disabled={!reviewer.trim() || !suggestions.trim() || submitting}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             title="Send back for refinement with your suggestions"
-            style={{
-              padding: "0.6em 1.2em",
-              borderRadius: 8,
-              border: "1px solid rgba(251,191,36,0.5)",
-              background: "rgba(251,191,36,0.1)",
-              color: "#fcd34d",
-              fontWeight: 600,
-              fontSize: "0.9em",
-              cursor: !reviewer.trim() || !suggestions.trim() || submitting ? "not-allowed" : "pointer",
-              opacity: !reviewer.trim() || !suggestions.trim() || submitting ? 0.5 : 1,
-              transition: "all 0.2s",
-            }}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all",
+              "bg-[#fbbf24]/10 border border-[#fbbf24]/30 text-[#fcd34d]",
+              "hover:bg-[#fbbf24]/15",
+              "disabled:opacity-35 disabled:cursor-not-allowed",
+            )}
           >
-            {submitting && action === "changes" ? <Spinner /> : null}
+            {submitting && action === "changes" ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="w-3.5 h-3.5" />
+            )}
             Request Changes
-          </button>
+          </motion.button>
 
-          <button
-            className="btn-reject"
+          <motion.button
             onClick={() => handleDecision("reject")}
             disabled={!reviewer.trim() || submitting}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             title="Reject — no PDF will be generated"
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all",
+              "bg-accent-error/10 border border-accent-error/25 text-[#ff6b6b]",
+              "hover:bg-accent-error/15",
+              "disabled:opacity-35 disabled:cursor-not-allowed",
+            )}
           >
-            {submitting && action === "reject" ? <Spinner /> : null}
+            {submitting && action === "reject" ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <XCircle className="w-3.5 h-3.5" />
+            )}
             Reject
-          </button>
+          </motion.button>
         </div>
 
-        <div style={{ fontSize: "0.75em", color: "var(--text-muted)", marginTop: "0.75em" }}>
-          "Request Changes" will trigger a refinement pass and bring you back here for another review.
-        </div>
+        <p className="text-[11px] text-text-muted mt-3">
+          &quot;Request Changes&quot; will trigger a refinement pass and bring
+          you back here for another review.
+        </p>
       </div>
-    </>
+    </motion.div>
   );
 }

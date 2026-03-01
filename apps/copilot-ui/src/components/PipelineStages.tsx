@@ -1,6 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import {
+  CheckCircle2,
+  Circle,
+  CircleDotDashed,
+  CircleX,
+  ChevronDown,
+  ChevronRight,
+  Wrench,
+  Loader2,
+  Microscope,
+  FlaskConical,
+  ShieldAlert,
+  BookOpen,
+  Search,
+  ShieldCheck,
+  Brain,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { getSession, getAgents, SessionStatus } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -18,25 +37,49 @@ export interface ActivityEvent {
   detail?: string;
 }
 
+// ─── Agent icon mapping ───────────────────────────────────────────────────
+const AGENT_ICONS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  planner: Brain,
+  biologist: FlaskConical,
+  "clinical-scout": Microscope,
+  "hawk-safety": ShieldAlert,
+  librarian: BookOpen,
+  "gap-analyst": Search,
+  verifier: ShieldCheck,
+};
+
+function getAgentIcon(agentId: string) {
+  return AGENT_ICONS[agentId] ?? Circle;
+}
+
 // ─── Pipeline stage definitions ───────────────────────────────────────────
 const STAGE_PLANNER = {
   id: "planner",
-  icon: "Pl",
   name: "Planning",
   desc: "Decomposes the query into PICO sub-tasks",
   step: 1,
 };
 
 const STAGE_PARALLEL = [
-  { id: "biologist",      icon: "Bio",  name: "Biologist",      desc: "Molecular targets & pathways" },
-  { id: "clinical-scout", icon: "Clin", name: "Clinical Scout",  desc: "Existing trials & endpoints" },
-  { id: "hawk-safety",    icon: "Hawk", name: "Hawk Safety",     desc: "Adverse events & FDA alerts" },
-  { id: "librarian",      icon: "Lib",  name: "Librarian",       desc: "PubMed literature review" },
+  { id: "biologist", name: "Biologist", desc: "Molecular targets & pathways" },
+  {
+    id: "clinical-scout",
+    name: "Clinical Scout",
+    desc: "Existing trials & endpoints",
+  },
+  {
+    id: "hawk-safety",
+    name: "Hawk Safety",
+    desc: "Adverse events & FDA alerts",
+  },
+  { id: "librarian", name: "Librarian", desc: "PubMed literature review" },
 ];
 
 const STAGE_GAP = {
   id: "gap-analyst",
-  icon: "Gap",
   name: "Gap Analyst",
   desc: "Identifies evidence gaps vs. TPP checklist",
   step: 3,
@@ -44,11 +87,67 @@ const STAGE_GAP = {
 
 const STAGE_VERIFIER = {
   id: "verifier",
-  icon: "Ver",
   name: "Verifier",
   desc: "Cross-checks all claims for accuracy",
   step: 4,
 };
+
+// ─── Status icon component ────────────────────────────────────────────────
+function StatusIcon({
+  status,
+  size = "md",
+}: {
+  status: AgentStatus;
+  size?: "sm" | "md";
+}) {
+  const sizeClass = size === "sm" ? "w-3.5 h-3.5" : "w-4.5 h-4.5";
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={status}
+        initial={{ opacity: 0, scale: 0.8, rotate: -10 }}
+        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+        exit={{ opacity: 0, scale: 0.8, rotate: 10 }}
+        transition={{ duration: 0.2, ease: [0.2, 0.65, 0.3, 0.9] }}
+      >
+        {status === "completed" ? (
+          <CheckCircle2 className={cn(sizeClass, "text-[#69db7c]")} />
+        ) : status === "running" ? (
+          <CircleDotDashed className={cn(sizeClass, "text-[#748ffc]")} />
+        ) : status === "failed" ? (
+          <CircleX className={cn(sizeClass, "text-[#ff6b6b]")} />
+        ) : (
+          <Circle className={cn(sizeClass, "text-text-muted")} />
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─── Status badge ──────────────────────────────────────────────────────────
+function AgentStatusBadge({ status }: { status: AgentStatus }) {
+  const styles: Record<AgentStatus, string> = {
+    completed: "bg-[#69db7c]/10 text-[#69db7c]",
+    running: "bg-[#748ffc]/10 text-[#748ffc]",
+    failed: "bg-[#ff6b6b]/10 text-[#ff6b6b]",
+    pending: "bg-white/5 text-text-muted",
+  };
+
+  return (
+    <motion.span
+      className={cn(
+        "rounded px-1.5 py-0.5 text-[10px] font-medium",
+        styles[status],
+      )}
+      key={status}
+      initial={{ scale: 1 }}
+      animate={{ scale: [1, 1.08, 1] }}
+      transition={{ duration: 0.35, ease: [0.34, 1.56, 0.64, 1] }}
+    >
+      {status}
+    </motion.span>
+  );
+}
 
 // ─── Tool call chip ────────────────────────────────────────────────────────
 function ToolCallChip({ event }: { event: ActivityEvent }) {
@@ -57,21 +156,54 @@ function ToolCallChip({ event }: { event: ActivityEvent }) {
   const isResult = event.type === "tool:result";
 
   return (
-    <div className="tool-chip">
+    <div className="rounded border border-border-subtle overflow-hidden">
       <button
-        className={`tool-chip-row ${isCall ? "tool-chip-call" : isResult ? "tool-chip-result" : "tool-chip-other"}`}
+        className={cn(
+          "flex items-center gap-1.5 px-2 py-1 w-full text-left transition-colors",
+          isCall && "bg-accent/5",
+          isResult && "bg-accent-success/5",
+          !isCall && !isResult && "bg-transparent",
+          event.detail
+            ? "cursor-pointer hover:bg-white/[0.025]"
+            : "cursor-default",
+        )}
         onClick={() => event.detail && setOpen((v) => !v)}
-        style={{ cursor: event.detail ? "pointer" : "default" }}
       >
-        <span className="tool-chip-icon">{isCall ? "fn" : isResult ? "->" : "."}</span>
-        <span className="tool-chip-name">{event.toolName ?? event.message}</span>
+        <Wrench
+          className={cn(
+            "w-3 h-3 shrink-0",
+            isCall
+              ? "text-[#748ffc]"
+              : isResult
+                ? "text-[#69db7c]"
+                : "text-text-muted",
+          )}
+        />
+        <span className="font-mono text-[11px] text-text-secondary flex-1 truncate">
+          {event.toolName ?? event.message}
+        </span>
         {event.detail && (
-          <span className="tool-chip-toggle">{open ? "▲" : "▼"}</span>
+          <ChevronDown
+            className={cn(
+              "w-3 h-3 text-text-muted transition-transform",
+              open && "rotate-180",
+            )}
+          />
         )}
       </button>
-      {open && event.detail && (
-        <pre className="tool-chip-detail">{event.detail}</pre>
-      )}
+      <AnimatePresence>
+        {open && event.detail && (
+          <motion.pre
+            className="px-2.5 py-2 font-mono text-[10px] text-text-secondary bg-bg-deep border-t border-border-subtle overflow-x-auto whitespace-pre-wrap break-all max-h-[150px] overflow-y-auto leading-relaxed"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {event.detail}
+          </motion.pre>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -79,68 +211,117 @@ function ToolCallChip({ event }: { event: ActivityEvent }) {
 // ─── Single agent row ──────────────────────────────────────────────────────
 function AgentRow({
   agentId,
-  icon,
   name,
   desc,
   status,
   events,
 }: {
   agentId: string;
-  icon: string;
   name: string;
   desc: string;
   status: AgentStatus;
   events: ActivityEvent[];
 }) {
   const [expanded, setExpanded] = useState(true);
+  const Icon = getAgentIcon(agentId);
 
   const toolEvents = events.filter(
-    (e) => e.agentId === agentId && (e.type === "tool:call" || e.type === "tool:result")
+    (e) =>
+      e.agentId === agentId &&
+      (e.type === "tool:call" || e.type === "tool:result"),
   );
 
   const stepEvents = events.filter(
-    (e) => e.agentId === agentId && (e.type === "step:start" || e.type === "step:done" || e.type === "step:fail")
+    (e) =>
+      e.agentId === agentId &&
+      (e.type === "step:start" ||
+        e.type === "step:done" ||
+        e.type === "step:fail"),
   );
 
+  const hasContent = toolEvents.length > 0 || stepEvents.length > 0;
+
   return (
-    <div className={`agent-row agent-row-${status}`}>
-      <div className="agent-row-header" onClick={() => setExpanded((v) => !v)}>
-        <div className="agent-row-left">
-          <span className={`agent-row-dot dot-${status}`} />
-          <div className="agent-row-info">
-            <span className="agent-row-name">{name}</span>
-            <span className="agent-row-desc">{desc}</span>
+    <motion.div
+      className={cn(
+        "rounded-md border overflow-hidden transition-colors",
+        status === "running" && "border-accent/20",
+        status === "completed" && "border-accent-success/15",
+        status === "failed" && "border-accent-error/15",
+        status === "pending" && "border-border-subtle",
+      )}
+      layout
+    >
+      <motion.div
+        className="flex items-center justify-between px-3.5 py-2 cursor-pointer select-none hover:bg-white/[0.025] transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+        whileHover={{ backgroundColor: "rgba(255,255,255,0.025)" }}
+      >
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <StatusIcon status={status} size="sm" />
+          <Icon className="w-3.5 h-3.5 text-text-muted shrink-0" />
+          <div className="flex flex-col gap-px min-w-0">
+            <span className="text-xs font-semibold text-text-primary truncate">
+              {name}
+            </span>
+            <span className="text-[10px] text-text-muted truncate">{desc}</span>
           </div>
         </div>
-        <div className="agent-row-right">
-          {status === "running" && <span className="agent-row-spinner" />}
-          {status === "completed" && <span className="agent-row-check">done</span>}
-          {status === "failed" && <span className="agent-row-fail">fail</span>}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {status === "running" && (
+            <Loader2 className="w-3 h-3 text-[#748ffc] animate-spin" />
+          )}
+          <AgentStatusBadge status={status} />
           {toolEvents.length > 0 && (
-            <span className="agent-row-count">{toolEvents.length} calls</span>
+            <span className="text-[10px] font-medium font-mono text-text-muted bg-bg-deep border border-border-default rounded px-1 py-px">
+              {toolEvents.length}
+            </span>
           )}
-          {(toolEvents.length > 0 || stepEvents.length > 0) && (
-            <span className="agent-row-toggle">{expanded ? "▲" : "▼"}</span>
-          )}
+          {hasContent &&
+            (expanded ? (
+              <ChevronDown className="w-3 h-3 text-text-muted" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-text-muted" />
+            ))}
         </div>
-      </div>
+      </motion.div>
 
-      {expanded && (toolEvents.length > 0 || stepEvents.length > 0) && (
-        <div className="agent-row-body">
-          {stepEvents.map((e) => (
-            <div key={e.id} className={`step-event step-${e.type.replace(":", "-")}`}>
-              <span className="step-event-icon">
-                {e.type === "step:done" ? "+" : e.type === "step:fail" ? "-" : ">"}
-              </span>
-              <span className="step-event-msg">{e.message}</span>
-            </div>
-          ))}
-          {toolEvents.map((e) => (
-            <ToolCallChip key={e.id} event={e} />
-          ))}
-        </div>
-      )}
-    </div>
+      <AnimatePresence>
+        {expanded && hasContent && (
+          <motion.div
+            className="border-t border-border-subtle px-3 py-2 flex flex-col gap-1.5"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              duration: 0.25,
+              ease: [0.2, 0.65, 0.3, 0.9],
+            }}
+          >
+            {stepEvents.map((e) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-1.5 px-1 py-0.5 rounded"
+              >
+                {e.type === "step:done" ? (
+                  <CheckCircle2 className="w-2.5 h-2.5 text-[#69db7c] shrink-0" />
+                ) : e.type === "step:fail" ? (
+                  <CircleX className="w-2.5 h-2.5 text-[#ff6b6b] shrink-0" />
+                ) : (
+                  <Circle className="w-2.5 h-2.5 text-text-muted shrink-0" />
+                )}
+                <span className="text-[11px] text-text-secondary leading-snug">
+                  {e.message}
+                </span>
+              </div>
+            ))}
+            {toolEvents.map((e) => (
+              <ToolCallChip key={e.id} event={e} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -159,16 +340,47 @@ function StageBlock({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`stage-block ${isActive ? "stage-active" : ""}`}>
-      <div className="stage-header">
-        <div className="stage-step-badge">{stepNum}</div>
-        <div className="stage-meta">
-          <span className="stage-label">{label}</span>
-          {sublabel && <span className="stage-sublabel">{sublabel}</span>}
+    <motion.div
+      className={cn(
+        "rounded-md border bg-bg-card overflow-hidden transition-colors",
+        isActive ? "border-border-default" : "border-border-subtle",
+      )}
+      initial={{ opacity: 0, y: -5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-2.5 px-4 py-3 border-b",
+          isActive ? "border-border-default" : "border-border-subtle",
+        )}
+      >
+        <div className="w-5 h-5 rounded-full bg-accent/10 text-[#748ffc] text-[10px] font-semibold flex items-center justify-center shrink-0">
+          {stepNum}
+        </div>
+        <div className="flex flex-col gap-px">
+          <span className="text-[13px] font-semibold text-text-primary">
+            {label}
+          </span>
+          {sublabel && (
+            <span className="text-[11px] text-text-muted">{sublabel}</span>
+          )}
         </div>
       </div>
-      <div className="stage-body">{children}</div>
-    </div>
+      <div className="p-3 flex flex-col gap-1.5">{children}</div>
+    </motion.div>
+  );
+}
+
+// ─── Stage connector ───────────────────────────────────────────────────────
+function StageConnector({ active }: { active: boolean }) {
+  return (
+    <div
+      className={cn(
+        "w-px h-4 mx-auto transition-colors",
+        active ? "bg-accent/25" : "bg-border-subtle",
+      )}
+    />
   );
 }
 
@@ -179,13 +391,20 @@ interface PipelineStagesProps {
   onStatusChange: (s: SessionStatus) => void;
 }
 
-export function PipelineStages({ sessionId, overallStatus, onStatusChange }: PipelineStagesProps) {
-  const [agentStatuses, setAgentStatuses] = useState<Record<string, AgentStatus>>({});
+export function PipelineStages({
+  sessionId,
+  overallStatus,
+  onStatusChange,
+}: PipelineStagesProps) {
+  const [agentStatuses, setAgentStatuses] = useState<
+    Record<string, AgentStatus>
+  >({});
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const esRef = useRef<EventSource | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const isTerminal = overallStatus === "completed" || overallStatus === "failed";
+  const isTerminal =
+    overallStatus === "completed" || overallStatus === "failed";
 
   // ── Poll agent statuses ──────────────────────────────────────────────────
   useEffect(() => {
@@ -218,7 +437,9 @@ export function PipelineStages({ sessionId, overallStatus, onStatusChange }: Pip
             return next;
           });
         }
-      } catch { /* silently retry */ }
+      } catch {
+        /* silently retry */
+      }
     };
 
     poll();
@@ -244,10 +465,15 @@ export function PipelineStages({ sessionId, overallStatus, onStatusChange }: Pip
           if (prev.some((p) => p.id === evt.id)) return prev;
           return [...prev, evt];
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
 
-    return () => { es.close(); esRef.current = null; };
+    return () => {
+      es.close();
+      esRef.current = null;
+    };
   }, [sessionId, isTerminal]);
 
   // Auto-scroll
@@ -257,77 +483,96 @@ export function PipelineStages({ sessionId, overallStatus, onStatusChange }: Pip
 
   const st = (id: string): AgentStatus => agentStatuses[id] ?? "pending";
 
-  // Determine which stages are "active" (have any activity)
   const plannerActive = st("planner") !== "pending";
   const parallelActive = STAGE_PARALLEL.some((a) => st(a.id) !== "pending");
   const gapActive = st("gap-analyst") !== "pending";
   const verifierActive = st("verifier") !== "pending";
 
   return (
-    <div className="pipeline-stages">
-      {/* ── Step 1: Planning ───────────────────────────────────────────── */}
-      <StageBlock stepNum={1} label="Planning" sublabel="Decomposing query into research sub-tasks" isActive={plannerActive}>
-        <AgentRow
-          agentId="planner"
-          icon={STAGE_PLANNER.icon}
-          name={STAGE_PLANNER.name}
-          desc={STAGE_PLANNER.desc}
-          status={st("planner")}
-          events={events}
-        />
-      </StageBlock>
+    <motion.div
+      className="flex flex-col"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.2, 0.65, 0.3, 0.9] }}
+    >
+      <LayoutGroup>
+        {/* ── Step 1: Planning ───────────────────────────────────── */}
+        <StageBlock
+          stepNum={1}
+          label="Planning"
+          sublabel="Decomposing query into research sub-tasks"
+          isActive={plannerActive}
+        >
+          <AgentRow
+            agentId="planner"
+            name={STAGE_PLANNER.name}
+            desc={STAGE_PLANNER.desc}
+            status={st("planner")}
+            events={events}
+          />
+        </StageBlock>
 
-      {/* ── Stage connector ─────────────────────────────────────────────── */}
-      <div className={`stage-connector ${parallelActive ? "connector-active" : ""}`} />
+        <StageConnector active={parallelActive} />
 
-      {/* ── Step 2: Parallel Research ───────────────────────────────────── */}
-      <StageBlock stepNum={2} label="Parallel Research" sublabel="4 agents running simultaneously" isActive={parallelActive}>
-        <div className="parallel-agents">
-          {STAGE_PARALLEL.map((a) => (
-            <AgentRow
-              key={a.id}
-              agentId={a.id}
-              icon={a.icon}
-              name={a.name}
-              desc={a.desc}
-              status={st(a.id)}
-              events={events}
-            />
-          ))}
-        </div>
-      </StageBlock>
+        {/* ── Step 2: Parallel Research ──────────────────────────── */}
+        <StageBlock
+          stepNum={2}
+          label="Parallel Research"
+          sublabel="4 agents running simultaneously"
+          isActive={parallelActive}
+        >
+          <div className="flex flex-col gap-1.5">
+            {STAGE_PARALLEL.map((a) => (
+              <AgentRow
+                key={a.id}
+                agentId={a.id}
+                name={a.name}
+                desc={a.desc}
+                status={st(a.id)}
+                events={events}
+              />
+            ))}
+          </div>
+        </StageBlock>
 
-      {/* ── Stage connector ─────────────────────────────────────────────── */}
-      <div className={`stage-connector ${gapActive ? "connector-active" : ""}`} />
+        <StageConnector active={gapActive} />
 
-      {/* ── Step 3: Gap Analysis ────────────────────────────────────────── */}
-      <StageBlock stepNum={3} label="Gap Analysis" sublabel="Identifying evidence gaps vs. TPP" isActive={gapActive}>
-        <AgentRow
-          agentId="gap-analyst"
-          icon={STAGE_GAP.icon}
-          name={STAGE_GAP.name}
-          desc={STAGE_GAP.desc}
-          status={st("gap-analyst")}
-          events={events}
-        />
-      </StageBlock>
+        {/* ── Step 3: Gap Analysis ──────────────────────────────── */}
+        <StageBlock
+          stepNum={3}
+          label="Gap Analysis"
+          sublabel="Identifying evidence gaps vs. TPP"
+          isActive={gapActive}
+        >
+          <AgentRow
+            agentId="gap-analyst"
+            name={STAGE_GAP.name}
+            desc={STAGE_GAP.desc}
+            status={st("gap-analyst")}
+            events={events}
+          />
+        </StageBlock>
 
-      {/* ── Stage connector ─────────────────────────────────────────────── */}
-      <div className={`stage-connector ${verifierActive ? "connector-active" : ""}`} />
+        <StageConnector active={verifierActive} />
 
-      {/* ── Step 4: Verification ────────────────────────────────────────── */}
-      <StageBlock stepNum={4} label="Verification" sublabel="Cross-checking all claims" isActive={verifierActive}>
-        <AgentRow
-          agentId="verifier"
-          icon={STAGE_VERIFIER.icon}
-          name={STAGE_VERIFIER.name}
-          desc={STAGE_VERIFIER.desc}
-          status={st("verifier")}
-          events={events}
-        />
-      </StageBlock>
+        {/* ── Step 4: Verification ──────────────────────────────── */}
+        <StageBlock
+          stepNum={4}
+          label="Verification"
+          sublabel="Cross-checking all claims"
+          isActive={verifierActive}
+        >
+          <AgentRow
+            agentId="verifier"
+            name={STAGE_VERIFIER.name}
+            desc={STAGE_VERIFIER.desc}
+            status={st("verifier")}
+            events={events}
+          />
+        </StageBlock>
+      </LayoutGroup>
 
       <div ref={bottomRef} />
-    </div>
+    </motion.div>
   );
 }
