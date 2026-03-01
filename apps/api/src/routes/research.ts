@@ -149,6 +149,76 @@ research.get("/:sessionId/report", async (c) => {
   return c.body(pdfBuffer, 200);
 });
 
+// GET /api/research/:sessionId/preview
+// Serves the HTML preview file generated before HITL suspension so the
+// reviewer can open it in a new tab before approving/rejecting.
+research.get("/:sessionId/preview", async (c) => {
+  const { sessionId } = c.req.param();
+  const session = getSession(sessionId);
+  if (!session) {
+    return errorResponse(c, 404, "NOT_FOUND", "Session not found");
+  }
+
+  // ── Primary: path stored by the workflow-runner event handler ────────────
+  let previewPath = session.previewHtmlPath;
+
+  // ── Fallback: scan outputs/ for the most recent preview-*.html ───────────
+  // This covers cases where the Mastra suspend event payload path was not
+  // picked up correctly, but the step still wrote the file to disk.
+  if (!previewPath) {
+    try {
+      const { readdir, stat } = await import("node:fs/promises");
+      const { join } = await import("node:path");
+      const { fileURLToPath } = await import("node:url");
+      const { dirname } = await import("node:path");
+
+      // Resolve outputs/ the same way compile-pdf does
+      // (4 levels up from this file: routes → src → api → apps → root)
+      const thisDir = dirname(fileURLToPath(import.meta.url));
+      const outputsDir = join(thisDir, "..", "..", "..", "..", "outputs");
+
+      const files = await readdir(outputsDir);
+      const previews = files.filter((f) => f.startsWith("preview-") && f.endsWith(".html"));
+
+      // Pick the most recently modified one created after this session started
+      const sessionCreated = new Date(session.createdAt).getTime();
+      let latestMtime = 0;
+      let latestPath: string | null = null;
+
+      for (const file of previews) {
+        const fullPath = join(outputsDir, file);
+        const s = await stat(fullPath).catch(() => null);
+        if (s && s.mtimeMs > sessionCreated && s.mtimeMs > latestMtime) {
+          latestMtime = s.mtimeMs;
+          latestPath = fullPath;
+        }
+      }
+
+      if (latestPath) {
+        previewPath = latestPath;
+        // Store it so subsequent requests skip the scan
+        updateSession(sessionId, { previewHtmlPath: latestPath });
+        console.log(`[preview] found via fs scan: ${latestPath}`);
+      }
+    } catch (err) {
+      console.warn("[preview] fs fallback scan failed:", err);
+    }
+  }
+
+  if (!previewPath) {
+    return errorResponse(c, 404, "NOT_READY", "Preview not yet available — pipeline may still be running");
+  }
+
+  try {
+    const html = await readFile(previewPath, "utf8");
+    c.header("Content-Type", "text/html; charset=utf-8");
+    c.header("Cache-Control", "no-store");
+    return c.body(html, 200);
+  } catch {
+    return errorResponse(c, 500, "READ_ERROR", "Could not read preview file");
+  }
+});
+
 // GET /api/research/:sessionId/audit
 research.get("/:sessionId/audit", async (c) => {
   const { sessionId } = c.req.param();

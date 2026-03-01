@@ -30,7 +30,8 @@ export interface SessionState {
   createdAt: string;
   result: unknown | null;
   agents: Record<AgentName, AgentStatus>;
-  reportTexPath?: string;
+  previewHtmlPath?: string;
+  reviewIteration?: number;
   reportPdfPath?: string;
   log: ActivityEvent[];
 }

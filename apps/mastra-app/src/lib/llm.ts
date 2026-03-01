@@ -84,7 +84,18 @@ function withRateLimitRetry(
  * Uses a duck-typed runtime cast so it works regardless of which AI SDK
  * version is installed (type names changed between v3/v4).
  */
-function withToolInterception(model: LanguageModelV3): LanguageModelV3 {
+/**
+ * Wraps a LanguageModelV3 to intercept AI SDK stream chunks and fire
+ * onToolCall / onToolResult hooks from the current sessionContext.
+ *
+ * agentId is captured as a closure — each agent's model wrapper knows its
+ * own identity at construction time, so parallel agents never clobber each
+ * other's label (no shared mutable currentAgentId on the store needed).
+ */
+function withToolInterception(
+  model: LanguageModelV3,
+  agentId: string,
+): LanguageModelV3 {
   return {
     ...model,
     async doStream(options) {
@@ -94,7 +105,6 @@ function withToolInterception(model: LanguageModelV3): LanguageModelV3 {
         return result; // no hooks — return unchanged
       }
 
-      const agentId = ctx.currentAgentId ?? "unknown";
       // toolCallId → toolName (for matching results back to calls)
       const toolNames = new Map<string, string>();
 
@@ -116,20 +126,24 @@ function withToolInterception(model: LanguageModelV3): LanguageModelV3 {
                 const c = value as any;
                 const type: string = c?.type ?? "";
 
-                // "tool-input-start" (newer SDK) or "tool-call" start signals
+                // "tool-input-start" / "tool-call-start" — record the name
+                // (the full call arrives later as "tool-call")
                 if (type === "tool-input-start" || type === "tool-call-start") {
                   const id: string = c.toolCallId ?? c.id ?? "";
                   const name: string = c.toolName ?? c.name ?? "unknown";
                   if (id) toolNames.set(id, name);
                 }
 
-                // "tool-call" = complete tool call (older SDK emits all at once,
-                //   newer SDK emits this after input-end)
-                if (type === "tool-call" || type === "tool-input-end") {
+                // "tool-input-end" — streaming of args finished, but the
+                // complete args aren't guaranteed here. Skip; wait for "tool-call".
+                // (No action needed — name already stored above.)
+
+                // "tool-call" — emitted by both old and new SDK with the full,
+                // accumulated args. This is the single reliable trigger point.
+                if (type === "tool-call") {
                   const id: string = c.toolCallId ?? c.id ?? "";
                   const name: string =
                     toolNames.get(id) ?? c.toolName ?? c.name ?? "unknown";
-                  // input or args depending on SDK version
                   const args: unknown = c.args ?? c.input ?? undefined;
                   ctx.onToolCall?.(agentId, name, args);
                   if (id) toolNames.set(id, name);
@@ -205,7 +219,7 @@ export function getModel(modelId?: string): LanguageModelV3 {
       );
   }
 
-  return withToolInterception(withRateLimitRetry(base));
+  return withToolInterception(withRateLimitRetry(base), "unknown");
 }
 
 /**
@@ -219,5 +233,53 @@ export function getModel(modelId?: string): LanguageModelV3 {
 export function getModelForAgent(agentId: string): LanguageModelV3 {
   const envKey = `${agentId.replace(/-/g, "_").toUpperCase()}_MODEL`;
   const agentModelId = process.env[envKey];
-  return getModel(agentModelId);
+  const [provider, ...rest] = (agentModelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-flash").split(":");
+  const model = rest.join(":");
+
+  const perplexity = createOpenAI({
+    name: "perplexity",
+    baseURL: "https://api.perplexity.ai",
+    apiKey: process.env.PERPLEXITY_API_KEY,
+  });
+
+  const huggingface = createHuggingFace({
+    apiKey: process.env.HUGGINGFACE_API_KEY,
+  });
+
+  const openrouter = createOpenAI({
+    name: "openrouter",
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+  });
+
+  let base: LanguageModelV3;
+
+  switch (provider) {
+    case "google":
+      base = google(model);
+      break;
+    case "openai":
+      base = openai(model);
+      break;
+    case "anthropic":
+      base = anthropic(model);
+      break;
+    case "perplexity":
+      base = perplexity.chat(model);
+      break;
+    case "huggingface":
+      base = huggingface(model);
+      break;
+    case "openrouter":
+      base = openrouter.chat(model);
+      break;
+    default:
+      throw new Error(
+        `Unknown LLM provider: ${provider}. Use google:, openai:, anthropic:, perplexity:, huggingface:, or openrouter:`,
+      );
+  }
+
+  // agentId is captured in the closure — each parallel agent has its own
+  // model wrapper and never shares its identity with other agents.
+  return withToolInterception(withRateLimitRetry(base), agentId);
 }

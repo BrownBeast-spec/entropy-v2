@@ -91,11 +91,8 @@ export const workflowRunner = {
       }
     };
 
-    // ── Tool-call hooks that fire from withToolInterception in llm.ts ───────
-    // currentAgentId is mutated by run.watch() when a step starts.
     const contextHooks = {
       sessionId,
-      currentAgentId: "unknown",
       onToolCall: (agentId: string, toolName: string, args: unknown) => {
         console.log(
           `[workflow-runner] tool:call ${toolName} agent=${agentId} session=${sessionId}`,
@@ -139,9 +136,6 @@ export const workflowRunner = {
               updateAgentStatus(session, stepId, "running");
               updateSession(sessionId, { agents: session.agents });
             }
-            // Propagate the current agent so tool events are labelled correctly
-            contextHooks.currentAgentId = stepId;
-
             publish(sessionId, {
               type: "step:start",
               agentId: stepId,
@@ -186,10 +180,45 @@ export const workflowRunner = {
           console.log(
             `[workflow-runner] step:suspended ${stepId} session=${sessionId}`,
           );
+          // Log full event to diagnose the correct suspend-payload path
+          console.log(
+            "[workflow-runner] full suspend event:",
+            JSON.stringify(event, null, 2).slice(0, 2000),
+          );
+
+          // Try several payload paths — Mastra's event shape varies by version
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ev = event as any;
+          const suspendPayload =
+            ev?.payload?.status?.payload ??
+            ev?.payload?.payload ??
+            ev?.payload ??
+            ev?.suspendPayload ??
+            null;
+
+          const previewHtmlPath: string | undefined =
+            suspendPayload?.html_preview_path;
+          const reviewIteration: number | undefined =
+            suspendPayload?.iteration_count;
+
+          if (previewHtmlPath) {
+            updateSession(sessionId, { previewHtmlPath, reviewIteration });
+            console.log(
+              `[workflow-runner] preview HTML stored: ${previewHtmlPath}`,
+            );
+          } else {
+            console.warn(
+              "[workflow-runner] suspend payload has no html_preview_path. suspendPayload:",
+              suspendPayload,
+            );
+          }
+
           publish(sessionId, {
             type: "hitl:suspended",
             agentId: "pipeline",
-            message: "Pipeline paused — awaiting human review",
+            message: reviewIteration && reviewIteration > 1
+              ? `⏸ Pipeline paused — awaiting review (iteration ${reviewIteration})`
+              : "⏸ Pipeline paused — awaiting human review",
           });
         }
       },
@@ -202,17 +231,42 @@ export const workflowRunner = {
     );
 
     if (result.status === "suspended") {
-      updateSession(sessionId, { status: "suspended" });
+      // Also try extracting the preview path from the run result directly
+      // (more reliable than the watch event payload on some Mastra versions)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const resultAny = result as any;
+      const resultPayload =
+        resultAny?.suspendedData ??
+        resultAny?.steps?.["human-review"]?.payload ??
+        resultAny?.payload ??
+        null;
+      const previewFromResult: string | undefined =
+        resultPayload?.html_preview_path;
+      const iterationFromResult: number | undefined =
+        resultPayload?.iteration_count;
+
+      console.log(
+        "[workflow-runner] run.start() suspended result keys:",
+        Object.keys(resultAny ?? {}),
+        "previewFromResult:",
+        previewFromResult ?? "(not found)",
+      );
+
+      updateSession(sessionId, {
+        status: "suspended",
+        ...(previewFromResult
+          ? { previewHtmlPath: previewFromResult, reviewIteration: iterationFromResult }
+          : {}),
+      });
       activeRuns.set(sessionId, { run, status: "suspended" });
       return;
     }
 
     if (result.status === "success") {
-      const output = result.result as { texPath?: string; pdfPath?: string };
+      const output = result.result as { htmlPath?: string; pdfPath?: string };
       updateSession(sessionId, {
         status: "completed",
         result: result.result,
-        reportTexPath: output.texPath,
         reportPdfPath: output.pdfPath,
       });
       publish(sessionId, {
@@ -260,11 +314,10 @@ export const workflowRunner = {
     });
 
     if (result.status === "success") {
-      const output = result.result as { texPath?: string; pdfPath?: string };
+      const output = result.result as { htmlPath?: string; pdfPath?: string };
       updateSession(sessionId, {
         status: "completed",
         result: result.result,
-        reportTexPath: output.texPath,
         reportPdfPath: output.pdfPath,
       });
       publish(sessionId, {

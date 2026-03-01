@@ -21,14 +21,14 @@ interface Props {
 }
 
 const TYPE_STYLE: Record<string, { icon: string; color: string }> = {
-  "step:start":      { icon: "▶", color: "var(--accent)" },
-  "step:done":       { icon: "✓", color: "#4ade80" },
-  "step:fail":       { icon: "✗", color: "#f87171" },
-  "tool:call":       { icon: "⚙", color: "#a78bfa" },
-  "tool:result":     { icon: "↩", color: "#818cf8" },
-  "hitl:suspended":  { icon: "⏸", color: "#fbbf24" },
-  "pipeline:done":   { icon: "🏁", color: "#4ade80" },
-  "pipeline:fail":   { icon: "💥", color: "#f87171" },
+  "step:start":      { icon: ">",  color: "var(--text-muted)" },
+  "step:done":       { icon: "+",  color: "#69db7c" },
+  "step:fail":       { icon: "-",  color: "#ff6b6b" },
+  "tool:call":       { icon: "fn", color: "#748ffc" },
+  "tool:result":     { icon: "->", color: "#748ffc" },
+  "hitl:suspended":  { icon: "||", color: "#ffa94d" },
+  "pipeline:done":   { icon: "ok", color: "#69db7c" },
+  "pipeline:fail":   { icon: "!",  color: "#ff6b6b" },
 };
 
 const AGENT_LABELS: Record<string, string> = {
