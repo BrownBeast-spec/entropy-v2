@@ -2,6 +2,10 @@
 
 Entropy is an autonomous multi-agent drug-repurposing research platform built on [Mastra](https://mastra.ai) and TypeScript. Given a research query (e.g., "Can metformin be repurposed for Alzheimer's disease?"), it orchestrates a pipeline of 7 specialised AI agents to produce a fully cited HTML/PDF research dossier with a human-in-the-loop (HITL) review step.
 
+## Video Demo
+[![Watch the video](https://i.ibb.co/sdGbcDCc/image.png)](https://drive.google.com/file/d/1RAlJujmIE8IKs35B7chX7A0bs5cNpe8p/view?usp=drive_link)
+
+
 ## Architecture
 
 The system is a **pnpm monorepo** with 9 workspace packages across three layers:
