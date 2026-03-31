@@ -4,6 +4,12 @@
 # OpenCode config
 .opencode/
 
+# Local AI/tooling workspaces
+.agents/
+.claude/
+.junie/
+.kiro/
+
 # Session files
 session-*.md
 
@@ -17,6 +23,21 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env*.example
+.envrc
+.direnv/
+
+# Secret and key material
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+*.p8
 
 # Database files
 *.db
@@ -42,3 +63,7 @@ outputs/
 .vscode/
 .idea/
 *.sw?
+
+# Python cache/artifacts
+__pycache__/
+*.py[cod]
