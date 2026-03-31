@@ -1,7 +1,10 @@
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  theme: {
+import json
+
+file_path = '/home/beast/Documents/Personal/entropy-v2/entropy_front/tailwind.config.js'
+with open(file_path, 'r') as f:
+    text = f.read()
+
+replacement = """  theme: {
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -58,8 +61,33 @@ export default {
         mono: ['"DM Mono"', "monospace"],
         serif: ['"Crimson Pro"', "serif"],
       },
+"""
 
-    },
-  },
-  plugins: [require("tailwindcss-animate")],
-};
+text = text.replace("""  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['"Sora"', "sans-serif"],
+        display: ['"Sora"', "sans-serif"],
+        mono: ['"DM Mono"', "monospace"],
+        serif: ['"Crimson Pro"', "serif"],
+      },
+      colors: {
+        navy: {
+          DEFAULT: "#0B1120",
+          mid: "#111827",
+          light: "#1A2440",
+        },
+        indigo: {
+          DEFAULT: "#3730D8",
+          bright: "#4F46E5",
+          light: "#6366F1",
+        },
+        lavender: {
+          DEFAULT: "#EEF0FF",
+          mid: "#E5E7FF",
+        },
+      },""", replacement)
+
+with open(file_path, 'w') as f:
+    f.write(text)
+
