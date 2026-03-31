@@ -16,7 +16,7 @@ describe("HitlResumeSchema", () => {
   it("validates approval without notes", () => {
     const data = { approved: false, reviewer: "admin" };
     const parsed = HitlResumeSchema.parse(data);
-    expect(parsed.notes).toBeUndefined();
+    expect(parsed.suggestions).toBeUndefined();
   });
 
   it("rejects missing approved field", () => {
@@ -35,7 +35,9 @@ describe("HitlOutputSchema", () => {
     const output = {
       approved: true,
       reviewer: "dr.smith@example.com",
-      notes: "Approved with minor comments",
+      suggestions: "Approved with minor comments",
+      htmlPreviewPath: "/tmp/preview.html",
+      iterationCount: 1,
       verificationReport: {
         summary: "All claims verified",
         totalClaimsChecked: 5,
@@ -86,10 +88,10 @@ describe("Human Review Step in Workflow", () => {
     ).outputSchema?.shape;
     if (shape) {
       expect(shape).toHaveProperty("hitlOutput");
-      expect(shape).toHaveProperty("texPath");
+      expect(shape).toHaveProperty("htmlPath");
       expect(shape).toHaveProperty("pdfPath");
       expect(shape).toHaveProperty("pdfSuccess");
-      expect(shape).toHaveProperty("pdfStderr");
+      expect(shape).toHaveProperty("pdfError");
     } else {
       // If outputSchema doesn't expose shape, just verify the workflow is defined
       expect(researchPipelineWorkflow).toBeDefined();

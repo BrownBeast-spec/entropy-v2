@@ -6,6 +6,8 @@ export { hawkAgent } from "./agents/hawk.js";
 export { librarianAgent } from "./agents/librarian.js";
 export { gapAnalystAgent } from "./agents/gap-analyst.js";
 export { verifierAgent } from "./agents/verifier.js";
+export { queryPlannerAgent } from "./agents/query-planner.js";
+export { evidenceSummarizerAgent } from "./agents/evidence-summarizer.js";
 export { researchPipelineWorkflow } from "./workflows/research-pipeline.js";
 export {
   getAuditStore,
@@ -47,4 +49,3 @@ export {
   type CompileFormat,
   type CompileResult,
 } from "./report/index.js";
-

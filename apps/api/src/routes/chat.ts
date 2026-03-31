@@ -24,7 +24,11 @@ chat.all("/", async (c) => {
   const requestContext = new RequestContext();
 
   // Wrap every Mastra agent in an AG-UI compatible adapter
-  const agents = getLocalAgents({ mastra, requestContext });
+  const agents = getLocalAgents({
+    mastra: mastra as never,
+    resourceId: "entropy-local",
+    requestContext,
+  });
 
   const runtime = new CopilotRuntime({ agents } as never);
 

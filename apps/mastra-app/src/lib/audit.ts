@@ -3,7 +3,7 @@ import {
   CacheStore,
   type SessionTrail,
   type ToolCallLog,
-} from "../../../../packages/audit/src/index.js";
+} from "@entropy/audit";
 
 type AuditStoreLike = {
   migrate: () => Promise<void>;

@@ -1,4 +1,7 @@
-import type { LanguageModelV3, LanguageModelV3StreamPart } from "@ai-sdk/provider";
+import type {
+  LanguageModelV3,
+  LanguageModelV3StreamPart,
+} from "@ai-sdk/provider";
 import { google } from "@ai-sdk/google";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -172,7 +175,8 @@ function withToolInterception(
 }
 
 export function getModel(modelId?: string): LanguageModelV3 {
-  const id = modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-flash";
+  const id =
+    modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-pro-preview-05-06";
   const [provider, ...rest] = id.split(":");
   const model = rest.join(":");
 
@@ -233,7 +237,11 @@ export function getModel(modelId?: string): LanguageModelV3 {
 export function getModelForAgent(agentId: string): LanguageModelV3 {
   const envKey = `${agentId.replace(/-/g, "_").toUpperCase()}_MODEL`;
   const agentModelId = process.env[envKey];
-  const [provider, ...rest] = (agentModelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-flash").split(":");
+  const [provider, ...rest] = (
+    agentModelId ??
+    process.env.LLM_MODEL ??
+    "google:gemini-2.5-pro-preview-05-06"
+  ).split(":");
   const model = rest.join(":");
 
   const perplexity = createOpenAI({

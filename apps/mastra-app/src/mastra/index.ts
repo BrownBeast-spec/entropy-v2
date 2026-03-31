@@ -8,6 +8,8 @@ import { hawkAgent } from "../agents/hawk.js";
 import { librarianAgent } from "../agents/librarian.js";
 import { gapAnalystAgent } from "../agents/gap-analyst.js";
 import { verifierAgent } from "../agents/verifier.js";
+import { queryPlannerAgent } from "../agents/query-planner.js";
+import { evidenceSummarizerAgent } from "../agents/evidence-summarizer.js";
 import { researchPipelineWorkflow } from "../workflows/research-pipeline.js";
 import { getAuditStore, isAuditEnabled } from "../lib/audit.js";
 
@@ -20,13 +22,14 @@ export const mastra = new Mastra({
     librarianAgent,
     gapAnalystAgent,
     verifierAgent,
+    queryPlannerAgent,
+    evidenceSummarizerAgent,
   },
   workflows: {
     researchPipelineWorkflow,
   },
   storage: new InMemoryStore({ id: "entropy-storage" }),
 });
-
 
 if (isAuditEnabled()) {
   getAuditStore()

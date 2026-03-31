@@ -4,12 +4,18 @@ import { clinicalScoutAgent } from "../agents/clinical-scout.js";
 import { hawkAgent } from "../agents/hawk.js";
 import { librarianAgent } from "../agents/librarian.js";
 import { gapAnalystAgent } from "../agents/gap-analyst.js";
+import { queryPlannerAgent } from "../agents/query-planner.js";
+import { evidenceSummarizerAgent } from "../agents/evidence-summarizer.js";
 import { mastra } from "../mastra/index.js";
 import {
   getBiologyTools,
   getClinicalTrialsTools,
+  getEuropePMCTools,
+  getPatentsTools,
   getPubMedTools,
+  getPubChemTools,
   getSafetyTools,
+  getSTRINGTools,
   resetToolCaches,
 } from "../lib/mcp-client.js";
 
@@ -224,74 +230,164 @@ describe("Gap Analyst Agent", () => {
 // ─── MCP Client Wiring Tests ─────────────────────────────────────────────
 
 describe("MCP Client Wiring", () => {
+  const MCP_DISCOVERY_TIMEOUT_MS = 20_000;
+
   beforeEach(async () => {
     await resetToolCaches();
   });
 
-  it("should discover biology tools from mcp-biology server", async () => {
-    const tools = await getBiologyTools();
-    const toolNames = Object.keys(tools);
+  it(
+    "should discover biology tools from mcp-biology server",
+    async () => {
+      const tools = await getBiologyTools();
+      const toolNames = Object.keys(tools);
 
-    expect(toolNames.length).toBeGreaterThanOrEqual(13);
-    expect(toolNames).toContain("validate_target");
-    expect(toolNames).toContain("get_gene_info");
-    expect(toolNames).toContain("get_protein_data");
-    expect(toolNames).toContain("get_disease_info");
-  });
+      expect(toolNames.length).toBeGreaterThanOrEqual(13);
+      expect(toolNames).toContain("validate_target");
+      expect(toolNames).toContain("get_gene_info");
+      expect(toolNames).toContain("get_protein_data");
+      expect(toolNames).toContain("get_disease_info");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
 
-  it("should discover clinical trials tools from mcp-clinical server", async () => {
-    const tools = await getClinicalTrialsTools();
-    const toolNames = Object.keys(tools);
+  it(
+    "should discover clinical trials tools from mcp-clinical server",
+    async () => {
+      const tools = await getClinicalTrialsTools();
+      const toolNames = Object.keys(tools);
 
-    expect(toolNames.length).toBe(3);
-    expect(toolNames).toContain("search_studies");
-    expect(toolNames).toContain("get_study_details");
-    expect(toolNames).toContain("get_eligibility_criteria");
-  });
+      expect(toolNames.length).toBe(3);
+      expect(toolNames).toContain("search_studies");
+      expect(toolNames).toContain("get_study_details");
+      expect(toolNames).toContain("get_eligibility_criteria");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
 
-  it("should discover PubMed tools from mcp-clinical server", async () => {
-    const tools = await getPubMedTools();
-    const toolNames = Object.keys(tools);
+  it(
+    "should discover PubMed tools from mcp-clinical server",
+    async () => {
+      const tools = await getPubMedTools();
+      const toolNames = Object.keys(tools);
 
-    expect(toolNames.length).toBe(4);
-    expect(toolNames).toContain("search_literature");
-    expect(toolNames).toContain("search_preprints");
-    expect(toolNames).toContain("get_abstract");
-    expect(toolNames).toContain("get_paper_metadata");
-  });
+      expect(toolNames.length).toBe(4);
+      expect(toolNames).toContain("search_literature");
+      expect(toolNames).toContain("search_preprints");
+      expect(toolNames).toContain("get_abstract");
+      expect(toolNames).toContain("get_paper_metadata");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
 
-  it("should discover safety tools from mcp-safety server", async () => {
-    const tools = await getSafetyTools();
-    const toolNames = Object.keys(tools);
+  it(
+    "should discover safety tools from mcp-safety server",
+    async () => {
+      const tools = await getSafetyTools();
+      const toolNames = Object.keys(tools);
 
-    expect(toolNames.length).toBeGreaterThanOrEqual(7);
-    expect(toolNames).toContain("check_drug_safety");
-    expect(toolNames).toContain("check_adverse_events");
-    expect(toolNames).toContain("get_drug_interactions");
-  });
+      expect(toolNames.length).toBeGreaterThanOrEqual(7);
+      expect(toolNames).toContain("check_drug_safety");
+      expect(toolNames).toContain("check_adverse_events");
+      expect(toolNames).toContain("get_drug_interactions");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
 
-  it("should cache biology tools on subsequent calls", async () => {
-    const tools1 = await getBiologyTools();
-    const tools2 = await getBiologyTools();
-    expect(tools1).toBe(tools2); // same reference
-  });
+  it(
+    "should cache biology tools on subsequent calls",
+    async () => {
+      const tools1 = await getBiologyTools();
+      const tools2 = await getBiologyTools();
+      expect(tools1).toBe(tools2); // same reference
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
 
-  it("should cache safety tools on subsequent calls", async () => {
-    const tools1 = await getSafetyTools();
-    const tools2 = await getSafetyTools();
-    expect(tools1).toBe(tools2);
-  });
+  it(
+    "should cache safety tools on subsequent calls",
+    async () => {
+      const tools1 = await getSafetyTools();
+      const tools2 = await getSafetyTools();
+      expect(tools1).toBe(tools2);
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
+
+  it(
+    "should discover Europe PMC tools",
+    async () => {
+      const tools = await getEuropePMCTools();
+      const toolNames = Object.keys(tools);
+
+      expect(toolNames).toContain("search_europepmc");
+      expect(toolNames).toContain("get_fulltext_europepmc");
+      expect(toolNames).toContain("get_citations_europepmc");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
+
+  it(
+    "should discover patents tools",
+    async () => {
+      const tools = await getPatentsTools();
+      const toolNames = Object.keys(tools);
+
+      expect(toolNames).toContain("search_patents_by_drug");
+      expect(toolNames).toContain("get_patent_timeline");
+      expect(toolNames).toContain("get_top_assignees");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
+
+  it(
+    "should discover STRING tools",
+    async () => {
+      const tools = await getSTRINGTools();
+      const toolNames = Object.keys(tools);
+
+      expect(toolNames).toContain("get_protein_interactions");
+      expect(toolNames).toContain("get_functional_enrichment");
+      expect(toolNames).toContain("get_protein_info");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
+
+  it(
+    "should discover PubChem tools",
+    async () => {
+      const tools = await getPubChemTools();
+      const toolNames = Object.keys(tools);
+
+      expect(toolNames).toContain("search_compounds");
+      expect(toolNames).toContain("get_compound_details");
+      expect(toolNames).toContain("get_similar_compounds");
+    },
+    MCP_DISCOVERY_TIMEOUT_MS,
+  );
 });
 
 // ─── All Agents Registered ───────────────────────────────────────────────
 
 describe("Mastra Instance", () => {
-  it("should have all 6 agents registered", () => {
+  it("should have all 8 agents registered", () => {
     expect(mastra.getAgent("plannerAgent")).toBeDefined();
     expect(mastra.getAgent("biologistAgent")).toBeDefined();
     expect(mastra.getAgent("clinicalScoutAgent")).toBeDefined();
     expect(mastra.getAgent("hawkAgent")).toBeDefined();
     expect(mastra.getAgent("librarianAgent")).toBeDefined();
     expect(mastra.getAgent("gapAnalystAgent")).toBeDefined();
+    expect(mastra.getAgent("queryPlannerAgent")).toBeDefined();
+    expect(mastra.getAgent("evidenceSummarizerAgent")).toBeDefined();
+  });
+});
+
+describe("New Summary Agents", () => {
+  it("query planner should have expected id", () => {
+    expect(queryPlannerAgent.id).toBe("query-planner");
+  });
+
+  it("evidence summarizer should have expected id", () => {
+    expect(evidenceSummarizerAgent.id).toBe("evidence-summarizer");
   });
 });

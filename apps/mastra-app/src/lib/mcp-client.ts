@@ -30,6 +30,22 @@ function getMcpClient(): MCPClient {
         command: "node",
         args: [resolve(packagesDir, "mcp-safety/dist/server.js")],
       },
+      europepmc: {
+        command: "node",
+        args: [resolve(packagesDir, "mcp-europepmc/dist/server.js")],
+      },
+      patents: {
+        command: "node",
+        args: [resolve(packagesDir, "mcp-patents/dist/server.js")],
+      },
+      string: {
+        command: "node",
+        args: [resolve(packagesDir, "mcp-string/dist/server.js")],
+      },
+      pubchem: {
+        command: "node",
+        args: [resolve(packagesDir, "mcp-pubchem/dist/server.js")],
+      },
     },
     timeout: 30_000,
   });
@@ -115,6 +131,38 @@ export async function getPubMedTools(): Promise<Record<string, AnyTool>> {
 export async function getSafetyTools(): Promise<Record<string, AnyTool>> {
   const ts = await getToolsets();
   return ts.safety ?? {};
+}
+
+/**
+ * Get Europe PMC tools (preprints, full-text search).
+ */
+export async function getEuropePMCTools(): Promise<Record<string, AnyTool>> {
+  const ts = await getToolsets();
+  return ts.europepmc ?? {};
+}
+
+/**
+ * Get patents tools (PatentsView, Orange Book).
+ */
+export async function getPatentsTools(): Promise<Record<string, AnyTool>> {
+  const ts = await getToolsets();
+  return ts.patents ?? {};
+}
+
+/**
+ * Get STRING DB tools (protein-protein interactions).
+ */
+export async function getSTRINGTools(): Promise<Record<string, AnyTool>> {
+  const ts = await getToolsets();
+  return ts.string ?? {};
+}
+
+/**
+ * Get PubChem tools (chemical structures, compound search).
+ */
+export async function getPubChemTools(): Promise<Record<string, AnyTool>> {
+  const ts = await getToolsets();
+  return ts.pubchem ?? {};
 }
 
 /**

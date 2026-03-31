@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "anthropics/claude-code",
+      "sourceType": "github",
+      "computedHash": "e8118284a6365753790d44bb2758a6032b3af27fa84696428d9233f2be0f4e78"
+    },
+    "write-a-prd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "computedHash": "d03d51db8cfd3dd5c27f9b8e1ffe61686391fdbd62bf4cb2f47db7e62ee68cd2"
+    }
+  }
+}
