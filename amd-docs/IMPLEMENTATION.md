@@ -15,6 +15,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Mastra helper agents for completeness/synthesis/follow-ups added and exported
 - Frontend scaffold in this worktree synced to `entropy-research-hub/` and converted from gitlink tracking to regular repository files
 - WorkspaceStore v2 implementation started in frontend with IndexedDB-backed storage module and passing unit tests
+- Workspace navigation baseline now wired: create workspace action navigates to `/workspaces/:id`, route is mounted, and app is wrapped with `WorkspaceProvider`
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
 
 ## Status legend
@@ -167,15 +168,29 @@ Also missing on backend for PRD parity:
      - `entropy-research-hub/src/lib/api/augmentation.ts`
    - Workspace view now attempts real augmentation API call (`/api/causaly/augment`) with fallback to demo completion flow
 
+5. Frontend routing and workspace flow wiring improved
+   - `entropy-research-hub/src/App.tsx` now mounts:
+     - `WorkspaceProvider`
+     - route: `/workspaces/:id` → `WorkspaceView`
+   - `entropy-research-hub/src/pages/WorkspacesPage.tsx` now:
+     - renders rows from context workspace data when present
+     - creates workspace via context action and navigates to `/workspaces/:id`
+     - supports row click navigation into workspace detail view
+     - retains demo fallback rows when no persisted workspaces exist
+   - Added workspace flow tests:
+     - `src/pages/WorkspacesPage.test.tsx`
+     - `src/pages/WorkspaceView.routing.test.tsx`
+
 ### Scaffolding / partial
 
 1. Workspace flow is implemented mostly as isolated scaffolding, not wired app behavior.
-   - `WorkspaceView` exists, but current route config in `src/App.tsx` does not expose `/workspaces/:id`.
-   - `WorkspaceProvider` exists, but it is not mounted in `src/main.tsx`.
+   - `WorkspaceView` route is now wired in `App.tsx`.
+   - `WorkspaceProvider` is now mounted in `App.tsx`.
+   - Remaining: context still uses legacy localStorage adapter as source of truth.
 
 2. Workspace list and creation are currently static UI.
-   - `src/pages/WorkspacesPage.tsx` uses hardcoded `dummyWorkspaces`.
-   - "Create and start researching" does not persist or navigate to a real workspace.
+   - `src/pages/WorkspacesPage.tsx` now supports real create+navigate via context actions.
+   - Demo fallback rows still render when no persisted workspace exists.
 
 3. Query-to-graph behavior is simulated.
    - `ResearchProgressOverlay` uses timed fake logs and fake completion.

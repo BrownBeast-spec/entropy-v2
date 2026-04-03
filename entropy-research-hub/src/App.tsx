@@ -14,6 +14,8 @@ import SettingsMembers from "@/pages/settings/SettingsMembers";
 import SettingsIntegrations from "@/pages/settings/SettingsIntegrations";
 import SettingsMcpServers from "@/pages/settings/SettingsMcpServers";
 import NotFound from "@/pages/NotFound";
+import WorkspaceView from "@/pages/WorkspaceView";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 
 const queryClient = new QueryClient();
 
@@ -21,26 +23,29 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/" element={<Navigate to="/workspaces" replace />} />
-            <Route path="/agent" element={<AgentPage />} />
-            <Route path="/topics" element={<TopicsPage />} />
-            <Route path="/people" element={<PeoplePage />} />
-            <Route path="/companies" element={<CompaniesPage />} />
-            <Route path="/workspaces" element={<WorkspacesPage />} />
-            <Route path="/automations" element={<AutomationsPage />} />
-            <Route path="/settings" element={<SettingsOrganization />} />
-            <Route path="/settings/organization" element={<SettingsOrganization />} />
-            <Route path="/settings/members" element={<SettingsMembers />} />
-            <Route path="/settings/integrations" element={<SettingsIntegrations />} />
-            <Route path="/settings/mcp-servers" element={<SettingsMcpServers />} />
-            <Route path="/settings/*" element={<SettingsOrganization />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <WorkspaceProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/" element={<Navigate to="/workspaces" replace />} />
+              <Route path="/agent" element={<AgentPage />} />
+              <Route path="/topics" element={<TopicsPage />} />
+              <Route path="/people" element={<PeoplePage />} />
+              <Route path="/companies" element={<CompaniesPage />} />
+              <Route path="/workspaces" element={<WorkspacesPage />} />
+              <Route path="/workspaces/:id" element={<WorkspaceView />} />
+              <Route path="/automations" element={<AutomationsPage />} />
+              <Route path="/settings" element={<SettingsOrganization />} />
+              <Route path="/settings/organization" element={<SettingsOrganization />} />
+              <Route path="/settings/members" element={<SettingsMembers />} />
+              <Route path="/settings/integrations" element={<SettingsIntegrations />} />
+              <Route path="/settings/mcp-servers" element={<SettingsMcpServers />} />
+              <Route path="/settings/*" element={<SettingsOrganization />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </WorkspaceProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

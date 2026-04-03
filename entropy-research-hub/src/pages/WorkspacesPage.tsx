@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Plus, MoreHorizontal } from "lucide-react";
+import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 
-interface Workspace {
+interface WorkspaceRow {
   id: string;
   name: string;
   mode: "Researcher" | "Strategist";
@@ -10,18 +12,86 @@ interface Workspace {
   lastUpdated: string;
 }
 
-const dummyWorkspaces: Workspace[] = [
-  { id: "1", name: "Metformin NASH Pipeline", mode: "Researcher", nodes: 47, lastQuery: "NASH drug targets with FDA...", lastUpdated: "2h ago" },
-  { id: "2", name: "Competitive Intelligence - Oncology", mode: "Strategist", nodes: 123, lastQuery: "Top 5 PD-L1 inhibitors...", lastUpdated: "1d ago" },
-  { id: "3", name: "India Regulatory Landscape", mode: "Researcher", nodes: 31, lastQuery: "CDSCO approval timeline...", lastUpdated: "3d ago" },
+function toRelative(updatedAt: Date): string {
+  const now = Date.now();
+  const diffMs = Math.max(0, now - updatedAt.getTime());
+  const minutes = Math.floor(diffMs / (60 * 1000));
+  if (minutes < 60) return `${Math.max(1, minutes)}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+const fallbackRows: WorkspaceRow[] = [
+  {
+    id: "demo-1",
+    name: "Metformin NASH Pipeline",
+    mode: "Researcher",
+    nodes: 47,
+    lastQuery: "NASH drug targets with FDA...",
+    lastUpdated: "2h ago",
+  },
+  {
+    id: "demo-2",
+    name: "Competitive Intelligence - Oncology",
+    mode: "Strategist",
+    nodes: 123,
+    lastQuery: "Top 5 PD-L1 inhibitors...",
+    lastUpdated: "1d ago",
+  },
+  {
+    id: "demo-3",
+    name: "India Regulatory Landscape",
+    mode: "Researcher",
+    nodes: 31,
+    lastQuery: "CDSCO approval timeline...",
+    lastUpdated: "3d ago",
+  },
 ];
 
 export default function WorkspacesPage() {
-  const [workspaces] = useState<Workspace[]>(dummyWorkspaces);
+  const navigate = useNavigate();
+  const { workspaces } = useWorkspace();
+  const { createWorkspace } = useWorkspaceActions();
+
+  const workspaceRows: WorkspaceRow[] = useMemo(
+    () => {
+      if (!workspaces.length) {
+        return fallbackRows;
+      }
+
+      return [...workspaces]
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+        .map((ws) => ({
+          id: ws.id,
+          name: ws.name,
+          mode: ws.mode,
+          nodes: ws.nodes.length,
+          lastQuery: ws.queries.length
+            ? ws.queries[ws.queries.length - 1].text
+            : "No queries yet",
+          lastUpdated: toRelative(ws.updatedAt),
+        }));
+    },
+    [workspaces],
+  );
+
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newMode, setNewMode] = useState<"Researcher" | "Strategist">("Researcher");
   const [showCreate, setShowCreate] = useState(false);
+
+  const handleCreateWorkspace = () => {
+    const name = newName.trim();
+    if (!name) return;
+
+    const created = createWorkspace(name, newDesc.trim(), newMode);
+    setNewName("");
+    setNewDesc("");
+    setShowCreate(false);
+    navigate(`/workspaces/${created.id}`);
+  };
 
   return (
     <div className="p-6 animate-fade-in">
@@ -56,8 +126,12 @@ export default function WorkspacesPage() {
               </tr>
             </thead>
             <tbody>
-              {workspaces.map((ws) => (
-                <tr key={ws.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer">
+              {workspaceRows.map((ws) => (
+                <tr
+                  key={ws.id}
+                  onClick={() => navigate(`/workspaces/${ws.id}`)}
+                  className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
+                >
                   <td className="px-4 py-3 text-sm text-foreground font-medium">{ws.name}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1.5 text-2xs px-2 py-0.5 rounded-full ${ws.mode === "Researcher" ? "bg-blue-500/10 text-blue-400" : "bg-amber-500/10 text-amber-400"}`}>
@@ -68,8 +142,8 @@ export default function WorkspacesPage() {
                   <td className="px-4 py-3 text-sm text-muted-foreground">{ws.nodes}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground truncate max-w-[200px]">{ws.lastQuery}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{ws.lastUpdated}</td>
-                  <td className="px-4 py-3">
-                    <button className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <button className="opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Workspace actions">
                       <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </td>
@@ -118,7 +192,11 @@ export default function WorkspacesPage() {
                   Strategist
                 </button>
               </div>
-              <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+              <button
+                onClick={handleCreateWorkspace}
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
+                disabled={!newName.trim()}
+              >
                 Create and start researching
               </button>
             </div>
