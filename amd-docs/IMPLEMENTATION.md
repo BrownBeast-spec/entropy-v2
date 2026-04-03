@@ -13,7 +13,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 
 - Backend PRD phase-1 causaly routes implemented and tested (`augment`, `synthesise`, `suggestions`)
 - Mastra helper agents for completeness/synthesis/follow-ups added and exported
-- Frontend scaffold in this worktree synced to `entropy-research-hub/`
+- Frontend scaffold in this worktree synced to `entropy-research-hub/` and converted from gitlink tracking to regular repository files
 - WorkspaceStore v2 implementation started in frontend with IndexedDB-backed storage module and passing unit tests
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
 
