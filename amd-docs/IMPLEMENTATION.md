@@ -9,6 +9,14 @@ Scope reviewed:
 
 This document captures what is actually implemented right now, what is scaffolded, and what is still missing against the PRD for the AMD Slingshot Hackathon 2026.
 
+Latest execution update (worktree: `amdv2-phase1`):
+
+- Backend PRD phase-1 causaly routes implemented and tested (`augment`, `synthesise`, `suggestions`)
+- Mastra helper agents for completeness/synthesis/follow-ups added and exported
+- Frontend scaffold in this worktree synced to `entropy-research-hub/`
+- WorkspaceStore v2 implementation started in frontend with IndexedDB-backed storage module and passing unit tests
+- Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
+
 ## Status legend
 
 - Implemented: running code with concrete behavior (not just placeholders)
@@ -64,9 +72,36 @@ This document captures what is actually implemented right now, what is scaffolde
    - `src/middleware/error-handler.ts`
 
 6. Existing test coverage (backend)
-   - `src/__tests__/api.test.ts` (session lifecycle routes + health + not found behavior)
-   - `src/__tests__/entropy.test.ts` (entropy search behavior with mocked tool clients)
-   - `src/__tests__/api-e2e.test.ts` (opt-in integration test for full workflow + PDF)
+    - `src/__tests__/api.test.ts` (session lifecycle routes + health + not found behavior)
+    - `src/__tests__/entropy.test.ts` (entropy search behavior with mocked tool clients)
+    - `src/__tests__/api-e2e.test.ts` (opt-in integration test for full workflow + PDF)
+
+7. PRD causaly contract (phase 1) now implemented
+   - Route group: `src/routes/causaly.ts`
+   - Mounted in `src/index.ts` as `/api/causaly`
+   - Endpoints implemented:
+     - `POST /api/causaly/augment`
+     - `POST /api/causaly/synthesise`
+     - `GET /api/causaly/suggestions`
+   - Behavior now present:
+     - 3-iteration augmentation cap with completeness threshold short-circuit
+     - Partial-result behavior with `failedSources` capture on per-source failures
+     - Request validation and malformed JSON handling for all new endpoints
+     - Route-level cache scaffold for augmentation keying by query+snapshot (disabled in tests)
+
+8. New Mastra-side helper agents exported and tested
+   - `apps/mastra-app/src/agents/completeness-agent.ts`
+   - `apps/mastra-app/src/agents/synthesis-agent.ts`
+   - `apps/mastra-app/src/agents/followup-agent.ts`
+   - Exported via `apps/mastra-app/src/index.ts`
+
+9. Added test suites for new PRD endpoints/contracts
+   - `apps/api/src/__tests__/augment.test.ts`
+   - `apps/api/src/__tests__/synthesise.test.ts`
+   - `apps/api/src/__tests__/suggestions.test.ts`
+   - `apps/mastra-app/src/__tests__/completeness-agent.test.ts`
+   - `apps/mastra-app/src/__tests__/synthesis-agent.test.ts`
+   - `apps/mastra-app/src/__tests__/followup-agent.test.ts`
 
 ### Scaffolding / partial
 
@@ -77,17 +112,14 @@ This document captures what is actually implemented right now, what is scaffolde
 
 PRD-specified API contract additions are not present yet:
 
-- `POST /api/causaly/augment`
-- `POST /api/causaly/synthesise`
-- `GET /api/causaly/suggestions`
 - `POST /api/causaly/dossier` (SSE stream)
 
 Also missing on backend for PRD parity:
 
-- Explicit CompletenessAgent boundary and contract as described in PRD
-- FollowUpSuggestionAgent endpoint contract
-- PRD request/response shapes for graph delta augmentation
-- Caching behavior aligned to PRD contract keys/hashes
+- Full production CompletenessAgent LLM implementation (current logic is deterministic fallback helper)
+- FollowUpSuggestionAgent LLM-driven generation (current helper is deterministic templates)
+- Dossier SSE generation route and stream contract
+- Production-grade caching and invalidation strategy aligned to final PRD hashing/TTL rules
 
 ---
 
@@ -120,10 +152,20 @@ Also missing on backend for PRD parity:
      - `src/components/workspace/IntermediateReportPanel.tsx` (demo report rendering + citation chip UI)
      - `src/components/workspace/ResearchProgressOverlay.tsx` (simulated progress log)
      - `src/components/workspace/EntityDetailDrawer.tsx` (node detail drawer)
-   - Demo/mock data sources:
-     - `src/lib/data/demoGraphData.ts`
-     - `src/lib/data/demoReportData.ts`
-     - `src/lib/data/suggestedQueries.ts`
+    - Demo/mock data sources:
+      - `src/lib/data/demoGraphData.ts`
+      - `src/lib/data/demoReportData.ts`
+      - `src/lib/data/suggestedQueries.ts`
+
+4. New frontend persistence and API integration groundwork implemented
+   - IndexedDB-backed store module:
+     - `entropy-research-hub/src/lib/storage/workspaceStoreV2.ts`
+   - Unit tests for core store contract:
+     - `entropy-research-hub/src/lib/storage/workspaceStoreV2.test.ts`
+     - Covers create workspace, augment dedup/provenance merge, remove node cascade, export JSON, graph snapshot
+   - API client scaffold for augmentation:
+     - `entropy-research-hub/src/lib/api/augmentation.ts`
+   - Workspace view now attempts real augmentation API call (`/api/causaly/augment`) with fallback to demo completion flow
 
 ### Scaffolding / partial
 
@@ -140,14 +182,18 @@ Also missing on backend for PRD parity:
    - "Load Demo Data" seeds local mock graph data.
 
 4. Graph and report are mostly demo-driven.
-   - Graph visuals render from provided nodes/edges.
-   - Report section content and citations come from static demo data.
+    - Graph visuals render from provided nodes/edges.
+    - Report section content and citations come from static demo data.
+
+5. WorkspaceStore v2 is implemented but not yet fully wired as the authoritative runtime store.
+   - Existing context (`WorkspaceContext`) still uses legacy localStorage adapter (`workspaceStorage.ts`)
+   - V2 store currently validated by unit tests and available for incremental migration
 
 ### Not implemented (vs PRD)
 
 Core PRD deltas still missing on frontend:
 
-- WorkspaceStore v2 using IndexedDB (`idb-keyval`) and PRD schemas/provenance model
+- Full migration of app runtime from legacy workspaceStorage to WorkspaceStore v2 everywhere
 - End-to-end augmentation flow against `/api/causaly/augment`
 - Real follow-up suggestion calls and staleness tracking
 - India Lens processor with static CDSCO/NPPA/company datasets
