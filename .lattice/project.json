@@ -1,0 +1,439 @@
+{
+  "id": "untitled-project",
+  "context": {
+    "name": "Untitled Project",
+    "framework": "react",
+    "language": "typescript",
+    "uiLibrary": "tailwind",
+    "designTokens": {
+      "primaryColor": "#2563eb",
+      "secondaryColor": "#64748b",
+      "accentColor": "#f59e0b",
+      "backgroundColor": "#ffffff",
+      "textColor": "#0f172a",
+      "fontFamily": "sans",
+      "borderRadius": "md",
+      "spacing": "normal"
+    },
+    "styleTone": "minimalist",
+    "constraints": []
+  },
+  "pages": [
+    {
+      "id": "page_home",
+      "name": "Home",
+      "route": "/",
+      "rootDirection": "column",
+      "boxIds": [
+        "24fpD6wgAqf0GP2TpletM",
+        "ZcL5DnxueXylojeU04epO",
+        "WykjoFvAvlMXND0rcie6u",
+        "rQaUJbwMwfTIVzUIQfYHh",
+        "ZDEIYvPVrdZzA6bDcAI2f",
+        "PE6W_Ze-bGEuvBLc3PjT5"
+      ]
+    },
+    {
+      "id": "page_pxUf-Ex1",
+      "name": "Page 2",
+      "rootDirection": "column",
+      "boxIds": [
+        "7U4xGa4KJmbCBEu8xzsUi",
+        "rzfkg-uIoB7DfqhjTBaBQ",
+        "IE8kd9ipd8hhSFLFOih_Y",
+        "jED0KVEUn1ZnvfKXSNdx-"
+      ]
+    },
+    {
+      "id": "page__7V13BOn",
+      "name": "Page 3",
+      "rootDirection": "column",
+      "boxIds": []
+    }
+  ],
+  "boxes": {
+    "7U4xGa4KJmbCBEu8xzsUi": {
+      "id": "7U4xGa4KJmbCBEu8xzsUi",
+      "label": "comp1",
+      "order": 3,
+      "grow": 1,
+      "x": 20.325523376464844,
+      "y": 11.041671752929688,
+      "width": 320,
+      "height": 598.1640625,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "sidebar",
+        "interactions": {
+          "hover": "glow in purple color"
+        },
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "rzfkg-uIoB7DfqhjTBaBQ": {
+      "id": "rzfkg-uIoB7DfqhjTBaBQ",
+      "label": "carousel",
+      "order": 4,
+      "grow": 1,
+      "x": 367.8385314941406,
+      "y": 76.34115600585938,
+      "width": 336.1198272705078,
+      "height": 200,
+      "direction": "row",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [
+        "aI3B2AmAdgOHe7h8UnmLj",
+        "CyxsAtc7fneZfa2ReFiFs",
+        "bjHscUWjxwfBJV1vHXSf2"
+      ],
+      "spec": {
+        "intent": "large carousel smooth animation",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "aI3B2AmAdgOHe7h8UnmLj": {
+      "id": "aI3B2AmAdgOHe7h8UnmLj",
+      "label": "",
+      "order": 0,
+      "grow": 1,
+      "x": 80,
+      "y": 80,
+      "width": 320,
+      "height": 200,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": "rzfkg-uIoB7DfqhjTBaBQ",
+      "childIds": [
+        "NTTomFC8pUL5fyTQZSi0S"
+      ],
+      "spec": null
+    },
+    "CyxsAtc7fneZfa2ReFiFs": {
+      "id": "CyxsAtc7fneZfa2ReFiFs",
+      "label": "",
+      "order": 1,
+      "grow": 1,
+      "x": 120,
+      "y": 120,
+      "width": 320,
+      "height": 200,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": "rzfkg-uIoB7DfqhjTBaBQ",
+      "childIds": [],
+      "spec": null
+    },
+    "bjHscUWjxwfBJV1vHXSf2": {
+      "id": "bjHscUWjxwfBJV1vHXSf2",
+      "label": "",
+      "order": 2,
+      "grow": 1,
+      "x": 160,
+      "y": 160,
+      "width": 320,
+      "height": 200,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": "rzfkg-uIoB7DfqhjTBaBQ",
+      "childIds": [],
+      "spec": null
+    },
+    "NTTomFC8pUL5fyTQZSi0S": {
+      "id": "NTTomFC8pUL5fyTQZSi0S",
+      "label": "",
+      "order": 0,
+      "grow": 1,
+      "x": 80,
+      "y": 80,
+      "width": 320,
+      "height": 200,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": "aI3B2AmAdgOHe7h8UnmLj",
+      "childIds": [],
+      "spec": null
+    },
+    "24fpD6wgAqf0GP2TpletM": {
+      "id": "24fpD6wgAqf0GP2TpletM",
+      "label": "Header",
+      "order": 5,
+      "grow": 1,
+      "x": 227.69528198242188,
+      "y": 1126.328125,
+      "width": 747.0703125,
+      "height": 126.6015625,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "Big header saying \"Good Morning\"",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "ZcL5DnxueXylojeU04epO": {
+      "id": "ZcL5DnxueXylojeU04epO",
+      "label": "Sidebar",
+      "order": 6,
+      "grow": 1,
+      "x": 0,
+      "y": 1043.893238067627,
+      "width": 219.37501525878906,
+      "height": 652.6952819824219,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "sidebar with lots of options",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "WykjoFvAvlMXND0rcie6u": {
+      "id": "WykjoFvAvlMXND0rcie6u",
+      "label": "",
+      "order": 7,
+      "grow": 1,
+      "x": 221.1458282470703,
+      "y": 1047.1875,
+      "width": 766.2890625,
+      "height": 72.47396087646484,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "Navbar for easy control",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "rQaUJbwMwfTIVzUIQfYHh": {
+      "id": "rQaUJbwMwfTIVzUIQfYHh",
+      "label": "Line graph analytics",
+      "order": 8,
+      "grow": 1,
+      "x": 229.3359375,
+      "y": 1267.03125,
+      "width": 370.7943115234375,
+      "height": 254.11459350585938,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "Clear blue theme line graph\n",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      },
+      "sharedComponentId": "sc_MXLzmEc4"
+    },
+    "ZDEIYvPVrdZzA6bDcAI2f": {
+      "id": "ZDEIYvPVrdZzA6bDcAI2f",
+      "label": "Bar graph ",
+      "order": 9,
+      "grow": 1,
+      "x": 606.1978759765625,
+      "y": 1268.3463439941406,
+      "width": 370.7943115234375,
+      "height": 254.11459350585938,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "Clear yellow theme bar graph\n",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "PE6W_Ze-bGEuvBLc3PjT5": {
+      "id": "PE6W_Ze-bGEuvBLc3PjT5",
+      "label": "footer",
+      "order": 10,
+      "grow": 1,
+      "x": 229.54428100585938,
+      "y": 1531.5494995117188,
+      "width": 740.7291259765625,
+      "height": 200,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "Footer",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "IE8kd9ipd8hhSFLFOih_Y": {
+      "id": "IE8kd9ipd8hhSFLFOih_Y",
+      "label": "Line graph analytics",
+      "order": 8,
+      "grow": 1,
+      "x": 400,
+      "y": 400,
+      "width": 320,
+      "height": 200,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "Clear blue theme line graph\n",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      }
+    },
+    "jED0KVEUn1ZnvfKXSNdx-": {
+      "id": "jED0KVEUn1ZnvfKXSNdx-",
+      "label": "Line graph analytics",
+      "order": 9,
+      "grow": 1,
+      "x": 440,
+      "y": 440,
+      "width": 460.078125,
+      "height": 200,
+      "direction": "column",
+      "gap": 2,
+      "padding": 2,
+      "parentId": null,
+      "childIds": [],
+      "spec": {
+        "intent": "Clear blue theme line graph\n",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      },
+      "sharedComponentId": "sc_MXLzmEc4"
+    }
+  },
+  "sharedComponents": {
+    "sc_MXLzmEc4": {
+      "id": "sc_MXLzmEc4",
+      "name": "Line graph analytics",
+      "spec": {
+        "intent": "Clear blue theme line graph\n",
+        "interactions": {},
+        "dataShape": "",
+        "behavior": "",
+        "refinements": []
+      },
+      "instanceIds": [
+        "rQaUJbwMwfTIVzUIQfYHh",
+        "jED0KVEUn1ZnvfKXSNdx-"
+      ]
+    }
+  },
+  "generations": {
+    "IGODMZYNFvhlU4svVltJi": {
+      "boxId": "IGODMZYNFvhlU4svVltJi",
+      "current": {
+        "id": "Qu6jc7fhdN8iPwadkKtyO",
+        "code": "import React from 'react';\n\n// Define prop types for the Home component.\n// Currently, no specific props are defined in the layout specification,\n// but an interface is provided for future extensibility and type safety.\ninterface HomeProps {\n  // Example: userName?: string;\n}\n\nexport const Home: React.FC<HomeProps> = () => {\n  return (\n    // Main container for the entire page.\n    // Applies global design tokens: background, text color, font, and ensures full page height.\n    // 'p-4' and 'space-y-4' are used as the 'normal' spacing equivalent for Tailwind CSS.\n    <div className=\"min-h-screen bg-white text-slate-900 font-sans p-4 space-y-6 md:p-6 md:space-y-8\">\n\n      {/*\n        Top Section: Interpreted as a two-column layout on larger screens (lg:flex-row)\n        based on the relative x and y coordinates of 'main box' and the adjacent 'Unnamed Section'.\n        On small screens, it stacks vertically.\n      */}\n      <section className=\"flex flex-col lg:flex-row gap-4 md:gap-6\">\n        {/*\n          Left Column of the Top Section:\n          Contains the 'main box' and the 'Unnamed Section' positioned below it.\n        */}\n        <div className=\"flex-1 flex flex-col gap-4 md:gap-6\">\n          {/*\n            'main box' section (positioned at y=36.2)\n            Contains 3 child regions stacked vertically as per specification.\n            Styled with a light background, subtle border, and shadow for a minimalist feel.\n          */}\n          <div className=\"p-4 bg-gray-50 border border-gray-200 rounded-md shadow-sm\">\n            {/* Intent: big photo of Vladimir Putin */}\n            <div className=\"h-48 bg-gray-300 flex items-center justify-center rounded-md overflow-hidden\">\n              <img\n                src=\"https://via.placeholder.com/400x192/cccccc/ffffff?text=Vladimir+Putin\"\n                alt=\"Portrait of Vladimir Putin\"\n                className=\"object-cover w-full h-full\"\n              />\n            </div>\n\n            {/*\n              Image container with 5px border (Narendra Modi Ji)\n              Uses Tailwind's arbitrary value syntax for a 5px border.\n              Border color is set to the primary design token.\n            */}\n            <div className=\"mt-4 p-2 border-[5px] border-blue-600 rounded-md overflow-hidden\">\n              <div className=\"h-32 bg-gray-300 flex items-center justify-center rounded-md\">\n                <img\n                  src=\"https://via.placeholder.com/400x128/cccccc/ffffff?text=Narendra+Modi+Ji\"\n                  alt=\"Portrait of Narendra Modi Ji\"\n                  className=\"object-cover w-full h-full\"\n                />\n              </div>\n            </div>\n\n            {/* Unnamed Section within the 'main box' */}\n            <div className=\"mt-4 p-3 bg-white rounded-md h-20 flex items-center justify-center\">\n              <p className=\"text-sm text-slate-600\">\n                Key figures in global leadership and diplomacy.\n              </p>\n            </div>\n          </div>\n\n          {/*\n            Unnamed Section (positioned at y=430.6)\n            This section is below the 'main box' in the left column.\n          */}\n          <div className=\"p-4 bg-gray-50 rounded-md shadow-sm h-40 flex flex-col justify-center\">\n            <h3 className=\"text-lg font-semibold text-slate-800 mb-2\">Operational Summary</h3>\n            <p className=\"text-sm text-slate-600\">\n              A quick overview of recent system activities and performance highlights.\n            </p>\n          </div>\n        </div>\n\n        {/*\n          Right Column of the Top Section:\n          Contains the 'Unnamed Section' (positioned at y=16.2), which is horizontally\n          aligned with the 'main box'.\n        */}\n        <div className=\"flex-1 p-4 bg-gray-50 rounded-md shadow-sm h-96 flex flex-col justify-center\">\n          <h3 className=\"text-lg font-semibold text-slate-800 mb-3\">Real-time Activity Feed</h3>\n          <ul className=\"mt-2 space-y-2 text-sm text-slate-600\">\n            <li><span className=\"font-medium text-blue-600\">09:45 AM:</span> User 'Samantha' updated her profile.</li>\n            <li><span className=\"font-medium text-amber-500\">09:30 AM:</span> New report 'Q3 Sales' generated.</li>\n            <li><span className=\"font-medium text-slate-600\">09:10 AM:</span> System health check passed.</li>\n            <li><span className=\"font-medium text-blue-600\">08:55 AM:</span> Admin 'John' logged in.</li>\n            <li><span className=\"font-medium text-amber-500\">08:30 AM:</span> Scheduled data backup completed.</li>\n          </ul>\n        </div>\n      </section>\n\n      {/*\n        Mid Section: Interpreted as a Sidebar and a main content area (lg:flex-row)\n        based on the relative x and y coordinates of 'Sidebar' and 'Navbar'.\n      */}\n      <section className=\"flex flex-col lg:flex-row gap-4 md:gap-6\">\n        {/*\n          Sidebar (positioned at y=1043.8)\n          Occupies a quarter width on large screens, full width on small screens.\n          Features a list of navigation options with primary hover styles.\n        */}\n        <aside className=\"w-full lg:w-1/4 p-4 bg-gray-100 rounded-md shadow-sm\">\n          <h2 className=\"text-xl font-bold text-slate-900 mb-4\">Dashboard Menu</h2>\n          <nav>\n            <ul className=\"space-y-2\">\n              <li>\n                <a href=\"#\" className=\"block p-2 rounded-md hover:bg-blue-600 hover:text-white transition-colors duration-200\">\n                  Home\n                </a>\n              </li>\n              <li>\n                <a href=\"#\" className=\"block p-2 rounded-md hover:bg-blue-600 hover:text-white transition-colors duration-200\">\n                  Analytics\n                </a>\n              </li>\n              <li>\n                <a href=\"#\" className=\"block p-2 rounded-md hover:bg-blue-600 hover:text-white transition-colors duration-200\">\n                  Reports\n                </a>\n              </li>\n              <li>\n                <a href=\"#\" className=\"block p-2 rounded-md hover:bg-blue-600 hover:text-white transition-colors duration-200\">\n                  Settings\n                </a>\n              </li>\n              <li>\n                <a href=\"#\" className=\"block p-2 rounded-md hover:bg-blue-600 hover:text-white transition-colors duration-200\">\n                  Support\n                </a>\n              </li>\n            </ul>\n          </nav>\n        </aside>\n\n        {/*\n          Main Content Area:\n          This 'main' element contains the Navbar, Header, Graph sections, and the Footer.\n          It takes up the remaining horizontal space next to the sidebar.\n        */}\n        <main className=\"flex-1 flex flex-col gap-4 md:gap-6\">\n          {/*\n            Navbar for easy control (positioned at y=1047.1)\n            Features primary and secondary themed buttons and a status indicator.\n          */}\n          <nav className=\"p-4 bg-gray-100 rounded-md shadow-sm flex items-center justify-between\">\n            <div className=\"flex items-center space-x-3\">\n              <button className=\"px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-200\">\n                View Data\n              </button>\n              <button className=\"px-4 py-2 rounded-md bg-slate-500 text-white hover:bg-slate-600 transition-colors duration-200\">\n                Manage Filters\n              </button>\n            </div>\n            <div className=\"text-sm text-slate-600\">\n              Status: <span className=\"font-medium text-blue-600\">Online</span>\n            </div>\n          </nav>\n\n          {/*\n            Header (positioned at y=1126.3)\n            Big header saying \"Good Morning\" with a welcoming message.\n            Uses primary color for the main text.\n          */}\n          <header className=\"p-4 bg-gray-50 rounded-md shadow-sm\">\n            <h1 className=\"text-4xl md:text-5xl font-extrabold text-blue-600 leading-tight\">\n              Good Morning!\n            </h1>\n            <p className=\"mt-2 text-lg text-slate-700\">\n              Here's an overview of your dashboard today.\n            </p>\n          </header>\n\n          {/*\n            Graphs Row:\n            Contains 'Line graph analytics' and 'Bar graph' side-by-side on larger screens.\n          */}\n          <div className=\"flex flex-col lg:flex-row gap-4 md:gap-6\">\n            {/*\n              Line graph analytics (positioned at y=1267.0)\n              Placeholder for a clear blue theme line graph.\n            */}\n            <div className=\"flex-1 p-4 bg-gray-50 rounded-md shadow-sm\">\n              <h3 className=\"text-lg font-semibold text-slate-800 mb-3\">Quarterly Trends</h3>\n              <div className=\"h-48 bg-blue-50 flex items-center justify-center text-blue-600 rounded-md border border-blue-200\">\n                <p className=\"text-sm font-medium\">Clear blue theme line graph placeholder</p>\n              </div>\n            </div>\n\n            {/*\n              Bar graph (positioned at y=1268.3)\n              Placeholder for a clear yellow theme bar graph.\n            */}\n            <div className=\"flex-1 p-4 bg-gray-50 rounded-md shadow-sm\">\n              <h3 className=\"text-lg font-semibold text-slate-800 mb-3\">Market Distribution</h3>\n              <div className=\"h-48 bg-amber-50 flex items-center justify-center text-amber-500 rounded-md border border-amber-200\">\n                <p className=\"text-sm font-medium\">Clear yellow theme bar graph placeholder</p>\n              </div>\n            </div>\n          </div>\n\n          {/*\n            Footer (positioned at y=1531.5)\n            Aligned to the bottom of the main content area.\n          */}\n          <footer className=\"p-4 bg-gray-100 rounded-md shadow-sm text-center text-sm text-slate-600 mt-auto\">\n            <p>&copy; {new Date().getFullYear()} Minimalist Dashboard. All rights reserved.</p>\n            <p className=\"mt-1\">\n              <a href=\"#\" className=\"hover:underline text-slate-700\">Privacy Policy</a> |{' '}\n              <a href=\"#\" className=\"hover:underline text-slate-700\">Terms of Service</a>\n            </p>\n          </footer>\n        </main>\n      </section>\n    </div>\n  );\n};",
+        "prompt": "# Page: Home (/)\n\nGenerate the component code for this page based on the following layout specification.\n\n## Layout\n\nThe page contains 9 top-level section(s), positioned on a freeform canvas:\n\n### main box\nPosition: x=17.87761688232422, y=36.22394561767578, size=392.23956298828125x338.67189025878906\nLayout: Contains 3 child region(s) in a vertical column.\n\n  #### Unnamed Section\n  Intent: big photo of Vladimir Putin\n\n  #### image container with border 5 px\n  Intent: image container with border 5px\n  Layout: Contains 1 child region(s) in a vertical column.\n\n    #### Unnamed Section\n    Intent: Narendra Modi Ji\n\n  #### Unnamed Section\n\n### Unnamed Section\nPosition: x=468.52867889404297, y=16.21092987060547, size=320x489.7916259765625\n\n### Unnamed Section\nPosition: x=107.20052337646484, y=430.6119689941406, size=320x200\n\n### Header\nPosition: x=227.69528198242188, y=1126.328125, size=380.06512451171875x126.6015625\nIntent: Big header saying \"Good Morning\"\n\n### Sidebar\nPosition: x=0, y=1043.893238067627, size=219.37501525878906x652.6952819824219\nIntent: sidebar with lots of options\n\n### Unnamed Section\nPosition: x=221.1458282470703, y=1047.1875, size=766.2890625x72.47396087646484\nIntent: Navbar for easy control\n\n### Line graph analytics\nPosition: x=229.3359375, y=1267.03125, size=370.7943115234375x254.11459350585938\nIntent: Clear blue theme line graph\n\n\n### Bar graph \nPosition: x=606.1978759765625, y=1268.3463439941406, size=370.7943115234375x254.11459350585938\nIntent: Clear yellow theme bar graph\n\n\n### footer\nPosition: x=229.54428100585938, y=1531.5494995117188, size=740.7291259765625x200\nIntent: Footer\n\n## Instructions\n\nGenerate a single page component that includes all the sections described above. Each top-level section should be a clearly defined area of the page. Use the spatial positions (x, y, width, height) as hints for relative sizing and ordering, but render them using standard CSS layout (flexbox/grid), not absolute positioning. Sections positioned higher (smaller y) should appear first. Sections side by side (similar y, different x) should be in a row.",
+        "timestamp": 1772638018764,
+        "provider": "ai",
+        "model": ""
+      },
+      "history": [
+        {
+          "id": "oLLcRG0xq7CSKIGxJxTy5",
+          "code": "import React from 'react';\n\n/**\n * Props for the HomePage component.\n */\ninterface HomePageProps {}\n\n/**\n * Renders the Home page, showcasing a minimalist layout with various content sections.\n * The layout is responsive, adapting from a column to a row on medium screens and above.\n * It incorporates design tokens for colors, typography, border radius, and spacing.\n */\nexport const HomePage: React.FC<HomePageProps> = () => {\n  return (\n    <div className=\"min-h-screen bg-white text-slate-900 font-sans p-4 md:p-8 flex flex-col gap-4\">\n      {/* Top row: main box (left) and Unnamed Section (right) */}\n      {/* On small screens, these stack vertically. On medium screens and up, they are side-by-side. */}\n      <div className=\"flex flex-col md:flex-row gap-4\">\n        {/* main box - Left Column */}\n        {/* This section contains an image of Vladimir Putin, an image of Narendra Modi, and an empty placeholder. */}\n        <div className=\"flex flex-col flex-1 border border-slate-200 rounded-md p-4 bg-white shadow-sm min-h-[338px]\">\n          {/* Unnamed Section: big photo of Vladimir Putin */}\n          <div className=\"w-full h-48 bg-slate-300 flex items-center justify-center text-slate-600 font-semibold mb-4 rounded-md overflow-hidden\">\n            <img\n              src=\"https://via.placeholder.com/392x190?text=Vladimir+Putin\"\n              alt=\"Vladimir Putin\"\n              className=\"w-full h-full object-cover\"\n            />\n          </div>\n\n          {/* image container with border 5 px */}\n          {/* This container explicitly has a 5px primary colored border. */}\n          <div className=\"border-[5px] border-blue-600 rounded-md p-4 mb-4 flex flex-col items-center justify-center min-h-[100px]\">\n            {/* Unnamed Section: Narendra Modi Ji */}\n            <div className=\"w-full h-24 bg-slate-300 flex items-center justify-center text-slate-600 font-semibold rounded-sm overflow-hidden\">\n              <img\n                src=\"https://via.placeholder.com/300x96?text=Narendra+Modi+Ji\"\n                alt=\"Narendra Modi\"\n                className=\"w-full h-full object-cover\"\n              />\n            </div>\n          </div>\n\n          {/* Unnamed Section (empty) */}\n          <div className=\"flex-1 bg-slate-100 rounded-md p-4 flex items-center justify-center text-slate-400 text-sm\">\n            <p>Empty Section Placeholder</p>\n          </div>\n        </div>\n\n        {/* Unnamed Section - Right Column */}\n        {/* This section is designed to be a flexible content area alongside the main box. */}\n        <div className=\"flex-1 border border-slate-200 rounded-md p-4 bg-white shadow-sm min-h-[489px]\">\n          <h2 className=\"text-xl font-semibold text-slate-900 mb-4\">Right Section Title</h2>\n          <p className=\"text-slate-700 leading-relaxed mb-4\">\n            This section is positioned to the right of the main content box. It has its own content and takes up a significant vertical space.\n            Its purpose is to provide supplementary information or a different content block alongside the main column.\n          </p>\n          <div className=\"p-4 bg-amber-50 text-amber-800 rounded-md text-sm\">\n            <p>Accent-colored content block example, highlighting important information.</p>\n          </div>\n        </div>\n      </div>\n\n      {/* Bottom Section */}\n      {/* This section spans the full width below the top two sections. */}\n      <div className=\"w-full border border-slate-200 rounded-md p-4 bg-white shadow-sm min-h-[200px]\">\n        <h2 className=\"text-xl font-semibold text-slate-900 mb-4\">Bottom Section Title</h2>\n        <p className=\"text-slate-700 leading-relaxed mb-4\">\n          This section is placed at the bottom of the page, spanning the full width available below the two top sections.\n          It can be used for footers, additional information, or calls to action, maintaining a minimalist aesthetic.\n        </p>\n        <button className=\"px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50\">\n          Call to Action\n        </button>\n      </div>\n    </div>\n  );\n};",
+          "prompt": "# Page: Home (/)\n\nGenerate the component code for this page based on the following layout specification.\n\n## Layout\n\nThe page contains 3 top-level section(s), positioned on a freeform canvas:\n\n### main box\nPosition: x=30.33855438232422, y=35.19529724121094, size=392.23956298828125x338.67189025878906\nLayout: Contains 3 child region(s) in a vertical column.\n\n  #### Unnamed Section\n  Intent: big photo of Vladimir Putin\n\n  #### image container with border 5 px\n  Intent: image container with border 5px\n  Layout: Contains 1 child region(s) in a vertical column.\n\n    #### Unnamed Section\n    Intent: Narendra Modi Ji\n\n  #### Unnamed Section\n\n### Unnamed Section\nPosition: x=468.52867889404297, y=16.21092987060547, size=320x489.7916259765625\n\n### Unnamed Section\nPosition: x=107.20052337646484, y=430.6119689941406, size=320x200\n\n## Instructions\n\nGenerate a single page component that includes all the sections described above. Each top-level section should be a clearly defined area of the page. Use the spatial positions (x, y, width, height) as hints for relative sizing and ordering, but render them using standard CSS layout (flexbox/grid), not absolute positioning. Sections positioned higher (smaller y) should appear first. Sections side by side (similar y, different x) should be in a row.",
+          "timestamp": 1772620029728,
+          "provider": "ai",
+          "model": ""
+        },
+        {
+          "id": "dTWOjyjwTdTizQD4K-U81",
+          "code": "import React from 'react';\n\n/**\n * Props for the HomePage component.\n */\ninterface HomePageProps {\n  // No specific props are defined for this static layout, but the interface is included for best practice.\n}\n\n/**\n * Renders the Home page with a minimalist design, following the specified layout and design tokens.\n * The layout is responsive, adapting from a single column on small screens to a two-column grid on larger screens.\n */\nexport const HomePage: React.FC<HomePageProps> = () => {\n  return (\n    <div className=\"min-h-screen bg-white text-slate-900 font-sans p-4 md:p-8 flex flex-col items-center justify-center\">\n      {/* Main content grid container */}\n      <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-6xl\">\n        {/* Main Box - Top-left section */}\n        <section className=\"bg-white p-6 rounded-md shadow-sm border border-gray-200 flex flex-col gap-6\">\n          {/* Child 1: Big photo of Vladimir Putin */}\n          <div className=\"w-full flex justify-center items-center overflow-hidden rounded-md border border-gray-100\">\n            <img\n              src=\"https://via.placeholder.com/600x400/2563eb/ffffff?text=Vladimir+Putin\" // Placeholder image with primary color hint\n              alt=\"Vladimir Putin\"\n              className=\"w-full h-auto object-cover rounded-md\"\n            />\n          </div>\n\n          {/* Child 2: Image container with 5px border for Narendra Modi Ji */}\n          <div className=\"p-1 border-[5px] border-blue-600 rounded-md flex justify-center items-center overflow-hidden bg-white\">\n            <img\n              src=\"https://via.placeholder.com/300x200/f59e0b/0f172a?text=Narendra+Modi+Ji\" // Placeholder image with accent color hint\n              alt=\"Narendra Modi Ji\"\n              className=\"w-full h-auto object-cover rounded-md\"\n            />\n          </div>\n\n          {/* Child 3: Unnamed Section - Additional content area */}\n          <div className=\"bg-gray-50 p-4 rounded-md text-center text-sm text-slate-600 flex-grow border border-gray-100\">\n            <p>This is an additional content area within the main box, styled minimally.</p>\n          </div>\n        </section>\n\n        {/* Unnamed Section - Top-right section */}\n        <section className=\"bg-white p-6 rounded-md shadow-sm border border-gray-200 flex flex-col gap-4\">\n          <h2 className=\"text-xl font-semibold text-slate-900\">Information Panel</h2>\n          <p className=\"text-slate-700\">\n            This section serves as a supplementary information panel, positioned adjacent to the main content.\n            It's designed to be clean and unobtrusive, fitting the minimalist style.\n          </p>\n          <div className=\"flex-grow bg-gray-50 rounded-md p-4 text-sm text-slate-600 border border-gray-100\">\n            <p>Placeholder for dynamic content or actionable items.</p>\n            <ul className=\"list-disc list-inside mt-2\">\n              <li>Feature A</li>\n              <li>Feature B</li>\n              <li>Feature C</li>\n            </ul>\n          </div>\n        </section>\n\n        {/* Unnamed Section - Bottom section, spanning full width */}\n        <section className=\"bg-white p-6 rounded-md shadow-sm border border-gray-200 col-span-1 md:col-span-2 flex flex-col gap-4\">\n          <h2 className=\"text-xl font-semibold text-slate-900\">Footer-like Content</h2>\n          <p className=\"text-slate-700\">\n            This area is designated for content that should span the entire width of the layout,\n            such as a summary, contact details, or policy links.\n          </p>\n          <div className=\"bg-gray-50 rounded-md p-4 text-sm text-slate-600 border border-gray-100\">\n            <p>&copy; 2023 Minimalist Page. All rights reserved.</p>\n          </div>\n        </section>\n      </div>\n    </div>\n  );\n};",
+          "prompt": "# Page: Home (/)\n\nGenerate the component code for this page based on the following layout specification.\n\n## Layout\n\nThe page contains 3 top-level section(s), positioned on a freeform canvas:\n\n### main box\nPosition: x=30.33855438232422, y=35.19529724121094, size=392.23956298828125x338.67189025878906\nLayout: Contains 3 child region(s) in a vertical column.\n\n  #### Unnamed Section\n  Intent: big photo of Vladimir Putin\n\n  #### image container with border 5 px\n  Intent: image container with border 5px\n  Layout: Contains 1 child region(s) in a vertical column.\n\n    #### Unnamed Section\n    Intent: Narendra Modi Ji\n\n  #### Unnamed Section\n\n### Unnamed Section\nPosition: x=492.86461639404297, y=91.2369613647461, size=320x489.7916259765625\n\n### Unnamed Section\nPosition: x=107.20052337646484, y=430.6119689941406, size=320x200\n\n## Instructions\n\nGenerate a single page component that includes all the sections described above. Each top-level section should be a clearly defined area of the page. Use the spatial positions (x, y, width, height) as hints for relative sizing and ordering, but render them using standard CSS layout (flexbox/grid), not absolute positioning. Sections positioned higher (smaller y) should appear first. Sections side by side (similar y, different x) should be in a row.",
+          "timestamp": 1772619460748,
+          "provider": "ai",
+          "model": ""
+        },
+        {
+          "id": "EVFRCJDKhFdQIPXTLgZhj",
+          "code": "import React from 'react';\n\n/**\n * HomePage component displays a multi-section layout based on the provided specifications.\n * It uses a responsive flexbox layout to arrange the sections, adhering to a minimalist style\n * and specified design tokens.\n */\nexport function HomePage() {\n  return (\n    <div className=\"min-h-screen bg-white text-slate-900 font-sans p-4 md:p-8\">\n      {/* Top Row Section: Contains the 'main box' and the 'right-side content area'.\n          These two sections are arranged side-by-side on large screens (lg breakpoint)\n          and stacked vertically on smaller screens, with a consistent gap between them. */}\n      <div className=\"flex flex-col lg:flex-row gap-6 mb-6\">\n\n        {/* Main Box Section: This section itself contains three child regions arranged vertically. */}\n        <div className=\"flex-1 flex flex-col gap-4 p-4 border border-slate-200 rounded-md shadow-sm\">\n\n          {/* Child 1: Intent - big photo of Vladimir Putin */}\n          <div className=\"h-48 bg-slate-100 flex items-center justify-center rounded-md overflow-hidden\">\n            <img\n              src=\"https://via.placeholder.com/392x303/2563eb/ffffff?text=Vladimir+Putin\" // Placeholder image\n              alt=\"Vladimir Putin\"\n              className=\"w-full h-full object-cover\"\n            />\n          </div>\n\n          {/* Child 2: Intent - image container with a 5px border.\n              The border-[5px] utility from Tailwind CSS is used for the exact pixel width.\n              The accent color (#f59e0b) is applied to the border. */}\n          <div className=\"p-1 border-[5px] border-amber-500 rounded-md\">\n            {/* Child 2.1: Intent - Narendra Modi Ji */}\n            <div className=\"h-32 bg-slate-100 flex items-center justify-center rounded-sm overflow-hidden\">\n              <img\n                src=\"https://via.placeholder.com/300x150/2563eb/ffffff?text=Narendra+Modi+Ji\" // Placeholder image\n                alt=\"Narendra Modi Ji\"\n                className=\"w-full h-full object-cover\"\n              />\n            </div>\n          </div>\n\n          {/* Child 3: Unnamed Section - A generic content area with minimal styling. */}\n          <div className=\"h-24 bg-slate-50 flex items-center justify-center rounded-md border border-slate-200\">\n            <p className=\"text-slate-400 text-sm\">Main Box - Additional Content Area</p>\n          </div>\n        </div>\n\n        {/* Right-side Unnamed Section: This",
+          "prompt": "# Page: Home (/)\n\nGenerate the component code for this page based on the following layout specification.\n\n## Layout\n\nThe page contains 3 top-level section(s), positioned on a freeform canvas:\n\n### main box\nPosition: x=74.44011688232422, y=113.72393798828125, size=392.23956298828125x303.3463592529297\nLayout: Contains 3 child region(s) in a vertical column.\n\n  #### Unnamed Section\n  Intent: big photo of Vladimir Putin\n\n  #### image container with border 5 px\n  Intent: image container with border 5px\n  Layout: Contains 1 child region(s) in a vertical column.\n\n    #### Unnamed Section\n    Intent: Narendra Modi Ji\n\n  #### Unnamed Section\n\n### Unnamed Section\nPosition: x=492.86461639404297, y=91.2369613647461, size=320x489.7916259765625\n\n### Unnamed Section\nPosition: x=107.20052337646484, y=430.6119689941406, size=320x200\n\n## Instructions\n\nGenerate a single page component that includes all the sections described above. Each top-level section should be a clearly defined area of the page. Use the spatial positions (x, y, width, height) as hints for relative sizing and ordering, but render them using standard CSS layout (flexbox/grid), not absolute positioning. Sections positioned higher (smaller y) should appear first. Sections side by side (similar y, different x) should be in a row.",
+          "timestamp": 1772616442065,
+          "provider": "ai",
+          "model": ""
+        }
+      ]
+    },
+    "rzfkg-uIoB7DfqhjTBaBQ": {
+      "boxId": "rzfkg-uIoB7DfqhjTBaBQ",
+      "current": {
+        "id": "rdFbeCvZCfl1ebbymSADY",
+        "code": "```typescript\nimport React, { useState, useEffect, useRef, Children, isValidElement, useCallback } from 'react';\n\n// Define prop types for the Carousel component\ninterface CarouselProps {\n  /**\n   * The content to display as carousel slides. Each direct child will be considered a distinct slide.\n   * For the specified layout, the carousel will attempt to display 3 children simultaneously.\n   */\n  children: React.ReactNode;\n  /**\n   * Optional: Interval in milliseconds for auto-play. If 0 or not provided, auto-play is disabled.\n   * @default 0\n   */\n  autoPlayInterval?: number;\n  /**\n   * Optional: Whether the carousel should loop back to the start after the last slide.\n   * When looping, navigation allows continuous movement. When not looping, navigation stops at ends.\n   * @default true\n   */\n  loop?: boolean;\n}\n\n/**\n * A minimalist, responsive carousel component designed to display 3 items at a time\n * with smooth transitions. It supports auto-play and looping.\n *\n * @param {CarouselProps} props - The properties for the Carousel component.\n * @returns {JSX.Element} The rendered Carousel component.\n */\nexport const Carousel: React.FC<CarouselProps> = ({\n  children,\n  autoPlayInterval = 0,\n  loop = true,\n}) => {\n  // Filter children to get only valid React elements, which will be our slides.\n  const slides = Children.toArray(children).filter(isValidElement);\n  const totalSlides = slides.length;\n  const itemsPerView = 3; // As",
+        "prompt": "# Component: carousel\n\nGenerate the component code for this UI section based on the following specification.\n\n### carousel\nPosition: x=367.8385314941406, y=76.34115600585938, size=336.1198272705078x200\nIntent: large carousel smooth animation\nLayout: Contains 3 child region(s) in a horizontal row.\n\n  #### Unnamed Section\n  Layout: Contains 1 child region(s) in a vertical column.\n\n    #### Unnamed Section\n\n  #### Unnamed Section\n\n  #### Unnamed Section\n\n## Instructions\n\nGenerate a single, self-contained component for this section. If the section has child regions, include them as part of this component or as clearly named sub-components within the same file.",
+        "timestamp": 1772625464319,
+        "provider": "ai",
+        "model": ""
+      },
+      "history": [
+        {
+          "id": "dUGqUjvo5GB4DGjKv8zIn",
+          "code": "import React, { useState, useEffect, useCallback } from 'react';\n\ninterface CarouselProps {\n  /**\n   * An array of React nodes to be displayed as carousel items.\n   */\n  items: React.ReactNode[];\n  /**\n   * The number of items to display per view on larger screens (lg breakpoint).\n   * This also dictates the logical \"slide\" increment for large screens.\n   * For smaller screens (sm, md), it will dynamically adjust to show fewer items.\n   * @default 3\n   */\n  itemsPerViewLg?: number;\n  /**\n   * The interval in milliseconds for auto-playing slides. Set to 0 or undefined to disable auto-play.\n   * @default 3000\n   */\n  autoPlayInterval?: number;\n}\n\nexport const Carousel: React.FC<CarouselProps> = ({\n  items,\n  itemsPerViewLg = 3,\n  autoPlayInterval = 3000,\n}) => {\n  const [currentIndex, setCurrentIndex] = useState(0);\n  const [isHovered, setIsHovered] = useState(false);\n  const [currentItemsPerView, setCurrentItemsPerView] = useState(itemsPerViewLg);\n\n  /**\n   * Calculates the number of items to display per view based on current window width.\n   * Adapts for responsiveness: 1 item on small, 2 on medium, `itemsPerViewLg` on large.\n   */\n  const calculateItemsPerView = useCallback(() => {\n    if (window.innerWidth >= 1024) { // lg breakpoint",
+          "prompt": "# Component: carousel\n\nGenerate the component code for this UI section based on the following specification.\n\n### carousel\nPosition: x=367.8385314941406, y=76.34115600585938, size=733.9974365234375x200\nIntent: large carousel smooth animation\nLayout: Contains 3 child region(s) in a horizontal row.\n\n  #### Unnamed Section\n  Layout: Contains 1 child region(s) in a vertical column.\n\n    #### Unnamed Section\n\n  #### Unnamed Section\n\n  #### Unnamed Section\n\n## Instructions\n\nGenerate a single, self-contained component for this section. If the section has child regions, include them as part of this component or as clearly named sub-components within the same file.",
+          "timestamp": 1772625278106,
+          "provider": "ai",
+          "model": ""
+        }
+      ]
+    },
+    "page:page_home": {
+      "boxId": "page:page_home",
+      "current": {
+        "id": "FMnV39Q4IfHH5MH3uDQLR",
+        "code": "import React from 'react';\n\n/**\n * Props for the HomePage component.\n */\ninterface HomePageProps {}\n\n/**\n * HomePage component displays the main dashboard layout with a sidebar, navbar,\n * header, analytics graphs, and a footer.\n * It uses a flexbox layout for responsiveness and a minimalist design tone.\n */\nexport const HomePage: React.FC<HomePageProps> = () => {\n  return (\n    <div className=\"flex min-h-screen bg-white text-slate-900 font-sans\">\n      {/* Sidebar */}\n      {/* Position: x=0, y=1043.89, size=219.37x652.69 */}\n      {/* Intent: sidebar with lots of options */}\n      <aside className=\"w-64 bg-gray-50 p-4 shadow-sm flex-shrink-0 hidden md:flex flex-col\">\n        <h2 className=\"text-xl font-semibold mb-6 text-blue-600\">Dashboard</h2>\n        <nav className=\"flex flex-col space-y-2\">\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 1</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 2</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 3</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 4</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 5</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 6</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 7</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 8</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 9</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 10</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 11</a>\n          <a href=\"#\" className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Option 12</a>\n        </nav>\n      </aside>\n\n      {/* Main Content Area */}\n      <main className=\"flex-1 flex flex-col bg-gray-100\">\n        {/* Navbar */}\n        {/* Position: x=221.14, y=1047.18, size=766.28x72.47 */}\n        {/* Intent: Navbar for easy control */}\n        <nav className=\"bg-white p-4 shadow-sm flex items-center justify-between z-10\">\n          <h1 className=\"text-xl font-semibold text-slate-800\">Dashboard Overview</h1>\n          <div className=\"flex items-center space-x-4\">\n            <button className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Settings</button>\n            <button className=\"p-2 rounded-md hover:bg-gray-100 text-slate-700\">Profile</button>\n          </div>\n        </nav>\n\n        {/* Scrollable content wrapper */}\n        <div className=\"flex-1 p-4 overflow-y-auto\">\n          {/* Header */}\n          {/* Position: x=227.69, y=1126.32, size=380.06x126.60 */}\n          {/* Intent: Big header saying \"Good Morning\" */}\n          <header className=\"mb-6 p-4 bg-white rounded-md shadow-sm\">\n            <h2 className=\"text-4xl font-bold text-blue-600\">Good Morning</h2>\n          </header>\n\n          {/* Graphs Section */}\n          <section className=\"flex flex-col md:flex-row gap-4 mb-6\">\n            {/* Line graph analytics */}\n            {/* Position: x=229.33, y=1267.03, size=370.79x254.11 */}\n            {/* Intent: Clear blue theme line graph */}\n            <div className=\"flex-1 bg-blue-50 p-6 rounded-md border border-blue-600 shadow-sm\">\n              <h3 className=\"text-xl font-semibold mb-4 text-blue-800\">Line Graph Analytics</h3>\n              <div className=\"h-48 bg-blue-100 flex items-center justify-center text-blue-500 rounded-sm\">\n                [Placeholder for Line Graph]\n              </div>\n            </div>\n            {/* Bar graph */}\n            {/* Position: x=606.19, y=1268.34, size=370.79x254.11 */}\n            {/* Intent: Clear yellow theme bar graph */}\n            <div className=\"flex-1 bg-amber-50 p-6 rounded-md border border-amber-500 shadow-sm\">\n              <h3 className=\"text-xl font-semibold mb-4 text-amber-800\">Bar Graph</h3>\n              <div className=\"h-48 bg-amber-100 flex items-center justify-center text-amber-500 rounded-sm\">\n                [Placeholder for Bar Graph]\n              </div>\n            </div>\n          </section>\n\n          {/* Footer */}\n          {/* Position: x=229.54, y=1531.54, size=740.72x200 */}\n          {/* Intent: Footer */}\n          <footer className=\"bg-white p-4 text-sm text-slate-600 rounded-md shadow-sm\">\n            <p>&copy; 2023 Dashboard. All rights reserved.</p>\n          </footer>\n        </div>\n      </main>\n    </div>\n  );\n};",
+        "prompt": "# Page: Home (/)\n\nGenerate the component code for this page based on the following layout specification.\n\n## Layout\n\nThe page contains 6 top-level section(s), positioned on a freeform canvas:\n\n### Header\nPosition: x=227.69528198242188, y=1126.328125, size=380.06512451171875x126.6015625\nIntent: Big header saying \"Good Morning\"\n\n### Sidebar\nPosition: x=0, y=1043.893238067627, size=219.37501525878906x652.6952819824219\nIntent: sidebar with lots of options\n\n### Unnamed Section\nPosition: x=221.1458282470703, y=1047.1875, size=766.2890625x72.47396087646484\nIntent: Navbar for easy control\n\n### Line graph analytics\nPosition: x=229.3359375, y=1267.03125, size=370.7943115234375x254.11459350585938\nIntent: Clear blue theme line graph\n\n\n### Bar graph \nPosition: x=606.1978759765625, y=1268.3463439941406, size=370.7943115234375x254.11459350585938\nIntent: Clear yellow theme bar graph\n\n\n### footer\nPosition: x=229.54428100585938, y=1531.5494995117188, size=740.7291259765625x200\nIntent: Footer\n\n## Instructions\n\nGenerate a single page component that includes all the sections described above. Each top-level section should be a clearly defined area of the page. Use the spatial positions (x, y, width, height) as hints for relative sizing and ordering, but render them using standard CSS layout (flexbox/grid), not absolute positioning. Sections positioned higher (smaller y) should appear first. Sections side by side (similar y, different x) should be in a row.",
+        "timestamp": 1772638458123,
+        "provider": "ai",
+        "model": ""
+      },
+      "history": []
+    }
+  }
+}

@@ -1,200 +1,211 @@
-# Entropy Causaly-Style Biomedical Intelligence Platform
+# Entropy v2 — Persistent Research Workspace with Living Knowledge Graph
 
-# Product Requirements Document (PRD) v4.0
-
-**Event**: AMD Slingshot Hackathon 2026 - Pune Campus Days (April 7-8, 2026)  
-**Status**: Build-Ready - Hackathon MVP  
-**Created**: March 30, 2026  
-**Owner**: Development Team  
-**Epic Labels**: `causaly-ui-complete`, `hackathon-mvp`, `pharma-strategist`  
-**Timeline**: 7 days (March 31 - April 6, 2026)  
-**Demo Date**: April 7-8, 2026
+**Type:** Feature Epic  
+**Status:** Build-Ready — Hackathon MVP  
+**Event:** AMD Slingshot Hackathon 2026, Pune (April 7–8, 2026)  
+**Sprint:** 7 days (April 1–7, 2026)  
+**Labels:** `epic`, `hackathon-mvp`, `knowledge-graph`, `workspace`, `india-lens`, `pharma-strategist`
 
 ---
 
 ## Problem Statement
 
-Pharma researchers and translational scientists face fragmented biomedical data access:
+Indian pharmaceutical teams — spanning translational researchers, computational biologists, portfolio strategists, and BD&L leads — face a compound problem that no existing tool solves end-to-end.
 
-1. **Scattered Data Sources**: Must manually query 10+ databases (PubMed, UniProt, Open Targets, ClinicalTrials.gov, USPTO patents, etc.) separately with no unified interface
-2. **No Visual Intelligence**: Cannot visualize protein-protein interaction networks, disease-target associations, or patent timelines graphically
-3. **No Workspace Persistence**: Every search is ephemeral - no way to save findings across sessions or organize research by project
-4. **No Competitive Intelligence**: Portfolio strategists manually compile competitor patent landscapes, trial activities, and market dominance from disparate sources - taking days/weeks per analysis
-5. **Citation Verification Burden**: AI tools hallucinate; researchers spend hours verifying claims against primary sources
+**Fragmented data access.** A researcher establishing a repurposing hypothesis must manually query Open Targets for disease-target associations, STRING DB for interaction networks, PubMed for supporting literature, OpenFDA for safety signals, and ClinicalTrials.gov for trial precedent. Each query is ephemeral. No tool accumulates this evidence into a shared, persistent canvas.
 
-**Current Entropy v2 limitations**:
+**No persistent, growing evidence base.** Every research session starts from scratch. When a colleague asks a follow-up question — "what are the patent implications?" or "is there a formulation precedent in India?" — the researcher has no living record to build from. All accumulated knowledge lives in browser tabs and personal notes.
 
-- Backend-only research pipeline (CLI/API interfaces)
-- Beautiful Causaly-inspired UI exists (`entropy_front/`) but uses only mock data
-- No persistent workspaces or multi-project organization
-- No competitor intelligence / patent analysis capabilities
+**Science and strategy are disconnected.** The mechanistic insights a researcher builds about a target and the competitive patent landscape a strategist assembles about the same molecule are stored in completely separate tools, never cross-referenced. For Indian pharma — where drug repurposing and generic formulation strategy are the dominant commercial workflows, not de-novo discovery — this disconnection is especially damaging because the biological and commercial decisions are made simultaneously, not sequentially.
+
+**No India-specific intelligence layer.** Existing platforms (Open Targets, Causaly, Elsevier BioRAMPTM) are designed for Western drug discovery. They surface no data about CDSCO approvals, NPPA price caps, Indian clinical trial sponsorship, or Indian patent assignees — the exact signals Indian pharma teams need to make go/no-go decisions.
 
 ---
 
 ## Solution
 
-Transform Entropy into a **production-ready biomedical intelligence platform** with three core pillars:
+Entropy v2 is a **persistent pharmaceutical research workspace** where a unified knowledge graph grows incrementally as researchers and strategists add queries. Rather than treating each search as an isolated event, Entropy accumulates evidence from 12+ public APIs into a shared, provenance-tracked graph that persists across sessions. Every node in the graph carries a source, a timestamp, and the query that added it.
 
-### Pillar 1: Unified Multi-Source Search
+The platform has two persona modes — **Researcher Mode** and **Strategist Mode** — that operate on the same underlying knowledge graph but foreground different node types and generate different report structures. A researcher building a mechanistic hypothesis for metformin repurposing in NASH and a strategist mapping the Indian patent landscape for the same molecule are both working from, and contributing to, the same canvas.
 
-Single search bar → aggregated real-time results from 12+ public APIs:
+The **India Lens** layer surfaces India-specific signals on top of global data: Indian patent assignees via PatentsView, CDSCO-approved drugs via static CSV, NPPA price cap data via static CSV, and Indian-sponsored clinical trials via ClinicalTrials.gov — giving Indian pharma teams contextualised intelligence that no existing platform provides.
 
-- Literature: PubMed, Europe PMC (preprints), Semantic Scholar
-- Proteins: UniProt, Ensembl, NCBI Gene/Protein
-- Compounds: PubChem, ChEMBL
-- Clinical: ClinicalTrials.gov
-- Patents: PatentsView (USPTO), FDA Orange Book
-- Targets: Open Targets Platform
-- Safety: OpenFDA FAERS
-
-**Key Features**:
-
-- Parallel API aggregation (<2s response time)
-- Deduplication by DOI/Accession/NCT ID
-- Grouped by result type with source badges
-- AI-generated summaries for papers (via existing Mastra Librarian)
-- Entity extraction & highlighting (genes, drugs, diseases)
-
-### Pillar 2: Persistent Multi-Workspace Organization
-
-- Create unlimited named workspaces ("Metformin Competition 2026", "NSCLC Target Pipeline")
-- One-click save any search result (paper, protein, patent, trial) to workspace
-- Full metadata preserved + direct link to original source
-- Grid view with filters (by type, source, date)
-- Export workspace as CSV/JSON
-
-**Tech Implementation**:
-
-- **MVP (Hackathon)**: Client-side Zustand store + localStorage (no backend dependency)
-- **Post-MVP**: PostgreSQL tables (`workspaces`, `saved_items`) + lightweight auth
-
-### Pillar 3: Pharma Strategist (Competitor Intelligence Copilot)
-
-AI-powered analyst that answers strategic queries like:
-
-- _"What companies dominate metformin distribution?"_
-- _"When do key diabetes drug patents expire?"_
-- _"Show me AstraZeneca's trial activity in NSCLC over the past 3 years"_
-
-**Strategist Output**:
-
-1. **Dominant Companies Table** - Patent count, earliest patent, latest expiry
-2. **Visual Timeline** - Patents filed → trials started → FDA approvals
-3. **AI-Synthesized Insights** - Market positioning, competitive gaps, opportunity windows
-4. **Full Citations** - Every claim links to PatentsView, Orange Book, ClinicalTrials, PubMed
-5. **Export** - Markdown/PDF report for stakeholders
-
-**Data Sources** (all public/free):
-
-- PatentsView API (USPTO patent assignments, filing dates)
-- FDA Orange Book (drug-specific patent expiry, assignees)
-- ClinicalTrials.gov (sponsor = company, phase, status)
-- PubMed (publication volume by company affiliation)
-- Open Targets (drug-disease associations by sponsor)
-
-**AI Engine**: Existing Mastra Librarian Agent + new prompt templates (no new infra)
+The **autonomous research loop** (the existing Mastra multi-agent workflow, retained in full) runs under the hood each time a new query is added. It checks the existing graph for coverage, fetches only the missing evidence from MCP data sources, merges new nodes and edges with full provenance, and terminates when a completeness threshold is met or a hard iteration cap is reached. The result surfaces in both a visual Cytoscape.js knowledge graph and a continuously updated intermediate synthesis report — a living draft that can be exported as a full research dossier at any point.
 
 ---
 
 ## User Stories
 
-### Core Platform (Stories 1-75 from Original PRD - Unchanged)
+### Workspace Creation and Navigation
 
-**Discovery & Target Identification** (1-7)
+1. As a researcher, I want to create a named workspace for a specific research project, so that I can organise my findings by compound or disease without mixing unrelated work.
+2. As a researcher, I want to add an optional description to a workspace, so that I can communicate the research context to a colleague who opens it later.
+3. As a user, I want to set a default persona mode (Researcher or Strategist) when creating a workspace, so that the query prompts and graph view are contextualised from my first query.
+4. As a returning user, I want to see all my recent workspaces on the home screen ranked by last-updated date, so that I can resume work without searching.
+5. As a user, I want each workspace card on the home screen to show the number of graph nodes, the last query entered, and the date last updated, so that I can recognise the state of each workspace at a glance.
+6. As a user, I want to rename a workspace at any time, so that I can reflect changes in project scope without losing accumulated data.
+7. As a user, I want to duplicate a workspace, so that I can create a branch of an existing investigation without destroying the original.
+8. As a user, I want to delete a workspace with a confirmation prompt, so that I can clean up completed projects without accidentally losing active ones.
+9. As a user, I want to export an entire workspace as a JSON file, so that I can back it up or share it with a colleague who does not have access to my browser.
+10. As a returning user, I want to be taken directly to the three-panel workspace view when I click on a workspace that already has graph data, so that I do not have to re-enter my query context.
 
-1. As a translational researcher, I want to search for a disease by name, so that I can see all gene targets associated with it
-2. As a target identification scientist, I want to see association scores for each target, so that I can prioritize which ones to investigate further
-3. As a drug discovery team lead, I want to view targets in a hierarchical dendrogram, so that I can understand the biological relationships at a glance
-4. As a computational biologist, I want to click on a gene target node, so that I can see detailed information about that protein
-5. As a researcher, I want to hover over dendrogram connections, so that I can see the evidence types supporting each association
-6. As a portfolio manager, I want to filter targets by minimum association score, so that I only see high-confidence candidates
-7. As a bioinformatician, I want to export the target list as CSV, so that I can import it into my analysis pipeline
+### First Query and Autonomous Research Loop
 
-**Protein Interaction Networks** (8-18) 8. As a systems biologist, I want to visualize protein-protein interactions for a gene, so that I can understand its biological context 9. As a pathway researcher, I want to see interaction confidence scores on network edges, so that I can trust the relationships 10. As a network analyst, I want to zoom and pan the network graph, so that I can explore dense interaction clusters 11. As a researcher, I want to click on a protein node, so that I can see its UniProt details and related pathways 12. As a computational scientist, I want to filter interactions by confidence threshold, so that I can focus on high-quality data 13. As a pathway biologist, I want to overlay Reactome pathway annotations on the network, so that I can see which proteins belong to which pathways 14. As a drug target validator, I want to see which proteins in the network are druggable, so that I can assess therapeutic opportunities 15. As a team member, I want to export the network as PNG or SVG, so that I can include it in presentations 16. As a researcher, I want to click on an interaction edge, so that I can see the experimental evidence supporting it 17. As a bioinformatician, I want to expand the network by adding interaction partners, so that I can explore second-degree connections 18. As a systems biologist, I want to see protein complex annotations, so that I can identify functional modules
+11. As a researcher, I want to enter a free-text research question as my first workspace query, so that the autonomous agent can interpret my intent and decide which data sources to consult.
+12. As a strategist, I want the query prompt to reflect my persona mode, so that I am prompted for competitive intelligence questions rather than biological research questions.
+13. As a user, I want to see three AI-suggested example queries tailored to my persona and workspace name before I submit my first query, so that I have a starting point if I am unsure how to frame my question.
+14. As a user, I want the India Lens toggle to be available before I submit my first query, so that India-specific data prioritisation is applied from the very first augmentation cycle.
+15. As a user, I want to see a live progress log during the autonomous research loop that shows which MCP tool is running, how many nodes it has added, and the current coverage score, so that I understand what the system is doing and trust that it is not stuck.
+16. As a user, I want the autonomous research loop to show the current iteration number out of the maximum (e.g. "Iteration 2 of 3"), so that I know the maximum wait time before the loop terminates.
+17. As a user, I want the research loop to terminate automatically when the knowledge graph achieves a coverage score of 85 or above, so that the system does not over-fetch data for queries that are already well-covered.
+18. As a user, I want the research loop to terminate after a maximum of three iterations regardless of coverage score, so that the system never hangs in a live demo or production session.
+19. As a user, I want to cancel the research loop at any time and view the partial graph accumulated so far, so that I can keep working if I decide the existing data is sufficient.
+20. As a user, I want the progress log to clearly indicate when a specific MCP data source fails mid-loop (e.g. "STRING DB unavailable — skipping protein interaction data") rather than aborting the entire loop, so that I receive the best available partial result.
+21. As a user, I want nodes contributed by a failed data source to be flagged as incomplete in the graph with a visual indicator, so that I know where the graph has gaps and can retry those sources later.
 
-**Literature Discovery** (19-29) 19. As a literature reviewer, I want to search PubMed by disease and topic, so that I can find relevant research papers 20. As a busy scientist, I want to see AI-generated 2-3 sentence summaries of papers, so that I can quickly assess relevance without reading full abstracts 21. As a researcher, I want to see highlighted entities (genes, drugs, diseases) in paper summaries, so that I can quickly identify key concepts 22. As a literature analyst, I want to click on a paper card, so that I can read the full abstract in a slide-in panel 23. As a systematic reviewer, I want to see MeSH terms for each paper, so that I can understand the paper's classification 24. As a scientist, I want to click "View in PubMed" links, so that I can access the full text article 25. As a researcher, I want to filter papers by publication year, so that I can focus on recent findings 26. As a team lead, I want to filter by journal name, so that I can prioritize high-impact publications 27. As a researcher, I want to see author information, so that I can identify key opinion leaders in the field 28. As a literature reviewer, I want pagination controls, so that I can browse through hundreds of results efficiently 29. As a knowledge manager, I want to see preprints separately from peer-reviewed papers, so that I can assess evidence quality
+### Knowledge Graph — Core Behaviour
 
-**Drug Safety Assessment** (30-37) 30. As a safety scientist, I want to search for a drug by name, so that I can see its adverse event profile 31. As a pharmacovigilance analyst, I want to see organ systems color-coded by safety severity, so that I can quickly identify risk areas 32. As a toxicologist, I want to hover over organ diagrams, so that I can see the top 3 adverse events for that system 33. As a clinical development lead, I want to click on an organ, so that I can see a detailed table of all adverse events 34. As a regulatory affairs specialist, I want to see the data source and last update date, so that I can trust the information 35. As a safety reviewer, I want to see event frequency counts, so that I can assess the magnitude of risk 36. As a risk manager, I want to compare safety profiles across multiple drugs, so that I can make informed decisions 37. As a medical affairs director, I want to export safety data as a report, so that I can share with stakeholders
+22. As a researcher, I want every node added to the knowledge graph to carry provenance metadata including the data source, the query that triggered it, and the timestamp it was fetched, so that I can verify any claim in the graph against its primary source.
+23. As a user, I want the knowledge graph to be cumulative — each new query adds to the existing graph rather than replacing it — so that the workspace builds a progressively richer evidence base over time.
+24. As a user, I want the graph to deduplicate nodes automatically when the same entity (same UniProt accession, same patent ID, same NCT ID) is returned by multiple queries, so that the graph does not contain redundant duplicate nodes.
+25. As a user, I want deduplicated nodes to merge their provenance records, so that I can see all the queries and sources that contributed evidence for a given entity.
+26. As a user, I want the knowledge graph to persist across browser sessions using IndexedDB, so that I do not lose accumulated evidence when I close the browser.
+27. As a user, I want to see the total node count, edge count, and source breakdown in a provenance panel below the graph canvas, so that I have a transparent audit of what the graph contains.
+28. As a user, I want the provenance panel to show when the graph was last updated relative to the current time, so that I can assess whether the data is fresh enough for my purpose.
 
-**Timeline & Historical Context** (38-43) 38. As a competitive intelligence analyst, I want to see a chronological timeline of clinical trials, so that I can understand the development history 39. As a portfolio strategist, I want to see publication dates on the timeline, so that I can identify when interest in a target emerged 40. As a regulatory analyst, I want to see FDA approval dates, so that I can understand the regulatory history 41. As a researcher, I want to filter timeline events by type (trial, paper, approval), so that I can focus on specific event categories 42. As a project manager, I want to zoom the timeline view, so that I can see decade, year, or month-level detail 43. As a scientist, I want to click on timeline event cards, so that I can see expanded details
+### Knowledge Graph — Visual Canvas (Cytoscape.js)
 
-**AI Copilot & Insights** (44-50) 44. As a researcher, I want to see an AI-generated overview of my current query, so that I can get a high-level summary 45. As a scientist, I want to see inline citations in AI text, so that I can verify claims 46. As a user, I want to click citations, so that I can open the source document 47. As a researcher, I want to see a mini dendrogram widget in the sidebar, so that I have quick reference while reading details 48. As a pathway biologist, I want to see top pathways for the current gene, so that I can understand its biological role 49. As a safety analyst, I want to see a safety summary widget, so that I can quickly assess risk 50. As a scientist, I want quick action buttons for "Generate Report" and "Export", so that I can save my findings efficiently
+29. As a researcher, I want to see the knowledge graph rendered as an interactive force-directed graph with nodes representing biological and chemical entities and edges representing relationships between them, so that I can explore the connected evidence visually.
+30. As a user, I want node shape to encode entity type (circles for biological entities, rectangles for compounds and drugs, diamonds for patents, hexagons for clinical trials, squares for companies), so that I can identify entity categories without reading every label.
+31. As a user, I want node colour to encode the data source that contributed the node, with a colour legend always visible, so that I can distinguish Open Targets evidence from STRING evidence from PatentsView evidence at a glance.
+32. As a user, I want node size to encode evidence strength (association score, interaction confidence, or citation count depending on entity type), so that the most strongly evidenced entities are visually prominent.
+33. As a user, I want edge thickness to encode confidence or association score, so that strong relationships are visually distinguishable from weak ones.
+34. As a user, I want edge colour to encode relationship type (co-expression, direct binding, patent ownership, trial sponsorship, etc.), so that the nature of each connection is scannable without clicking.
+35. As a user, I want to hover over any node to see a tooltip showing entity name, type, source, key metadata, and which query originally added it to the graph, so that I can get essential context without clicking into the full detail drawer.
+36. As a user, I want to click any node to open a detail drawer with the full entity record, so that I can read complete information without navigating away from the workspace.
+37. As a user, I want to hover over any edge to see a tooltip showing relationship type, confidence score, source database, and evidence types (e.g. co-expression, text-mining, binding assay), so that I can assess the quality of each connection.
+38. As a user, I want to click any edge to open an edge detail drawer listing the full experimental evidence supporting that interaction, so that I can trace a claim back to the underlying data.
+39. As a user, I want to pan, zoom, and drag the graph freely, so that I can explore dense regions and sparse peripheries of large graphs.
+40. As a user, I want a node search box in the graph toolbar that centres and highlights a specific entity when I type its name or identifier, so that I can navigate large graphs without manually hunting for a node.
+41. As a user, I want to change the graph layout algorithm (force-directed, hierarchical, circular) from a toolbar control, so that I can find the spatial arrangement that best reveals the structure I am looking for.
+42. As a user, I want a "fit to screen" button that resets the viewport to show all nodes, so that I can recover from deep zooming without manually zooming out.
+43. As a user, I want to right-click any node to access a context menu with actions: pin to saved items, remove from graph, find all connections, and run a targeted follow-up query about this entity.
+44. As a user, I want to export the current graph view as a PNG or SVG file, so that I can include it in a presentation or publication.
 
-**Navigation & User Experience** (51-58) 51. As a user, I want a persistent top navigation bar, so that I can access key features from anywhere 52. As a researcher, I want to switch between Dendrogram, Network, Documents, Timeline, Grid, and Strategist views using tabs, so that I can explore data in different formats 53. As a user, I want smooth animations when loading visualizations, so that the interface feels polished and responsive 54. As a researcher, I want loading skeletons while data fetches, so that I understand the system is working 55. As a user, I want clear error messages when API calls fail, so that I know what went wrong 56. As a scientist, I want the sidebar to be collapsible, so that I can maximize screen space for visualizations 57. As a user, I want keyboard shortcuts for common actions, so that I can work more efficiently 58. As a researcher, I want a search bar always accessible, so that I can quickly pivot to new queries
+### Knowledge Graph — Researcher Mode and Strategist Mode
 
-**Performance & Reliability** (59-64) 59. As a user, I want pages to load in under 2 seconds, so that I don't waste time waiting 60. As a researcher, I want network graphs with 50+ nodes to render smoothly, so that I can explore complex interactions 61. As a user, I want the system to cache frequently accessed data, so that repeated queries are instant 62. As a scientist, I want the UI to remain responsive even when AI summarization is running, so that I can continue exploring 63. As a researcher, I want graceful degradation when external APIs are slow, so that I can still use other features 64. As a user, I want to see progress indicators for long-running operations, so that I know the system hasn't frozen
+45. As a researcher, I want patent and company nodes to be visually de-emphasised (smaller, more transparent) by default in Researcher Mode, so that the biological machinery is the dominant visual layer and I am not distracted by commercial data.
+46. As a strategist, I want protein interaction sub-graphs to be visually compressed and patent/trial/company nodes to be rendered at full visual weight in Strategist Mode, so that the competitive landscape is the dominant visual layer.
+47. As a user, I want to toggle between Researcher Mode and Strategist Mode from the persona toggle pill in the top navigation, so that I can switch perspectives without reloading the workspace.
+48. As a user, I want persona mode to affect only the visual weighting and query prompt templates, never the underlying graph data, so that switching modes never causes data loss.
+49. As a user, I want the persona mode to be persisted per workspace so that each workspace opens in the mode I last used for it.
 
-**Data Quality & Trust** (65-75) 65. As a scientist, I want to see data source labels on every piece of information, so that I can assess credibility 66. As a researcher, I want to see timestamps on cached data, so that I know if information is stale 67. As a quality analyst, I want entity extraction to be accurate (>80% precision), so that highlighted terms are relevant 68. As a user, I want AI-generated summaries to include citations, so that I can verify claims 69. As a researcher, I want association scores from Open Targets to match their official platform, so that I trust the data 70. As a scientist, I want STRING DB interaction scores to reflect actual confidence levels, so that I don't overinterpret weak evidence 71. As a bioinformatician, I want API rate limits to be handled gracefully with retry logic, so that my workflow isn't interrupted 72. As a researcher, I want stale cached data to be visually indicated, so that I know to refresh if needed 73. As a team lead, I want error logs accessible for debugging, so that I can report issues effectively 74. As a scientist, I want data provenance visible (which API, which query, when retrieved), so that I can reproduce results 75. As a user, I want the system to work offline with cached data when APIs are unavailable, so that I can continue working
+### Knowledge Graph — India Lens
 
-### NEW: Unified Search (Stories 76-78)
+50. As a user, I want to toggle the India Lens on or off from the workspace toolbar at any time, so that I can switch between a global view and an India-contextualised view without reloading.
+51. As a user, I want Indian patent assignees (Indian companies identified by string matching on PatentsView assignee field) to receive a distinct visual badge on their nodes when India Lens is active, so that I can immediately see the Indian IP footprint in the competitive landscape.
+52. As a user, I want drugs present in the CDSCO approved drug list (loaded from a static CSV) to have a CDSCO approval badge on their nodes when India Lens is active, so that I can quickly see which compounds have an existing Indian regulatory path.
+53. As a user, I want drugs subject to NPPA price caps (loaded from a static NPPA CSV) to display their price cap value in their node tooltip when India Lens is active, so that I can assess formulation commercial viability without leaving the workspace.
+54. As a user, I want clinical trials with Indian sponsors (identified by ClinicalTrials.gov sponsor country field) to have an India indicator badge on their nodes when India Lens is active, so that I can see the local clinical precedent for a compound.
+55. As a user, I want the India Lens toggle to apply retroactively to all nodes already in the graph, not just nodes fetched after it is turned on, so that I do not need to re-run queries to see India-specific annotations.
+56. As a user, I want the India Lens state to be saved per workspace, so that it is restored to my last setting when I re-open the workspace.
 
-76. **As a researcher**, I want to type "metformin" once in a single search bar, so that I see aggregated results from PubMed, Europe PMC (preprints), UniProt, PubChem, ClinicalTrials.gov, PatentsView, Open Targets, and OpenFDA simultaneously—**instead of manually querying 8+ databases separately**
+### Knowledge Graph — View Variants
 
-77. **As a user**, I want results automatically grouped by type (Literature / Protein / Compound / Clinical Trial / Patent / Target / Safety) with clear source badges (e.g., "PubMed", "UniProt", "PatentsView"), so that I can quickly scan different data dimensions without confusion
+57. As a user, I want to switch to a Timeline view variant from the graph toolbar, so that I can see all time-stamped nodes (patent filings, trial starts, publications, approvals) plotted chronologically on a horizontal axis.
+58. As a user, I want the Timeline view to show events colour-coded by type (patent, trial, publication, approval), so that I can distinguish the categories at a glance.
+59. As a user, I want to hover over any event in the Timeline view to see a tooltip with the entity name, date, source, and key metadata.
+60. As a user, I want to click any event in the Timeline view to open the same detail drawer as clicking the node in the Graph view, so that the interaction model is consistent across view variants.
+61. As a user, I want to switch back to the Graph view from the Timeline view with a single click, without losing my pan/zoom position in the graph.
+62. As a user, I want to open a Dendrogram overlay from the graph toolbar that shows a read-only hierarchical tree of disease-to-target associations from Open Targets for the primary disease in the current graph, so that I can see the biological hierarchy at a glance without switching screens.
+63. As a user, I want to export the Dendrogram overlay as a PNG directly from the overlay panel, so that I can include it in a research presentation.
+64. As a user, I want to close the Dendrogram overlay and return to the main graph view with a single click.
 
-78. **As a scientist**, I want to filter aggregated results by source, publication date, evidence strength, or result type using dropdown filters, so that I can focus on specific data subsets (e.g., "Show only patents filed after 2020" or "Only high-confidence Open Targets associations >0.7")
+### Left Panel — Research Query Sidebar
 
-### NEW: Workspaces & Persistence (Stories 79-82)
+65. As a user, I want to add new queries to the workspace from the left panel's "Add to graph" input without navigating away from the three-panel view, so that my workflow is never interrupted.
+66. As a user, I want new queries entered from the left panel to trigger the autonomous research loop inline (showing a compact progress indicator in the left panel, not a full-screen overlay), so that I can continue reading the existing graph and report while augmentation runs.
+67. As a user, I want to see three AI-generated follow-up question suggestions in the left panel after each query completes, based on the current state of the graph, so that I always have an intelligent next step without having to think of one myself.
+68. As a user, I want follow-up suggestions to reflect my current persona mode and India Lens state, so that a researcher sees mechanistic follow-ups and a strategist sees competitive follow-ups.
+69. As a user, I want to click a suggested follow-up question to pre-populate the input and submit it immediately, so that adding contextually relevant queries is a one-click action.
+70. As a user, I want to see a query history list in the left panel showing all queries that have been added to this workspace, with each query annotated by the number of nodes it contributed and the date it ran, so that I have a clear audit trail of how the graph was built.
+71. As a user, I want to click any query in the history list to highlight the nodes it contributed in the graph canvas, so that I can visually trace what each query added to the overall picture.
+72. As a user, I want a saved items section at the bottom of the left panel showing items I have explicitly pinned from the graph, so that I have quick access to key evidence without hunting through the full graph.
+73. As a user, I want to collapse the entire left panel into a narrow icon rail, so that I can maximise the graph and report area when working on a small screen.
 
-79. **As a researcher**, I want to create multiple named workspaces (e.g., "Metformin Competition 2026", "NSCLC Target Pipeline", "Alzheimer's Drug Candidates"), so that I can organize findings by project without mixing unrelated research
+### Right-Bottom Panel — Intermediate Report
 
-80. **As a user**, I want to save any search result (paper, protein, patent, trial, target) to any workspace with one click on a "Save to Workspace" button, so that I can build curated collections without copy-pasting URLs manually
+74. As a researcher, I want the intermediate report to automatically generate after the first query's research loop completes, so that I have a synthesis to read immediately without triggering a separate action.
+75. As a researcher, I want the intermediate report in Researcher Mode to contain the following sections: Overview, Key Targets and Evidence, Molecular Context, Safety Signals, and Open Questions, so that the structure maps to my natural research workflow.
+76. As a strategist, I want the intermediate report in Strategist Mode to contain the following sections: Competitive Landscape Overview, Dominant Players and Patent Position, Patent Expiry Timeline and Market-Entry Windows, Trial Activity Summary, and White Space Opportunities, so that the structure maps to my natural strategic workflow.
+77. As a user, I want every factual claim in the intermediate report to be followed by an inline citation badge showing the source (e.g. "Open Targets", "PatentsView: US10234567"), so that I can verify any claim without having to cross-reference separately.
+78. As a user, I want clicking a citation badge in the report to highlight the corresponding node in the graph canvas, so that I can immediately see the evidence behind any claim in its network context.
+79. As a user, I want to edit any paragraph of the intermediate report directly, so that I can correct AI-generated errors, add my own interpretation, or restructure the narrative.
+80. As a user, I want edited paragraphs to retain their citation badges after editing, so that provenance is not lost when I refine the AI's language.
+81. As a user, I want the report to show a staleness indicator when new nodes have been added to the graph since the last synthesis (e.g. "14 new nodes added since this report was generated — regenerate?"), so that I always know whether the report reflects the current graph state.
+82. As a user, I want to click "Regenerate synthesis" to produce an updated report based on the current graph, so that the report stays in sync with an evolving graph without manual rewriting.
+83. As a user, I want to export the intermediate report as Markdown, PDF, or JSON from the report panel toolbar, so that I can share a snapshot of my current findings without generating a full dossier.
+84. As a user, I want to collapse the intermediate report panel to a thin strip, so that I can maximise the graph canvas when I am in exploration mode.
 
-81. **As a team lead**, I want saved items to include full metadata (title, authors, journal, date, DOI/Accession/NCT ID/Patent ID) + direct link back to original source, so that I can share workspace exports with colleagues who can verify sources
+### Detail Drawers
 
-82. **As a strategist**, I want to browse/explore everything saved in a workspace using a filterable grid view (filter by type, source, date added), so that I can quickly find specific items in large collections (100+ saved items)
+85. As a user, I want clicking a gene or protein node to open a detail drawer showing the UniProt accession, protein function summary, a simplified feature track summary, associated diseases, known drugs, pathway memberships, and links to UniProt, Ensembl, and NCBI Gene, so that I have the full protein context without leaving the workspace.
+86. As a user, I want a "Open full protein profile" button in the protein detail drawer that navigates to the standalone Protein Profile screen, so that I can access the interactive UniProt Feature Viewer when I need it.
+87. As a user, I want clicking a disease node to open a detail drawer showing the disease name, EFO ID, a ranked list of targets associated with this disease that are already in the current graph, and a link to Open Targets, so that I can understand how the disease is represented in my workspace.
+88. As a user, I want clicking a drug or compound node to open a detail drawer showing the compound name, PubChem CID, known targets, clinical status, ChEMBL bioactivity summary, and a link to PubChem.
+89. As a user, I want clicking a patent node to open a detail drawer showing the patent ID, title, assignee, filing date, expiry date from FDA Orange Book if available, abstract snippet, and links to Google Patents and PatentsView. When India Lens is on and the assignee is an Indian company, I want a highlighted India badge in the drawer header.
+90. As a user, I want clicking a clinical trial node to open a detail drawer showing NCT ID, title, sponsor, phase, status, primary endpoint, and a link to ClinicalTrials.gov. When India Lens is on and the sponsor is Indian, I want an India badge shown.
+91. As a user, I want clicking a literature node to open a detail drawer showing title, authors, journal, date, full abstract, MeSH terms, an AI-generated 2–3 sentence summary with citations, and links to PubMed and Europe PMC.
+92. As a user, I want all detail drawers to have a "Pin to saved items" button and a "Remove from graph" button, so that I can curate the graph without hunting through menus.
+93. As a user, I want detail drawers to slide in from the right edge of the screen without replacing the three-panel layout, so that I can compare the drawer content against the graph and report simultaneously.
 
-### NEW: Pharma Strategist (Competitor Intelligence) (Stories 83-92)
+### Strategist Mode — Full Report View
 
-83. **As a portfolio strategist**, I want to type natural-language queries like _"What companies dominate distribution of metformin?"_ or _"Show me AstraZeneca's trial activity in lung cancer"_, so that I get AI-generated competitor reports without manually compiling data from patents, trials, and publications
+94. As a strategist, I want to access a dedicated Strategist Report view that presents competitive intelligence findings in a structured, printable format, so that I can share findings with BD&L leadership without the full workspace interface.
+95. As a strategist, I want the Strategist Report to open the Pharma Strategist query interface when no report has been generated yet for this workspace, so that I have a clear starting point for my competitive query.
+96. As a strategist, I want the query interface to offer suggested query categories as clickable chips — Dominant company analysis, Patent expiry landscape, Trial activity benchmarking, White space identification — so that I have a structured starting point for my competitive question.
+97. As a strategist, I want the query interface to show a data limitations disclosure before I submit ("Market dominance is inferred from patent volume, trial sponsorship, and publication affiliation — not revenue or sales data"), so that I frame my expectations correctly before seeing results.
+98. As a strategist, I want the Strategist Report to include a Dominant Companies table with columns for company name, patent count, earliest patent date, latest patent expiry date, active trial count, and publication count, all sortable by any column, so that I can rank competitors by the dimensions most relevant to my decision.
+99. As a strategist, I want to click any company name in the Dominant Companies table to run a company-specific follow-up Strategist query, so that I can drill into any single competitor without leaving the report view.
+100. As a strategist, I want the Strategist Report to include an interactive timeline chart showing patents filed, trials initiated, and FDA approvals over time for the queried topic, so that I can understand the chronological development of the competitive landscape.
+101. As a strategist, I want to hover over any event on the timeline chart to see a tooltip with the event type, date, source, and entity name, so that I can get detail without opening a separate view.
+102. As a strategist, I want to click any timeline event to open the primary source in a new browser tab (PatentsView, ClinicalTrials.gov, PubMed), so that I can verify the claim against the original record.
+103. As a strategist, I want the Strategist Report to include a Trial Activity section showing active and completed trials broken down by phase, sponsor, and status, with links to ClinicalTrials.gov for each trial, so that I can benchmark our clinical program against competitors.
+104. As a strategist, I want the Strategist Report to include an AI Insights section of 2–3 paragraphs synthesising: which companies dominate and why, key patent cliff dates and market-entry implications, and identified white space opportunities, so that I have a narrative I can present to stakeholders.
+105. As a strategist, I want every claim in the AI Insights narrative to include an inline citation formatted as [PatentsView: US12345678] or [NCT02345678] that I can click to open the source, so that I can defend any claim in a stakeholder meeting.
+106. As a strategist, I want the Strategist Report to include a White Space panel listing specific opportunities (disease-MoA-patient segment combinations where patent coverage is sparse or expiring and trial activity is low), each annotated with the data that supports the opportunity claim, so that I can prioritise investment discussions.
+107. As a strategist, I want to save the entire Strategist Report to the current workspace, so that I can return to it in a future session or share it with a colleague.
+108. As a strategist, I want to export the Strategist Report as Markdown, PDF, or JSON, so that I can distribute findings to stakeholders in their preferred format.
+109. As a strategist, I want to see a query history of previously generated Strategist reports in the current workspace, so that I can compare analyses over time or reopen an older report without re-running the query.
 
-84. **As a competitive-intelligence analyst**, I want the Strategist report to include:
+### Full Dossier Generation
 
-- **Dominant Companies Table** (company name, patent count, earliest patent date, latest expiry date)
-- **Visual Timeline** (interactive chart showing patents filed → trials started → FDA approvals over time)
-- **Trial Activity Summary** (number of trials by phase, recruitment status, key endpoints)
-- **Publication Volume** (number of papers by company affiliation, trending topics)
+110. As a user, I want a "Generate full dossier" button in the intermediate report toolbar that triggers a comprehensive document generation based on the entire current knowledge graph, so that I can produce a publication-quality research summary when my investigation is complete.
+111. As a user, I want to choose the dossier format before generation begins: Full Research Dossier, Executive Summary, India Regulatory Briefing, or Competitive Intelligence Report, so that the output structure matches my intended audience.
+112. As a researcher, I want the India Regulatory Briefing format to organise the dossier into sections that map to typical CDSCO/DCGI submission requirements, so that the output is directly useful for regulatory preparation without reformatting.
+113. As a user, I want to see a live generation log during dossier creation that shows each synthesis step as it completes, so that I know the system is progressing and have a realistic time estimate.
+114. As a user, I want the dossier generation screen to show an estimated generation time based on graph size before I confirm, so that I can decide whether to proceed immediately or schedule it.
+115. As a user, I want to preview the generated dossier in a paginated view before downloading, so that I can verify the output before sharing it.
+116. As a user, I want to download the generated dossier as PDF or Markdown, so that I have a portable document I can share externally.
+117. As a user, I want the dossier generation to fail gracefully — showing which sections were successfully generated and which failed — rather than returning a blank error, so that I can download the partial output and retry only the failed sections.
 
-...so that I can assess competitive landscape at a glance
+### Standalone Protein Profile (UniProt Feature Viewer)
 
-85. **As a business-development lead**, I want to export the Strategist report as:
+118. As a researcher, I want to open a standalone full-screen Protein Profile for any protein node from the detail drawer, so that I can access the complete interactive UniProt Feature Viewer experience.
+119. As a structural biologist, I want the Protein Profile to show a zoomable, pannable sequence track with layered annotation tracks for: domains (Pfam/SMART), active sites, post-translational modifications, and disease variants (ClinVar/UniProt), so that I can identify functionally important regions at a glance.
+120. As a researcher, I want to hover over any feature on the track to see a tooltip with residue number(s), annotation label, data source, and a link to the source database entry, so that I can get full annotation detail without navigating away.
+121. As a drug designer, I want the Protein Profile to show a Known Drugs panel listing ChEMBL compounds with activity against this protein, with bioactivity type, IC50 or Kd value, and clinical status, so that I can assess druggability in context.
+122. As a user, I want an "Add to workspace graph" button in the Protein Profile header that adds this protein and its associated evidence to the current workspace's knowledge graph with full provenance, so that findings from deep protein exploration are brought back into the workspace.
+123. As a user, I want a "Return to workspace" breadcrumb at the top of the Protein Profile when it was opened from a workspace context, so that I can navigate back without losing the workspace state.
 
-- **Markdown** (for internal wikis/Notion)
-- **PDF** (for board presentations)
-- **JSON** (for data pipelines)
+### System and Settings
 
-...so that I can share findings with stakeholders in their preferred format
-
-86. **As a researcher**, I want every claim in the Strategist report to include inline citations (e.g., _"Novo Nordisk holds 14 active patents for metformin formulations [PatentsView: US10234567, US10234568, ...]_"), so that I can verify AI-generated insights against primary sources
-
-87. **As a regulatory affairs specialist**, I want the Strategist to highlight patent expiry dates from FDA Orange Book data, so that I can identify market-entry opportunities when exclusivity ends
-
-88. **As a clinical development director**, I want the Strategist to show which companies are sponsoring trials in specific disease areas (e.g., _"Pfizer: 23 active trials in NSCLC, 12 in Phase 3"_), so that I can benchmark our trial portfolio against competitors
-
-89. **As a portfolio manager**, I want the Strategist to identify "white space" opportunities (diseases with low trial activity or expiring patents), so that I can prioritize investment in underserved therapeutic areas
-
-90. **As a scientist**, I want the Strategist timeline to be interactive (hover over events for details, click to open source in new tab), so that I can explore the data behind the synthesis
-
-91. **As a team lead**, I want Strategist queries and reports to be saved in workspaces, so that I can revisit analyses months later or share with new team members
-
-92. **As a user**, I want the Strategist to clearly indicate data limitations (e.g., _"Market share data unavailable—analysis based on public patent/trial signals only"_), so that I don't overinterpret findings
-
-### NEW: UniProt Feature Viewer (Stories 93-96)
-
-93. **As a structural biologist**, I want to click any protein in search results or network graphs to open a UniProt Feature Viewer, so that I can see protein domains, post-translational modifications (PTMs), and variants visualized on a sequence track
-
-94. **As a researcher**, I want the Feature Viewer to show color-coded tracks:
-
-- **Domains** (Pfam, SMART) - blue
-- **Active Sites** - green
-- **PTMs** (phosphorylation, ubiquitination) - purple
-- **Disease Variants** (from ClinVar, UniProt) - red
-
-...so that I can quickly identify functionally important regions
-
-95. **As a drug designer**, I want to hover over Feature Viewer tracks to see tooltips with residue numbers and annotations (e.g., _"K48: Ubiquitination site, critical for protein degradation"_), so that I can assess druggability
-
-96. **As a bioinformatician**, I want the Feature Viewer to support zoom and pan (D3-powered), so that I can inspect specific regions in detail for large proteins (>1000 amino acids)
+124. As a user, I want a Settings screen showing the current connection status of every integrated data source (live, cached-only, or unavailable), so that I can understand what data quality to expect before starting a session.
+125. As a user, I want a "Force refresh" button per data source in Settings that clears the cache and re-fetches from the live API, so that I can get the most current data when I know I need it.
+126. As a user, I want to set a maximum graph node cap (50–200 nodes) in Settings, so that I can balance graph richness against performance on my hardware.
+127. As a user, I want to enter optional NCBI and OpenFDA API keys in Settings to increase rate limits for those services, with clear instructions on where to obtain the keys, so that I can improve data throughput in production use.
+128. As a user, I want all Settings preferences to persist to IndexedDB alongside workspace data, so that my configuration survives browser refreshes.
+129. As a user, I want the knowledge graph canvas to degrade gracefully when Cytoscape fails to render — showing a plain grouped list of node labels by entity type — rather than a blank screen, so that I can still read and act on the graph data even when the visual layer breaks.
 
 ---
 
@@ -202,1768 +213,208 @@ AI-powered analyst that answers strategic queries like:
 
 ### Architecture Overview
 
-**Monorepo Structure** (pnpm workspace):
-
-```
-entropy-v2/
-├── apps/
-│   ├── api/              # Hono REST API (existing)
-│   │   └── src/routes/
-│   │       └── causaly.ts   # NEW: Unified search, workspaces, strategist endpoints
-│   └── mastra-app/       # Mastra agents (existing)
-├── packages/
-│   ├── mcp-biology/      # Existing: Open Targets, UniProt, Ensembl, NCBI
-│   ├── mcp-clinical/     # Existing: PubMed, ClinicalTrials.gov
-│   ├── mcp-safety/       # Existing: OpenFDA, RxNav
-│   ├── mcp-europepmc/    # NEW: Europe PMC (preprints, full-text)
-│   ├── mcp-patents/      # NEW: PatentsView + Orange Book parser
-│   ├── mcp-string/       # NEW: STRING DB (protein-protein interactions)
-│   ├── mcp-pubchem/      # NEW: PubChem (chemical structures)
-│   └── mcp-pathways/     # NEW: Reactome (biological pathways)
-├── entropy_front/        # React 19 frontend (existing, needs connections)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── UnifiedSearch.tsx        # NEW
-│   │   │   ├── WorkspaceSidebar.tsx     # NEW
-│   │   │   ├── StrategistReport.tsx     # NEW
-│   │   │   ├── UniProtFeatureViewer.tsx # NEW
-│   │   │   ├── NetworkView.tsx          # MODIFY (connect to STRING)
-│   │   │   ├── DendrogramView.tsx       # MODIFY (real data)
-│   │   │   ├── DocumentsView.tsx        # MODIFY (real data)
-│   │   │   └── SafetyVisualization.tsx  # MODIFY (real data)
-│   │   ├── store/
-│   │   │   └── workspaceStore.ts        # NEW (Zustand)
-│   │   ├── lib/
-│   │   │   ├── api.ts                   # NEW (typed API client)
-│   │   │   └── queryClient.ts           # NEW (TanStack Query setup)
-│   │   └── types/
-│   │       └── causaly.ts               # NEW (shared interfaces)
-└── amd-docs/             # NEW: Hackathon documentation
-```
-
-### Tech Stack Matrix
-
-| Layer                         | Technology                       | Version      | Purpose                                                                 | Why Chosen                                                         | Trade-offs                                                                        |
-| ----------------------------- | -------------------------------- | ------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| **Frontend Framework**        | React 19                         | 19.0         | All UI (search, tabs, workspace sidebar, strategist report)             | Concurrent rendering for smooth UX, server components future-ready | Learning curve for React 19 features; mitigated by using mostly React 18 patterns |
-| **Build Tool**                | Vite                             | 8.x          | Dev server + production builds                                          | Fastest HMR, native ESM, optimized chunks                          | Requires Node 18+; already present                                                |
-| **State Management (Server)** | TanStack Query v5                | 5.x          | Unified search, workspaces, strategist data fetching                    | Best-in-class caching, devtools, automatic retries                 | Overkill for simple GET; mitigated by excellent docs                              |
-| **State Management (Client)** | Zustand                          | 4.x          | Workspace management (MVP: localStorage sync)                           | Minimal boilerplate, no providers, easy testing                    | No time-travel debugging; acceptable for MVP                                      |
-| **Styling**                   | Tailwind CSS v3 + shadcn/ui      | 3.4 / latest | Consistent Causaly-inspired UI, workspace sidebar, strategist dashboard | Utility-first, accessible components from shadcn                   | Verbose class names; mitigated by editor autocomplete                             |
-| **Network Visualization**     | Cytoscape.js + react-cytoscapejs | 3.x          | Protein-protein interaction graphs (STRING DB)                          | Industry standard for bio networks, rich layout algorithms         | Large bundle size (~500KB); mitigated by code splitting                           |
-| **Data Visualization**        | D3 v7 (scales only) + Recharts   | 7.x / 2.x    | Feature Viewer (SVG tracks), Strategist timeline                        | D3 for custom SVG, Recharts for quick charts                       | D3 has steep learning curve; using only scales module                             |
-| **Backend Framework**         | Hono.js                          | 4.x          | REST API gateway (causaly.ts routes)                                    | Fastest TypeScript web framework, edge-ready                       | Less mature than Express; mitigated by excellent docs                             |
-| **API Schema Validation**     | Zod                              | 3.x          | All API request/response validation                                     | Type-safe runtime validation, infers TypeScript types              | Slightly verbose; acceptable for reliability                                      |
-| **MCP Pattern**               | TypeScript + Zod                 | 5.7 / 3.x    | New MCPs: europepmc, patents, string, pubchem, pathways                 | Consistent with existing biology/clinical/safety MCPs              | None; proven pattern                                                              |
-| **AI/LLM**                    | Mastra + Google Gemini           | existing     | Paper summaries + Strategist report generation                          | Already configured, zero new infra                                 | Gemini rate limits; mitigated by caching                                          |
-| **Database (Post-MVP)**       | PostgreSQL 16                    | 16           | Workspaces, saved items, user sessions                                  | Already in docker-compose.yml, proven reliability                  | Overkill for MVP; using localStorage first                                        |
-| **Package Manager**           | pnpm                             | 8.x          | Monorepo workspace management                                           | Faster than npm/yarn, strict dependencies                          | Requires pnpm installation; already present                                       |
-| **Testing**                   | Vitest + React Testing Library   | 3.x / latest | Unit tests (>80% coverage target)                                       | Vite-native, fast, Jest-compatible                                 | Async test flakiness; mitigated by retry logic                                    |
-| **Deployment (MVP)**          | Docker Compose (local)           | 3.8          | Demo on laptop                                                          | Simple, reproducible, no cloud costs                               | Not production-ready; acceptable for hackathon                                    |
-
-### Data Flow Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         User (Browser)                           │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTP/S
-                             ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    entropy_front (React 19)                      │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ TanStack Query (Server State) + Zustand (Client State)  │  │
-│  └────────────┬─────────────────────────────────────────────┘  │
-│               │ Optimistic Updates                              │
-│  ┌────────────▼─────────────────────────────────────────────┐  │
-│  │ lib/api.ts (Typed Fetch Client)                          │  │
-│  └────────────┬─────────────────────────────────────────────┘  │
-└───────────────┼──────────────────────────────────────────────────┘
-                │ POST/GET JSON
-                ↓
-┌─────────────────────────────────────────────────────────────────┐
-│              apps/api (Hono REST Gateway)                        │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ routes/causaly.ts                                         │  │
-│  │  ├─ GET  /api/causaly/search?q=...&types=...            │  │
-│  │  ├─ POST /api/causaly/workspaces                        │  │
-│  │  ├─ POST /api/causaly/strategist                        │  │
-│  │  ├─ GET  /api/causaly/disease/:id/targets              │  │
-│  │  ├─ GET  /api/causaly/network/:gene                    │  │
-│  │  ├─ GET  /api/causaly/safety/:drug                     │  │
-│  │  └─ GET  /api/causaly/timeline                         │  │
-│  └────────────┬─────────────────────────────────────────────┘  │
-│               │ Parallel Promise.all() for aggregation          │
-└───────────────┼──────────────────────────────────────────────────┘
-                │
-     ┌──────────┴──────────┬──────────┬──────────┬──────────┐
-     ↓                     ↓          ↓          ↓          ↓
-┌─────────────┐   ┌─────────────┐   ┌────────────┐   ┌────────────┐
-│ MCP Packages│   │ MCP Packages│   │  Mastra    │   │ PostgreSQL │
-│  (Existing) │   │    (NEW)    │   │  Agents    │   │ (Post-MVP) │
-├─────────────┤   ├─────────────┤   ├────────────┤   ├────────────┤
-│ mcp-biology │   │mcp-europepmc│   │ Librarian  │   │ workspaces │
-│ mcp-clinical│   │ mcp-patents │   │  (summary) │   │saved_items │
-│ mcp-safety  │   │ mcp-string  │   │ Strategist │   │  users     │
-│             │   │mcp-pubchem  │   │ (new prompt│   │            │
-│             │   │mcp-pathways │   │  template) │   │            │
-└──────┬──────┘   └──────┬──────┘   └─────┬──────┘   └────────────┘
-       │                 │                 │
-       │ REST/GraphQL    │ REST            │ Gemini API
-       ↓                 ↓                 ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    External Public APIs (Free)                   │
-├─────────────────────────────────────────────────────────────────┤
-│ • Open Targets (GraphQL) - disease-target associations          │
-│ • PubMed E-utilities - literature search                        │
-│ • Europe PMC - preprints, full-text                             │
-│ • UniProt - protein data                                        │
-│ • STRING DB - protein-protein interactions                      │
-│ • PubChem - chemical structures                                 │
-│ • Reactome - pathways                                           │
-│ • ClinicalTrials.gov - trial data                              │
-│ • PatentsView - USPTO patents                                   │
-│ • FDA Orange Book - patent expiry                              │
-│ • OpenFDA FAERS - adverse events                               │
-│ • RxNav - drug interactions                                     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### API Endpoint Contracts
-
-**1. Unified Search**
-
-```typescript
-GET /api/causaly/search?q={query}&types={types}&limit={n}
-
-Query Params:
-  q: string (required) - Search term (e.g., "metformin", "EGFR", "NSCLC")
-  types: string[] (optional) - Filter by type (literature,protein,compound,trial,patent,target)
-  limit: number (optional) - Max results per source (default: 10)
-
-Response: SearchResponse
-{
-  query: string;
-  totalResults: number;
-  resultsByType: {
-    literature: SearchResult[];
-    protein: SearchResult[];
-    compound: SearchResult[];
-    trial: SearchResult[];
-    patent: SearchResult[];
-    target: SearchResult[];
-  };
-  executionTime: number; // milliseconds
-  sources: string[]; // ['pubmed', 'europepmc', 'uniprot', ...]
-}
-
-interface SearchResult {
-  id: string; // DOI, Accession, NCT ID, Patent ID, etc.
-  type: 'literature' | 'protein' | 'compound' | 'trial' | 'patent' | 'target';
-  title: string;
-  source: 'pubmed' | 'europepmc' | 'uniprot' | 'pubchem' | 'clinicaltrials' | 'patentsview' | 'opentargets';
-  snippet: string; // First 200 chars of abstract/description
-  url: string; // Deep link to source
-  aiSummary?: string; // Generated by Mastra (async, may be null initially)
-  metadata: Record<string, any>; // Source-specific fields
-  score?: number; // Relevance score (if available)
-}
-
-Implementation (causaly.ts):
-async function unifiedSearch(q: string, types?: string[], limit = 10) {
-  const results = await Promise.all([
-    mcpPubMed.search(q, limit),           // PubMed papers
-    mcpEuropePMC.searchPreprints(q, limit), // Preprints
-    mcpUniProt.search(q, limit),          // Proteins
-    mcpPubChem.search(q, limit),          // Compounds
-    mcpClinicalTrials.search(q, limit),   // Trials
-    mcpPatents.searchPatentsByDrug(q, limit), // Patents
-    mcpOpenTargets.searchTargets(q, limit), // Targets
-  ]);
-
-  return dedupeResults(results.flat(), types);
-}
-
-function dedupeResults(results: SearchResult[], types?: string[]) {
-  // Deduplicate by ID (DOI, Accession, NCT, Patent ID)
-  const seen = new Set<string>();
-  const deduped = results.filter(r => {
-    if (seen.has(r.id)) return false;
-    if (types && !types.includes(r.type)) return false;
-    seen.add(r.id);
-    return true;
-  });
-
-  // Group by type
-  return groupBy(deduped, 'type');
-}
-
-Caching: 1 hour (TanStack Query)
-Rate Limiting: Parallel calls respect per-API limits (see current-platforms.md)
-Error Handling: If any API fails, return partial results + error in metadata
-```
-
-**2. Workspaces (MVP: Client-Side)**
-
-```typescript
-// For hackathon MVP, workspaces are client-side only (Zustand + localStorage)
-// Post-MVP: Add these backend endpoints
-
-POST /api/causaly/workspaces
-Body: { name: string; description?: string }
-Response: { id: string; name: string; createdAt: string }
-
-GET /api/causaly/workspaces
-Response: { workspaces: Workspace[] }
-
-POST /api/causaly/workspaces/:id/items
-Body: { item: SearchResult }
-Response: { success: boolean; workspace: Workspace }
-
-GET /api/causaly/workspaces/:id
-Response: { workspace: Workspace }
-
-DELETE /api/causaly/workspaces/:id
-Response: { success: boolean }
-
-// Client-side implementation (workspaceStore.ts)
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-interface Workspace {
-  id: string;
-  name: string;
-  items: SearchResult[];
-  createdAt: string;
-}
-
-export const useWorkspaceStore = create(
-  persist(
-    (set, get) => ({
-      workspaces: [] as Workspace[],
-      activeWorkspaceId: null as string | null,
-
-      createWorkspace: (name: string) => {
-        const newWorkspace: Workspace = {
-          id: crypto.randomUUID(),
-          name,
-          items: [],
-          createdAt: new Date().toISOString(),
-        };
-        set(state => ({
-          workspaces: [...state.workspaces, newWorkspace],
-          activeWorkspaceId: newWorkspace.id,
-        }));
-      },
-
-      saveItem: (item: SearchResult, workspaceId: string) => {
-        set(state => ({
-          workspaces: state.workspaces.map(w =>
-            w.id === workspaceId
-              ? { ...w, items: [...w.items, item] }
-              : w
-          ),
-        }));
-      },
-
-      deleteWorkspace: (id: string) => {
-        set(state => ({
-          workspaces: state.workspaces.filter(w => w.id !== id),
-          activeWorkspaceId: state.activeWorkspaceId === id ? null : state.activeWorkspaceId,
-        }));
-      },
-    }),
-    { name: 'entropy-workspaces' } // localStorage key
-  )
-);
-```
-
-**3. Pharma Strategist**
-
-```typescript
-POST /api/causaly/strategist
-Body: { query: string; options?: { includeTimeline: boolean; includeCitations: boolean } }
-
-Response: StrategistReport
-{
-  query: string;
-  dominantCompanies: Array<{
-    company: string;
-    patentCount: number;
-    earliestPatent: string; // ISO date
-    latestExpiry: string;   // ISO date
-    trialCount: number;
-    publicationCount: number;
-  }>;
-  timeline: Array<{
-    date: string; // ISO date
-    event: string; // "Patent filed", "Trial started", "FDA approval"
-    source: string; // "PatentsView", "ClinicalTrials.gov", etc.
-    metadata: Record<string, any>;
-  }>;
-  insights: string; // AI-generated markdown (2-3 paragraphs)
-  citations: Array<{
-    id: string; // Patent ID, NCT ID, PMID, etc.
-    type: 'patent' | 'trial' | 'paper';
-    url: string;
-    title: string;
-  }>;
-  generatedAt: string; // ISO timestamp
-  dataLimitations: string[]; // e.g., ["No IQVIA market share data", "US-only patents"]
-}
-
-Implementation (causaly.ts + Mastra):
-async function generateStrategistReport(query: string, options = {}) {
-  // 1. Fetch data from multiple sources in parallel
-  const [patents, trials, papers, orangeBook] = await Promise.all([
-    mcpPatents.searchPatentsByDrug(query),
-    mcpClinicalTrials.searchByDrug(query),
-    mcpPubMed.search(query, { limit: 50 }),
-    mcpPatents.getOrangeBookData(query),
-  ]);
-
-  // 2. Aggregate by company
-  const companies = aggregateByCompany(patents, trials, papers);
-
-  // 3. Build timeline
-  const timeline = buildTimeline(patents, trials, orangeBook);
-
-  // 4. Generate AI insights using Mastra
-  const prompt = `
-    You are a pharma competitive intelligence analyst. Given the following data for ${query}:
-
-    Patents: ${JSON.stringify(patents.slice(0, 20))}
-    Clinical Trials: ${JSON.stringify(trials.slice(0, 20))}
-    Publications: ${JSON.stringify(papers.slice(0, 20))}
-
-    Generate a 2-3 paragraph strategic analysis covering:
-    1. Which companies dominate this space and why
-    2. Key patent expiry dates and market-entry opportunities
-    3. Competitive gaps or underserved therapeutic areas
-
-    Cite specific sources using [PatentsView: US12345678] format.
-  `;
-
-  const insights = await mastraLibrarian.generate(prompt);
-
-  // 5. Extract citations
-  const citations = extractCitations(insights, patents, trials, papers);
-
-  return {
-    query,
-    dominantCompanies: companies,
-    timeline,
-    insights,
-    citations,
-    generatedAt: new Date().toISOString(),
-    dataLimitations: [
-      "Market share data unavailable—analysis based on public patent/trial signals only",
-      "US-focused patent data (PatentsView)",
-      "Clinical trial sponsors may not reflect full commercial distribution",
-    ],
-  };
-}
-
-Caching: 24 hours (strategist reports are expensive to generate)
-Async: Generation runs in background; initial response returns { jobId, status: 'pending' }
-```
-
-**4. Existing Endpoints (Unchanged)**
-
-```typescript
-GET /api/causaly/disease/:diseaseId/targets
-GET /api/causaly/network/:geneSymbol
-GET /api/causaly/papers
-GET /api/causaly/safety/:drugName
-GET /api/causaly/timeline
-GET /api/causaly/drug/:drugName
-GET /api/causaly/gene/:geneSymbol/pathways
-```
-
-### New MCP Packages
-
-**1. packages/mcp-europepmc/**
-
-```typescript
-// Purpose: Better literature search than PubMed (preprints, full-text, snippets)
-// API: https://europepmc.org/RestfulWebService
-// Rate Limits: None documented (be respectful)
-// Auth: None
-
-// tools.ts
-export const searchPreprints = tool({
-  name: "searchPreprints",
-  description:
-    "Search Europe PMC for preprints (bioRxiv, medRxiv) and peer-reviewed papers",
-  schema: z.object({
-    query: z.string(),
-    limit: z.number().optional().default(20),
-    source: z.enum(["MED", "PMC", "PPR"]).optional(), // MED=PubMed, PMC=PMC, PPR=Preprints
-  }),
-  async run({ query, limit, source }) {
-    const params = new URLSearchParams({
-      query: query,
-      format: "json",
-      pageSize: limit.toString(),
-      ...(source && { resultType: source }),
-    });
-
-    const res = await fetch(
-      `https://www.ebi.ac.uk/europepmc/webservices/rest/search?${params}`,
-    );
-
-    if (!res.ok) throw new Error(`Europe PMC API error: ${res.status}`);
-
-    const data = await res.json();
-
-    return {
-      results: data.resultList.result.map((paper: any) => ({
-        id: paper.doi || paper.pmid || paper.id,
-        type: "literature" as const,
-        title: paper.title,
-        source: paper.source === "PPR" ? "europepmc" : "pubmed",
-        snippet: paper.abstractText?.substring(0, 200) || "",
-        url: `https://europepmc.org/article/${paper.source}/${paper.id}`,
-        metadata: {
-          authors: paper.authorString,
-          journal: paper.journalTitle,
-          date: paper.firstPublicationDate,
-          doi: paper.doi,
-          pmid: paper.pmid,
-          isPreprint: paper.source === "PPR",
-        },
-      })),
-      totalResults: data.hitCount,
-    };
-  },
-});
-
-export const getFullText = tool({
-  name: "getFullText",
-  description: "Get full-text XML for papers with PMC IDs",
-  schema: z.object({ pmcId: z.string() }),
-  async run({ pmcId }) {
-    const res = await fetch(
-      `https://www.ebi.ac.uk/europepmc/webservices/rest/${pmcId}/fullTextXML`,
-    );
-    if (!res.ok) return null;
-    return res.text();
-  },
-});
-```
-
-**2. packages/mcp-patents/**
-
-```typescript
-// Purpose: USPTO patent search + FDA Orange Book parsing
-// APIs:
-//   - PatentsView: https://search.patentsview.org/docs/api.html
-//   - Orange Book: https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files
-// Rate Limits: PatentsView = unspecified (be respectful), Orange Book = static file
-// Auth: None
-
-// tools.ts
-export const searchPatentsByDrug = tool({
-  name: "searchPatentsByDrug",
-  description: "Search USPTO patents by drug name using PatentsView API",
-  schema: z.object({
-    drugName: z.string(),
-    limit: z.number().optional().default(20),
-  }),
-  async run({ drugName, limit }) {
-    // PatentsView API v1 - search by patent title/abstract
-    const query = {
-      _text_all: { patent_title: drugName },
-    };
-
-    const fields = [
-      "patent_id",
-      "patent_title",
-      "patent_date",
-      "patent_abstract",
-      "assignee_organization",
-      "assignee_country",
-    ];
-
-    const res = await fetch(
-      `https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(JSON.stringify(query))}&f=${encodeURIComponent(JSON.stringify(fields))}&o={"per_page":${limit}}`,
-    );
-
-    if (!res.ok) throw new Error(`PatentsView API error: ${res.status}`);
-
-    const data = await res.json();
-
-    return {
-      results: data.patents.map((patent: any) => ({
-        id: patent.patent_id,
-        type: "patent" as const,
-        title: patent.patent_title,
-        source: "patentsview",
-        snippet: patent.patent_abstract?.substring(0, 200) || "",
-        url: `https://patents.google.com/patent/${patent.patent_id}`,
-        metadata: {
-          patentId: patent.patent_id,
-          filedDate: patent.patent_date,
-          assignee: patent.assignee_organization?.[0] || "Unknown",
-          country: patent.assignee_country?.[0] || "US",
-        },
-      })),
-      totalResults: data.total_patent_count,
-    };
-  },
-});
-
-export const getAssigneeTimeline = tool({
-  name: "getAssigneeTimeline",
-  description: "Get patent timeline for a specific company",
-  schema: z.object({
-    company: z.string(),
-    limit: z.number().optional().default(50),
-  }),
-  async run({ company, limit }) {
-    const query = {
-      assignee_organization: company,
-    };
-
-    const fields = ["patent_id", "patent_date", "patent_title"];
-
-    const res = await fetch(
-      `https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(JSON.stringify(query))}&f=${encodeURIComponent(JSON.stringify(fields))}&o={"per_page":${limit},"sort":[{"patent_date":"desc"}]}`,
-    );
-
-    if (!res.ok) throw new Error(`PatentsView API error: ${res.status}`);
-
-    const data = await res.json();
-
-    return {
-      company,
-      patents: data.patents.map((p: any) => ({
-        id: p.patent_id,
-        date: p.patent_date,
-        title: p.patent_title,
-      })),
-      totalCount: data.total_patent_count,
-    };
-  },
-});
-
-export const getOrangeBookData = tool({
-  name: "getOrangeBookData",
-  description: "Get FDA Orange Book data for drug patent expiry dates",
-  schema: z.object({ drugName: z.string() }),
-  async run({ drugName }) {
-    // Orange Book data is a static file updated monthly
-    // For MVP: Cache locally + parse on-demand
-    // Format: CSV with columns [ApplNo, ProductNo, Patent, PatentExpDate, Applicant]
-
-    const res = await fetch(
-      "https://www.fda.gov/media/76860/download", // Orange Book Patent file
-    );
-
-    if (!res.ok) return { results: [], source: "orange-book-unavailable" };
-
-    const csv = await res.text();
-    const rows = parseCSV(csv); // Simple CSV parser
-
-    const matches = rows.filter(
-      (row: any) =>
-        row.Applicant?.toLowerCase().includes(drugName.toLowerCase()) ||
-        row.Patent?.toLowerCase().includes(drugName.toLowerCase()),
-    );
-
-    return {
-      results: matches.map((row: any) => ({
-        applNo: row.ApplNo,
-        productNo: row.ProductNo,
-        patentId: row.Patent,
-        expiryDate: row.PatentExpDate,
-        applicant: row.Applicant,
-      })),
-    };
-  },
-});
-
-// Helper: Simple CSV parser
-function parseCSV(csv: string) {
-  const lines = csv.split("\n");
-  const headers = lines[0].split(",").map((h) => h.trim());
-  return lines.slice(1).map((line) => {
-    const values = line.split(",");
-    return headers.reduce(
-      (obj, header, i) => {
-        obj[header] = values[i]?.trim();
-        return obj;
-      },
-      {} as Record<string, string>,
-    );
-  });
-}
-```
-
-**3. packages/mcp-string/** (Already planned in original PRD)
-
-```typescript
-// Purpose: Protein-protein interaction networks
-// API: https://string-db.org/api
-// Rate Limits: ~1000 req/day (aggressive caching required)
-// Auth: None
-
-export const getInteractionNetwork = tool({
-  name: "getInteractionNetwork",
-  description: "Get protein-protein interaction network from STRING DB",
-  schema: z.object({
-    proteins: z.array(z.string()), // Gene symbols or UniProt IDs
-    species: z.number().optional().default(9606), // Human
-    minScore: z.number().optional().default(700), // High confidence
-  }),
-  async run({ proteins, species, minScore }) {
-    const res = await fetch(
-      `https://string-db.org/api/json/network?identifiers=${proteins.join("%0d")}&species=${species}&required_score=${minScore}`,
-    );
-
-    if (!res.ok) throw new Error(`STRING DB API error: ${res.status}`);
-
-    const data = await res.json();
-
-    return {
-      nodes: data
-        .map((edge: any) => [
-          { id: edge.stringId_A, label: edge.preferredName_A },
-          { id: edge.stringId_B, label: edge.preferredName_B },
-        ])
-        .flat()
-        .filter((node, i, arr) => arr.findIndex((n) => n.id === node.id) === i),
-      edges: data.map((edge: any) => ({
-        source: edge.stringId_A,
-        target: edge.stringId_B,
-        score: edge.score,
-        confidence:
-          edge.score > 900 ? "high" : edge.score > 700 ? "medium" : "low",
-      })),
-    };
-  },
-});
-```
-
-**4. packages/mcp-pubchem/** (Already planned)
-**5. packages/mcp-pathways/** (Already planned)
-
-### Frontend Components
-
-**1. UnifiedSearch.tsx**
-
-```typescript
-// entropy_front/src/components/UnifiedSearch.tsx
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { useWorkspaceStore } from '@/store/workspaceStore';
-
-export function UnifiedSearch() {
-  const [query, setQuery] = useState('');
-  const [activeType, setActiveType] = useState<'all' | 'literature' | 'protein' | 'compound' | 'trial' | 'patent' | 'target'>('all');
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['search', query],
-    queryFn: () => api.search(query),
-    enabled: query.length > 2,
-    staleTime: 1000 * 60 * 60, // 1 hour
-  });
-
-  const { saveItem, workspaces, activeWorkspaceId } = useWorkspaceStore();
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Search Bar */}
-      <div className="p-6 border-b">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search across PubMed, UniProt, Patents, Trials, and more..."
-          className="w-full px-4 py-3 text-lg border rounded-lg focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      {/* Type Tabs */}
-      <div className="flex gap-2 px-6 py-4 border-b overflow-x-auto">
-        {['all', 'literature', 'protein', 'compound', 'trial', 'patent', 'target'].map(type => (
-          <button
-            key={type}
-            onClick={() => setActiveType(type as any)}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-              activeType === type
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {type.charAt(0).toUpperCase() + type.slice(1)}
-            {data && type !== 'all' && (
-              <span className="ml-2 text-xs opacity-70">
-                ({data.resultsByType[type]?.length || 0})
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Results */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {isLoading && <div>Searching across 12 databases...</div>}
-        {error && <div className="text-red-600">Error: {error.message}</div>}
-
-        {data && (
-          <div className="space-y-6">
-            {Object.entries(data.resultsByType).map(([type, results]) => {
-              if (activeType !== 'all' && activeType !== type) return null;
-              if (!results || results.length === 0) return null;
-
-              return (
-                <div key={type}>
-                  <h3 className="text-lg font-semibold mb-3 capitalize">{type}</h3>
-                  <div className="space-y-3">
-                    {results.map((result: SearchResult) => (
-                      <ResultCard
-                        key={result.id}
-                        result={result}
-                        onSave={() => saveItem(result, activeWorkspaceId!)}
-                        canSave={!!activeWorkspaceId}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ResultCard({ result, onSave, canSave }: { result: SearchResult; onSave: () => void; canSave: boolean }) {
-  return (
-    <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
-              {result.source}
-            </span>
-            <span className="text-xs px-2 py-1 rounded bg-indigo-100 text-indigo-700">
-              {result.type}
-            </span>
-          </div>
-          <h4 className="font-medium text-gray-900 mb-2">{result.title}</h4>
-          <p className="text-sm text-gray-600 mb-2">{result.snippet}</p>
-          {result.aiSummary && (
-            <p className="text-sm text-indigo-600 italic mb-2">
-              AI Summary: {result.aiSummary}
-            </p>
-          )}
-          <a
-            href={result.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            View source →
-          </a>
-        </div>
-        {canSave && (
-          <button
-            onClick={onSave}
-            className="ml-4 px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
-          >
-            Save
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-```
-
-**2. WorkspaceSidebar.tsx**
-
-```typescript
-// entropy_front/src/components/WorkspaceSidebar.tsx
-import { useState } from 'react';
-import { useWorkspaceStore } from '@/store/workspaceStore';
-
-export function WorkspaceSidebar() {
-  const { workspaces, activeWorkspaceId, createWorkspace, deleteWorkspace, setActiveWorkspace } = useWorkspaceStore();
-  const [isCreating, setIsCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-
-  const handleCreate = () => {
-    if (!newName.trim()) return;
-    createWorkspace(newName);
-    setNewName('');
-    setIsCreating(false);
-  };
-
-  return (
-    <div className="w-64 border-r bg-gray-50 p-4 flex flex-col h-full">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="font-semibold text-gray-900">Workspaces</h2>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="text-indigo-600 hover:text-indigo-800"
-        >
-          + New
-        </button>
-      </div>
-
-      {isCreating && (
-        <div className="mb-4 space-y-2">
-          <input
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Workspace name..."
-            className="w-full px-3 py-2 border rounded"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleCreate}
-              className="flex-1 px-3 py-1 bg-indigo-600 text-white rounded text-sm"
-            >
-              Create
-            </button>
-            <button
-              onClick={() => { setIsCreating(false); setNewName(''); }}
-              className="flex-1 px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {workspaces.map(workspace => (
-          <div
-            key={workspace.id}
-            className={`p-3 rounded cursor-pointer transition-colors ${
-              activeWorkspaceId === workspace.id
-                ? 'bg-indigo-100 border border-indigo-300'
-                : 'bg-white border border-gray-200 hover:bg-gray-50'
-            }`}
-            onClick={() => setActiveWorkspace(workspace.id)}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <h3 className="font-medium text-sm text-gray-900">{workspace.name}</h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  {workspace.items.length} items
-                </p>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (confirm(`Delete "${workspace.name}"?`)) {
-                    deleteWorkspace(workspace.id);
-                  }
-                }}
-                className="text-gray-400 hover:text-red-600"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {workspaces.length === 0 && !isCreating && (
-        <div className="text-sm text-gray-500 text-center py-8">
-          No workspaces yet. Create one to start saving items!
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-**3. StrategistReport.tsx**
-
-```typescript
-// entropy_front/src/components/StrategistReport.tsx
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-
-export function StrategistReport() {
-  const [query, setQuery] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['strategist', query],
-    queryFn: () => api.strategist(query),
-    enabled: submitted && query.length > 2,
-    staleTime: 1000 * 60 * 60 * 24, // 24 hours
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="p-6 border-b">
-        <h2 className="text-2xl font-bold mb-4">Pharma Strategist</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Strategic Query
-            </label>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g., What companies dominate metformin distribution?"
-              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {isLoading ? 'Analyzing...' : 'Generate Report'}
-          </button>
-        </form>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6">
-        {isLoading && (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">
-              Analyzing patents, trials, and publications...
-              <br />
-              <span className="text-sm text-gray-500">This may take 15-30 seconds</span>
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-800">Error: {error.message}</p>
-          </div>
-        )}
-
-        {data && (
-          <div className="space-y-8">
-            {/* Dominant Companies */}
-            <section>
-              <h3 className="text-xl font-semibold mb-4">Dominant Companies</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border px-4 py-2 text-left">Company</th>
-                      <th className="border px-4 py-2 text-center">Patents</th>
-                      <th className="border px-4 py-2 text-center">Trials</th>
-                      <th className="border px-4 py-2 text-center">Publications</th>
-                      <th className="border px-4 py-2 text-left">Earliest Patent</th>
-                      <th className="border px-4 py-2 text-left">Latest Expiry</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.dominantCompanies.map(company => (
-                      <tr key={company.company} className="hover:bg-gray-50">
-                        <td className="border px-4 py-2 font-medium">{company.company}</td>
-                        <td className="border px-4 py-2 text-center">{company.patentCount}</td>
-                        <td className="border px-4 py-2 text-center">{company.trialCount}</td>
-                        <td className="border px-4 py-2 text-center">{company.publicationCount}</td>
-                        <td className="border px-4 py-2">{new Date(company.earliestPatent).toLocaleDateString()}</td>
-                        <td className="border px-4 py-2">{new Date(company.latestExpiry).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* Timeline */}
-            <section>
-              <h3 className="text-xl font-semibold mb-4">Timeline</h3>
-              <div className="bg-white p-4 rounded-lg border">
-                <LineChart
-                  width={800}
-                  height={300}
-                  data={data.timeline.map(event => ({
-                    date: new Date(event.date).getFullYear(),
-                    event: event.event,
-                  }))}
-                >
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="event" stroke="#4F46E5" />
-                </LineChart>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {data.timeline.map((event, i) => (
-                  <div key={i} className="border-l-4 border-indigo-500 pl-4 py-2">
-                    <div className="text-sm font-medium">{new Date(event.date).toLocaleDateString()}</div>
-                    <div className="text-gray-700">{event.event}</div>
-                    <div className="text-xs text-gray-500">{event.source}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* AI Insights */}
-            <section>
-              <h3 className="text-xl font-semibold mb-4">Strategic Analysis</h3>
-              <div className="prose max-w-none">
-                <div
-                  className="text-gray-700 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: data.insights }}
-                />
-              </div>
-            </section>
-
-            {/* Citations */}
-            <section>
-              <h3 className="text-xl font-semibold mb-4">Citations ({data.citations.length})</h3>
-              <div className="space-y-2">
-                {data.citations.map((citation, i) => (
-                  <div key={i} className="text-sm">
-                    <span className="font-medium">[{i + 1}]</span>{' '}
-                    <a
-                      href={citation.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      {citation.title}
-                    </a>
-                    {' '}
-                    <span className="text-gray-500">({citation.type})</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Data Limitations */}
-            {data.dataLimitations && data.dataLimitations.length > 0 && (
-              <section className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h4 className="font-semibold text-yellow-800 mb-2">Data Limitations</h4>
-                <ul className="list-disc list-inside text-sm text-yellow-700 space-y-1">
-                  {data.dataLimitations.map((limitation, i) => (
-                    <li key={i}>{limitation}</li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Export */}
-            <div className="flex gap-4">
-              <button
-                onClick={() => {/* Export as Markdown */}}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-              >
-                Export as Markdown
-              </button>
-              <button
-                onClick={() => {/* Export as PDF */}}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-              >
-                Export as PDF
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-```
-
-**4. UniProtFeatureViewer.tsx**
-
-```typescript
-// entropy_front/src/components/UniProtFeatureViewer.tsx
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import * as d3 from 'd3';
-import { useEffect, useRef } from 'react';
-
-export function UniProtFeatureViewer({ accession }: { accession: string }) {
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['uniprot-features', accession],
-    queryFn: () => api.getProteinFeatures(accession),
-  });
-
-  useEffect(() => {
-    if (!data || !svgRef.current) return;
-
-    // Clear previous render
-    d3.select(svgRef.current).selectAll('*').remove();
-
-    const svg = d3.select(svgRef.current);
-    const width = 800;
-    const height = 300;
-    const margin = { top: 20, right: 20, bottom: 30, left: 60 };
-
-    const sequenceLength = data.sequence.length;
-    const xScale = d3.scaleLinear()
-      .domain([1, sequenceLength])
-      .range([margin.left, width - margin.right]);
-
-    // Sequence bar
-    svg.append('rect')
-      .attr('x', margin.left)
-      .attr('y', 50)
-      .attr('width', width - margin.left - margin.right)
-      .attr('height', 20)
-      .attr('fill', '#e5e7eb')
-      .attr('stroke', '#9ca3af');
-
-    // Feature tracks
-    const tracks = [
-      { name: 'Domains', y: 80, color: '#3b82f6', features: data.features.domains },
-      { name: 'Active Sites', y: 110, color: '#10b981', features: data.features.activeSites },
-      { name: 'PTMs', y: 140, color: '#8b5cf6', features: data.features.ptms },
-      { name: 'Variants', y: 170, color: '#ef4444', features: data.features.variants },
-    ];
-
-    tracks.forEach(track => {
-      // Track label
-      svg.append('text')
-        .attr('x', 10)
-        .attr('y', track.y + 10)
-        .attr('font-size', 12)
-        .text(track.name);
-
-      // Features
-      track.features.forEach((feature: any) => {
-        svg.append('rect')
-          .attr('x', xScale(feature.start))
-          .attr('y', track.y)
-          .attr('width', Math.max(2, xScale(feature.end) - xScale(feature.start)))
-          .attr('height', 15)
-          .attr('fill', track.color)
-          .attr('stroke', 'white')
-          .attr('rx', 2)
-          .append('title')
-          .text(`${feature.type}: ${feature.description} (${feature.start}-${feature.end})`);
-      });
-    });
-
-    // Axis
-    const xAxis = d3.axisBottom(xScale).ticks(10);
-    svg.append('g')
-      .attr('transform', `translate(0, ${height - margin.bottom})`)
-      .call(xAxis);
-
-  }, [data]);
-
-  if (isLoading) return <div>Loading protein features...</div>;
-  if (!data) return <div>No data available</div>;
-
-  return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold mb-4">
-        {data.proteinName} ({accession})
-      </h3>
-      <p className="text-sm text-gray-600 mb-4">
-        Sequence length: {data.sequence.length} amino acids
-      </p>
-      <svg
-        ref={svgRef}
-        width={800}
-        height={300}
-        className="border rounded"
-      />
-    </div>
-  );
-}
-```
-
-### Testing Strategy
-
-**Unit Tests (Target: 80% coverage)**
-
-```typescript
-// Example: packages/mcp-europepmc/src/__tests__/tools.test.ts
-import { describe, it, expect, vi } from "vitest";
-import { searchPreprints } from "../tools";
-
-describe("searchPreprints", () => {
-  it("should return formatted results from Europe PMC API", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        resultList: {
-          result: [
-            {
-              id: "PPR123456",
-              title: "Test Preprint",
-              source: "PPR",
-              abstractText: "This is a test abstract.",
-              doi: "10.1101/123456",
-            },
-          ],
-        },
-        hitCount: 1,
-      }),
-    });
-
-    const result = await searchPreprints.run({ query: "metformin", limit: 10 });
-
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].title).toBe("Test Preprint");
-    expect(result.results[0].metadata.isPreprint).toBe(true);
-  });
-
-  it("should handle API errors gracefully", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-    });
-
-    await expect(
-      searchPreprints.run({ query: "metformin", limit: 10 }),
-    ).rejects.toThrow("Europe PMC API error: 500");
-  });
-});
-```
-
-**Integration Tests**
-
-```typescript
-// Example: apps/api/src/routes/__tests__/causaly.test.ts
-import { describe, it, expect } from "vitest";
-import { app } from "../index";
-
-describe("GET /api/causaly/search", () => {
-  it("should return aggregated results from multiple sources", async () => {
-    const res = await app.request("/api/causaly/search?q=metformin&limit=5");
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(data.query).toBe("metformin");
-    expect(data.resultsByType).toHaveProperty("literature");
-    expect(data.resultsByType).toHaveProperty("patent");
-    expect(data.sources).toContain("pubmed");
-    expect(data.sources).toContain("patentsview");
-  });
-});
-```
-
-**Component Tests**
-
-```typescript
-// Example: entropy_front/src/components/__tests__/UnifiedSearch.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { UnifiedSearch } from '../UnifiedSearch';
-import { vi } from 'vitest';
-
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false } },
-});
-
-function Wrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  );
-}
-
-describe('UnifiedSearch', () => {
-  it('should render search input', () => {
-    render(<UnifiedSearch />, { wrapper: Wrapper });
-    expect(screen.getByPlaceholderText(/search across/i)).toBeInTheDocument();
-  });
-
-  it('should fetch results when query is entered', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        query: 'metformin',
-        resultsByType: {
-          literature: [{ id: '1', title: 'Test Paper', type: 'literature' }],
-        },
-      }),
-    });
-
-    render(<UnifiedSearch />, { wrapper: Wrapper });
-
-    const input = screen.getByPlaceholderText(/search across/i);
-    fireEvent.change(input, { target: { value: 'metformin' } });
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Paper')).toBeInTheDocument();
-    });
-  });
-});
-```
-
-### Performance Optimizations
-
-**1. API Call Parallelization**
-
-```typescript
-// causaly.ts - Unified search uses Promise.all()
-const results = await Promise.all([
-  mcpPubMed.search(q, limit).catch((err) => ({ results: [], error: err })),
-  mcpEuropePMC
-    .searchPreprints(q, limit)
-    .catch((err) => ({ results: [], error: err })),
-  // ... 10 more APIs
-]);
-
-// If any API fails, return partial results
-```
-
-**2. Aggressive Caching**
-
-```typescript
-// TanStack Query cache configuration
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 60, // 1 hour for search
-      cacheTime: 1000 * 60 * 60 * 24, // 24 hours in memory
-      retry: 2,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    },
-  },
-});
-
-// Per-endpoint overrides
-useQuery({
-  queryKey: ["patents", drug],
-  staleTime: 1000 * 60 * 60 * 24 * 30, // 30 days (patents rarely change)
-});
-```
-
-**3. Code Splitting**
-
-```typescript
-// App.tsx - Lazy load heavy components
-const NetworkView = lazy(() => import('./components/NetworkView'));
-const StrategistReport = lazy(() => import('./components/StrategistReport'));
-const UniProtFeatureViewer = lazy(() => import('./components/UniProtFeatureViewer'));
-
-<Suspense fallback={<LoadingSkeleton />}>
-  <NetworkView />
-</Suspense>
-```
-
-**4. Virtual Scrolling**
-
-```typescript
-// For large result lists (100+ items)
-import { useVirtualizer } from '@tanstack/react-virtual';
-
-function SearchResults({ results }: { results: SearchResult[] }) {
-  const parentRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: results.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 100, // Estimated height of each result card
-  });
-
-  return (
-    <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
-      <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
-        {virtualizer.getVirtualItems().map(virtualItem => (
-          <div
-            key={virtualItem.key}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: `${virtualItem.size}px`,
-              transform: `translateY(${virtualItem.start}px)`,
-            }}
-          >
-            <ResultCard result={results[virtualItem.index]} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-```
+Entropy v2 is a client-side-first application built on the existing React 19 + Vite + TanStack Query + Zustand + Tailwind + shadcn/ui stack. The Mastra multi-agent autonomous workflow runs server-side (existing Hono API). New client-side modules are the workspace store, the KG augmenter agent interface, the completeness scoring layer, and the three-panel workspace UI.
+
+### Module Breakdown
+
+**1. WorkspaceStore (Zustand + idb-keyval)**
+
+The central client-side state store for all workspace data. It manages workspace metadata, the knowledge graph (nodes, edges, provenance), query history, saved items, persona mode, India Lens state, and Settings preferences.
+
+Key interface methods: `createWorkspace`, `deleteWorkspace`, `renameWorkspace`, `duplicateWorkspace`, `setActiveWorkspace`, `augmentGraph(workspaceId, query)`, `mergeNodes(newNodes)`, `mergeEdges(newEdges)`, `getGraphSnapshot(workspaceId)`, `pinItem(nodeId)`, `removeNode(nodeId)`, `exportWorkspaceJSON(workspaceId)`.
+
+Storage backend: idb-keyval (IndexedDB) via Zustand's persist middleware. This replaces the localStorage backend from the existing workspace store. Key: `entropy-workspace-v2`. Handles graphs of up to ~200 nodes and full provenance payloads without hitting the 5MB localStorage limit.
+
+Node schema (TypeScript interface):
+- `id`: stable unique identifier (UniProt accession, patent ID, NCT ID, DOI, etc.)
+- `type`: enum of entity types (disease, target, protein, drug, compound, patent, trial, company, paper, safety-signal)
+- `label`: display name
+- `data`: full payload from MCP tool response
+- `provenance`: array of `{ source, query, timestamp, rawResponseHash }` objects
+- `indiaContext`: optional object with `{ isCDSCO, isNPPA, isIndianPatent, isIndianSponsor, nppaPrice }`
+
+Edge schema:
+- `id`, `source` (node id), `target` (node id), `type` (relationship type enum), `confidence`, `evidenceTypes`, `provenance`
+
+**2. KGAugmenterAgent (client → server interface)**
+
+Wraps the existing Mastra autonomous workflow to support incremental graph augmentation rather than full-rebuild queries. The client sends: `{ workspaceId, query, existingGraphSnapshot, personaMode, indiaLens }`. The server returns: `{ newNodes, newEdges, completenessScore, iterationsRun, failedSources }`.
+
+The server-side augmenter: (a) calls the CompletenessAgent to score the current graph against the query, (b) if score < 85, runs a minimal targeted MCP batch fetching only the entity types missing for the query, (c) repeats up to 3 iterations, (d) returns the delta (new nodes/edges only, not the full graph).
+
+This keeps the existing autonomous workflow intact. The augmenter is a new routing layer on top of it, not a replacement.
+
+**3. CompletenessAgent (Mastra sub-agent)**
+
+A lightweight Mastra agent that takes a query string and a serialised graph snapshot (nodes + edges summary, not full payloads) and returns `{ score: 0–100, missingNodes: string[], missingEdges: string[] }`. Score ≥ 85 triggers early loop termination. If the LLM call fails, the fallback is a deterministic rule: "if graph has ≥ 8 high-confidence nodes relevant to the query entity type, return score 90." This ensures the loop always terminates even under API failure.
+
+**4. FollowUpSuggestionAgent (Mastra sub-agent)**
+
+After each augmentation cycle completes, a lightweight Mastra agent reads the current graph snapshot and the persona mode and returns three follow-up query suggestions as plain strings. These are displayed in the left panel. Cached for 10 minutes per graph state hash.
+
+**5. KnowledgeGraphCanvas (React component, Cytoscape.js)**
+
+Wraps `react-cytoscapejs`. Receives the full graph from the WorkspaceStore. Visual encoding (node size, shape, colour, edge thickness) is computed as a pure derivation from node/edge data — not stored separately. Persona mode and India Lens state are passed as props that trigger style recalculation, never data mutation. Layout algorithm is a local component state (does not persist).
+
+Exports: `fitToScreen()`, `highlightNodes(ids)`, `highlightEdges(ids)`, `exportAsPNG()`, `exportAsSVG()`.
+
+**6. ThreePanelLayout (React component, react-resizable-panels)**
+
+The outer shell of the Workspace View. Wraps `react-resizable-panels` with a horizontal `PanelGroup` (left sidebar + right area) and a vertical `PanelGroup` inside the right area (graph canvas + report). Persists panel size ratios to the WorkspaceStore per workspace.
+
+**7. IntermediateReportEditor (React component)**
+
+A TipTap-based rich-text editor. Receives AI-generated markdown from the synthesis endpoint and renders it as editable blocks. Citation badges are implemented as TipTap custom node extensions — they render as coloured chips and are non-deletable but moveable. The editor emits `onChange` events to the WorkspaceStore which persists the edited content.
+
+**8. StrategistReportView (React component)**
+
+A dedicated view for the full Strategist report output. Contains: Dominant Companies table (shadcn/ui DataTable with sorting), interactive Timeline chart (Recharts), Trial Activity section, AI Insights rich text with citation badges, and White Space panel. Receives data from the `/api/causaly/strategist` endpoint (existing, unchanged). Export handled by the same export utility used elsewhere.
+
+**9. IndiaLensProcessor (utility module)**
+
+Runs on the client after each graph augmentation. For each node in the graph, it checks against three static datasets loaded at app start: CDSCO approved drug CSV, NPPA price cap CSV, and an Indian company name list (derived from PatentsView assignees). It mutates the `indiaContext` field on matching nodes. PatentsView Indian assignee detection is a simple string match against known Indian company names and suffixes (Pvt Ltd, Ltd, Laboratories, Pharma, etc. with Indian city/state keywords). This is a best-effort heuristic, disclosed as such in the UI.
+
+**10. DossierGenerationOverlay (React component)**
+
+Full-screen overlay triggered from the report panel. Contains a format selector, a generation log, and a document preview panel. Calls `POST /api/causaly/dossier` with the full graph snapshot and selected format. Streams the generation log via server-sent events.
+
+### API Contract Additions
+
+`POST /api/causaly/augment`
+- Request: `{ query, graphSnapshot: { nodeIds, edgeSummary }, personaMode, indiaLens, workspaceId }`
+- Response: `{ newNodes[], newEdges[], completenessScore, iterationsRun, failedSources[] }`
+- Caching: 1 hour per (query + graphSnapshot hash) pair
+
+`POST /api/causaly/synthesise`
+- Request: `{ graphSnapshot, personaMode, reportSections[] }`
+- Response: `{ sections: [{ title, content, citations[] }] }`
+- Caching: None (always reflects current graph)
+
+`GET /api/causaly/suggestions`
+- Request: `{ graphSnapshot, personaMode }` as query params
+- Response: `{ suggestions: string[] }` (3 items)
+- Caching: 10 minutes per graph state hash
+
+`POST /api/causaly/dossier`
+- Request: `{ graphSnapshot, format: 'full' | 'executive' | 'india-regulatory' | 'competitive' }`
+- Response: Server-sent event stream with `{ step, nodesProcessed, content }` events
+- Final event: `{ done: true, documentUrl: string }`
+
+`POST /api/causaly/strategist` — existing endpoint, unchanged.
+
+### India Lens Static Data
+
+- CDSCO approved drug list: bundled as a static JSON at build time, sourced from public CDSCO database export. Structure: `[{ drugName, approvalDate, indication }]`
+- NPPA price cap data: bundled as static JSON. Structure: `[{ drugName, formulation, priceCapINR, effectiveDate }]`
+- Indian company name list: bundled as static JSON, curated manually from PatentsView top 500 pharma assignees filtered for Indian entities. Used for PatentsView India Lens matching.
+
+### Schema Change: Workspace Store v2
+
+The existing `entropy-workspaces` localStorage key is superseded by `entropy-workspace-v2` in IndexedDB. No migration is required for the hackathon (fresh start). A migration utility for post-hackathon production use is out of scope.
+
+### Resizable Panel Defaults
+
+Left panel: 22% default, 18% min, 35% max. Right-top (graph): 55% of right area by default, 40% min. Right-bottom (report): 45% of right area by default, 30% min. All defaults can be overridden by dragging. Panel sizes persisted per workspace in WorkspaceStore.
 
 ---
 
 ## Testing Decisions
 
-### What Makes a Good Test
+### What makes a good test
 
-**Test External Behavior, Not Implementation**:
+A good test for Entropy v2 exercises externally observable behaviour — what the module returns or emits — not implementation details like internal state shape, private methods, or specific API call order. Tests should be written against module interfaces, not against line numbers or component internals.
 
-- ✅ Good: Verify API response structure matches TypeScript interfaces
-- ❌ Bad: Test internal cache implementation details
-- ✅ Good: Test that clicking "Save" button adds item to workspace
-- ❌ Bad: Test Zustand store internals directly
+A test is not useful if changing the implementation without changing the behaviour would break it.
 
-**Focus on User-Facing Scenarios**:
+### Modules to test and test types
 
-- ✅ Good: "User can search and see results from multiple sources"
-- ❌ Bad: "useMemo optimization works correctly"
+**WorkspaceStore — unit tests**
+- `createWorkspace` creates a workspace with correct defaults and a unique ID
+- `augmentGraph` merges new nodes into the existing graph without duplicating nodes with the same ID
+- `augmentGraph` merges provenance arrays when the same node ID is returned by two different queries
+- `removeNode` removes the node and all edges that reference it
+- `exportWorkspaceJSON` returns a valid JSON-serialisable object containing all workspace data
+- `getGraphSnapshot` returns a summary representation (not full payloads) for serialisation to the completeness agent
 
-**Test Error Paths**:
+**IndiaLensProcessor — unit tests**
+- Correctly identifies an Indian assignee by name suffix matching (Pvt Ltd, Ltd with Indian keywords)
+- Correctly matches a drug name against the CDSCO CSV regardless of case and spacing
+- Correctly matches a drug name against the NPPA CSV and returns the price cap value
+- Does not mutate nodes that do not match any India signal
+- Is idempotent — running it twice on the same graph produces the same result
 
-- ✅ Good: "Shows error message when API returns 500"
-- ✅ Good: "Retries failed requests with exponential backoff"
+**CompletenessAgent prompt contract — integration tests**
+- Given a graph with ≥ 8 high-confidence nodes relevant to the query entity type, the agent returns score ≥ 85
+- Given an empty graph, the agent returns score < 40 and a non-empty `missingNodes` array
+- The fallback deterministic rule fires when the LLM response is malformed and returns score 90 for a rich graph
 
-### Modules to Test
+**KGAugmenterAgent server endpoint — integration tests**
+- `POST /api/causaly/augment` returns `newNodes` and `newEdges` arrays for a well-formed request
+- `POST /api/causaly/augment` returns an empty delta when completeness score ≥ 85 on the first iteration
+- `POST /api/causaly/augment` never exceeds 3 iterations regardless of completeness score
+- `POST /api/causaly/augment` includes failed source names in `failedSources` when an MCP tool throws
+- `POST /api/causaly/augment` returns partial results (not an error) when one of several MCP tools fails
 
-**Critical Path (90%+ coverage)**:
+**IntermediateReportEditor — unit tests**
+- Citation badge nodes are rendered for each citation in the source markdown
+- `onChange` fires with the updated content when the user edits a paragraph
+- Citation badges are present in the emitted content after a paragraph edit
 
-1. **API Endpoints** (`apps/api/src/routes/causaly.ts`)
-   - Test response formats match TypeScript interfaces
-   - Test error handling (404, 500, rate limits)
-   - Test deduplication logic
-   - Mock MCP tools, verify calls
+**StrategistReportView — integration tests**
+- Dominant Companies table sorts correctly by each column
+- Clicking a company name fires the correct follow-up query with the company name as the query string
+- Export button produces a non-empty Markdown string for a populated report
 
-2. **New MCP Packages**
-   - `mcp-europepmc`: Test search results parsing
-   - `mcp-patents`: Test PatentsView API integration + Orange Book parsing
-   - Test rate limit handling (429 responses)
-
-**High Priority (80%+ coverage)**: 3. **Frontend Data Fetching** (`lib/api.ts`, React Query hooks)
-
-- Test API client request/response formatting
-- Test error handling + retry logic
-- Mock fetch, verify correct endpoints called
-
-4. **Strategist Report Generation**
-   - Test data aggregation (patents + trials + papers)
-   - Test AI prompt construction
-   - Test citation extraction
-
-**Medium Priority (60%+ coverage)**: 5. **UI Components**
-
-- Test UnifiedSearch renders search results correctly
-- Test WorkspaceSidebar create/delete/switch operations
-- Test StrategistReport displays tables + timeline
-- Use React Testing Library + user-event
-
-**Low Priority (nice to have)**: 6. **Zustand Store** (`workspaceStore.ts`)
-
-- Test save/delete operations
-- Test localStorage persistence
-
-### Prior Art
-
-- **Backend tests**: Follow patterns in `packages/mcp-biology/src/__tests__/` (Vitest + mocked fetch)
-- **Frontend tests**: New pattern (first tests in `entropy_front/`)—use React Testing Library + MSW for API mocking
-- **Integration tests**: Follow patterns in `apps/api/src/routes/__tests__/`
-
-### Test Infrastructure
-
-**Tools**:
-
-- Vitest (test runner) - already configured in monorepo
-- React Testing Library - for component tests
-- MSW (Mock Service Worker) - for API mocking in frontend tests
-- `@testing-library/user-event` - for realistic user interactions
-
-**CI Pipeline** (post-MVP):
-
-```yaml
-# .github/workflows/test.yml
-name: Test
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-      - run: pnpm install
-      - run: pnpm test
-      - run: pnpm test:e2e
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-```
+**ThreePanelLayout — unit tests**
+- Collapsing the left panel reduces its rendered width to the icon rail width
+- Panel size ratios are preserved when the component re-renders with updated props
+- The correct workspace ID is passed to each child panel
 
 ---
 
 ## Out of Scope
 
-The following are explicitly **NOT** included in this hackathon MVP:
+The following are explicitly excluded from the hackathon MVP and should not be built against this PRD:
 
-### Authentication & User Management
-
-- ❌ User accounts / login system (using demo single-user for MVP)
-- ❌ Role-based access control (RBAC)
-- ❌ Team collaboration features (comments, annotations)
-- ❌ OAuth integration (Google, ORCID)
-
-### Backend Workspace Persistence
-
-- ❌ PostgreSQL tables for workspaces/saved_items (using Zustand + localStorage for MVP)
-- ❌ Workspace sharing via URLs
-- ❌ Workspace versioning / history
-
-### Advanced Strategist Features
-
-- ❌ IQVIA/EXIM market share data integration (proprietary, costly)
-- ❌ Real-time patent monitoring (USPTO updates)
-- ❌ Semantic Scholar citation graphs
-- ❌ Competitive landscape heatmaps
-
-### Advanced Visualizations
-
-- ❌ 3D protein structures (AlphaFold DB)
-- ❌ Interactive pathway diagrams (beyond Reactome metadata)
-- ❌ Gene expression heatmaps
-- ❌ Virtual screening / molecular docking
-
-### Export & Reporting
-
-- ❌ PDF report generation (only Markdown export for MVP)
-- ❌ PowerPoint slide generation
-- ❌ Jupyter notebook export
-
-### AI Enhancements
-
-- ❌ Multi-turn conversational Strategist (chatbot-style)
-- ❌ Automatic hypothesis generation
-- ❌ Local LLM inference (Gemini API only for MVP)
-
-### Mobile & Offline
-
-- ❌ Mobile native apps (iOS, Android)
-- ❌ Progressive Web App (PWA) offline mode
-- ❌ Service worker caching
-
-### Enterprise Features
-
-- ❌ Audit logs / compliance tracking
-- ❌ Data retention policies
-- ❌ SSO (SAML, LDAP)
-- ❌ On-premises deployment
-
-**Rationale**: These features are valuable but not essential for demonstrating the core value proposition at the hackathon. Scoping ruthlessly to ship a working MVP in 7 days.
+- **Multi-user collaboration.** Workspaces are single-user and local to one browser. No real-time co-editing, no sharing links, no comment threads.
+- **Authentication and user accounts.** There is no login, no user session, no backend user table. All data lives in the client's IndexedDB.
+- **PostgreSQL or any server-side persistence.** The workspace store is entirely client-side. Post-hackathon migration to a backend database is a separate PRD.
+- **AlphaFold 3D protein structure viewer.** AlphaFold DB integration is on the post-hackathon roadmap.
+- **COSMIC mutation data.** Out of scope for this sprint.
+- **Mobile responsive design.** The three-panel layout targets desktop (1280px+) only.
+- **Multi-language query input (Hindi).** Post-hackathon roadmap item.
+- **AMD ROCm / local LLM inference.** Future roadmap. The AMD tie-in for the demo is a positioning narrative, not a technical integration.
+- **Workspace versioning.** No git-style history or checkpoint system.
+- **Admin dashboard and analytics.**
+- **PDF export for the intermediate report panel.** Markdown and JSON export are in scope. PDF export is in scope only for the full dossier.
+- **WorkspaceStore v1 → v2 migration.** The new `entropy-workspace-v2` IndexedDB key is a clean start.
+- **Full interactive UniProt Feature Viewer inside the detail drawer.** The drawer shows a simplified static feature summary. The full interactive viewer is only available on the standalone Protein Profile screen.
+- **CDSCO and NPPA live API integration.** Both are bundled as static JSON at build time for the hackathon. Live API integration is post-MVP.
 
 ---
 
 ## Further Notes
 
-### Hackathon Demo Script (5-7 minutes)
+### Demo script priority order
 
-**Setup** (30 seconds):
+The hackathon demo will run in this sequence: create a new workspace → enter a repurposing query ("Repurpose metformin for NASH in Indian population") → watch the live progress log → arrive at the three-panel view → toggle India Lens → show CDSCO badge on metformin node → click a node to open the detail drawer → show the intermediate report with citations → add one follow-up query from a suggestion chip → show graph expansion → switch to Strategist Mode → run a competitive query → show the Dominant Companies table and AI Insights. The full dossier generation is the finale. Every screen decision in this PRD is optimised to make this sequence feel smooth.
 
-- Open browser to http://localhost:5174
-- Show clean, polished Entropy UI with Causaly-inspired design
+### Hardcoded fallback for demo reliability
 
-**Act 1: Unified Search** (90 seconds):
+If the Completeness Agent LLM call fails during the demo (network issue), the fallback deterministic rule (≥ 8 relevant nodes → exit loop) must be implemented and tested before the demo. This is non-negotiable.
 
-1. Type "metformin" in search bar
-2. Show aggregated results loading in real-time from 12 sources
-3. Highlight source badges (PubMed, UniProt, PatentsView, etc.)
-4. Click Literature tab → show papers with AI summaries
-5. Click Patent tab → show USPTO patents with assignees
-6. Click Protein tab → show MTOR, AMPK proteins
+### India Lens heuristic disclosure
 
-**Act 2: Workspace Organization** (60 seconds):
+The Indian company identification logic is a string-matching heuristic, not a curated verified list. The UI must display a one-line disclosure on the India Lens toggle tooltip: "India signals are inferred from public data using heuristic matching — verify before citing." This protects the product from being used to make consequential decisions based on mis-identified entities.
 
-1. Click "+ New Workspace" → name it "Metformin Competition 2026"
-2. Save 3 items: 1 paper, 1 patent, 1 protein
-3. Switch to "Saved Items" view → show grid with filters
-4. Click saved protein → opens UniProt Feature Viewer modal
+### Provenance as the trust differentiator
 
-**Act 3: Strategist Intelligence** (120 seconds):
+Every judge question about "how do you know this is real data?" should be answerable by pointing to the provenance panel at the bottom of the graph canvas. The provenance panel is the single most important trust signal in the product. It must always be visible and never hidden behind a click.
 
-1. Switch to "Strategist" tab
-2. Type: _"What companies dominate metformin distribution?"_
-3. Click "Generate Report" → show loading (15-20 seconds)
-4. Show report sections:
-   - Dominant Companies table (Novo Nordisk, Merck, Takeda)
-   - Patent timeline visualization (Recharts)
-   - AI-generated insights paragraph
-   - Citations (PatentsView, Orange Book, ClinicalTrials)
-5. Hover over timeline events → tooltips
-6. Click "Export as Markdown"
+### Post-hackathon priorities (Week 1–2, April 15–28)
 
-**Act 4: Network Visualization** (60 seconds):
-
-1. From saved protein (MTOR), click "View Network"
-2. Show protein-protein interaction graph (STRING DB)
-3. Zoom/pan controls
-4. Click node → opens UniProt Feature Viewer
-5. Show color-coded feature tracks (domains, PTMs, variants)
-
-**Closing** (30 seconds):
-
-- Recap: "One platform, 12+ data sources, AI-powered insights, persistent workspaces"
-- AMD tie-in: "Optimized for Ryzen AI laptops; future: local inference"
-- Call-to-action: "Open-source, free forever, built on public APIs"
-
-### AMD Integration Points
-
-**For Hackathon Pitch**:
-
-1. **Performance**: "Runs efficiently on AMD Ryzen AI laptops with integrated GPU acceleration"
-2. **Future Roadmap**: "Phase 2: Local LLM inference using AMD ROCm (no API costs)"
-3. **Edge Deployment**: "Deploy on AMD EPYC servers for pharma on-premises requirements"
-4. **AI Acceleration**: "Strategist report generation can leverage AMD AI engines for faster synthesis"
-
-**Technical Reality Check**:
-
-- MVP uses Google Gemini API (cloud-based)
-- Post-hackathon: Can integrate llama.cpp + AMD ROCm for local inference
-- AMD Ryzen AI (Zen 5) has NPU for lightweight inference (perfect for paper summarization)
-
-### Data Source Limitations (Disclose Transparently)
-
-**What We CAN Get (Free)**:
-
-- ✅ Patents: USPTO data (US-only, via PatentsView + Orange Book)
-- ✅ Trials: ClinicalTrials.gov (global, but US-centric)
-- ✅ Publications: PubMed + Europe PMC (comprehensive)
-- ✅ Proteins: UniProt (complete)
-- ✅ Safety: OpenFDA FAERS (US-only)
-
-**What We CANNOT Get (Proprietary)**:
-
-- ❌ Market share / sales volume (IQVIA, Symphony Health)
-- ❌ Prescription data (IQVIA DDD, IMS Health)
-- ❌ Global patents (requires paid EPO/WIPO access)
-- ❌ Private trial data (company-sponsored, non-registered)
-
-**Strategist "Dominance" Signals** (Proxy Metrics):
-
-- Patent count by assignee (more patents ≈ more R&D investment)
-- Trial sponsorship (more trials ≈ more clinical activity)
-- Publication volume (more papers ≈ more scientific interest)
-- Orange Book listings (more NDAs ≈ more approved products)
-
-**Disclosure in UI**:
-
-- Add banner: "Market dominance inferred from public patent/trial/publication signals. Actual sales data not available."
-
-### Rate Limit Mitigation Strategy
-
-**APIs with Strict Limits**:
-
-1. **STRING DB**: ~1000 req/day
-   - **Mitigation**: 7-day cache, limit network queries to 25 nodes initially
-   - **Fallback**: Pre-cache common proteins (EGFR, TP53, etc.)
-
-2. **NCBI (PubMed)**: 3 req/sec (10 with key)
-   - **Mitigation**: Always include NCBI_API_KEY, batch requests
-   - **Fallback**: Use Europe PMC as backup
-
-3. **OpenFDA**: 240 req/min (without key), 120k/day (with key)
-   - **Mitigation**: Include OPENFDA_API_KEY, 7-day cache for safety data
-
-**Monitoring**:
-
-- Log all API calls with timestamps
-- Track rate limit headers (Retry-After, X-RateLimit-Remaining)
-- Alert if approaching limits (80% threshold)
-
-### Deployment Checklist
-
-**Pre-Demo (April 6, 2026)**:
-
-- [ ] All dependencies installed (`pnpm install`)
-- [ ] Environment variables configured (`.env` with API keys)
-- [ ] Docker Compose up (`docker compose up -d`)
-- [ ] Frontend dev server running (`cd entropy_front && npm run dev`)
-- [ ] Backend API running (`cd apps/api && npm run dev`)
-- [ ] Test unified search with "metformin" query
-- [ ] Test workspace create/save/delete
-- [ ] Test Strategist report generation
-- [ ] Record backup demo video (in case of Wi-Fi issues)
-
-**Hardware Requirements**:
-
-- Laptop: AMD Ryzen 7 or higher (or any modern laptop)
-- RAM: 16GB minimum (32GB recommended for demo smoothness)
-- Display: External monitor (1080p minimum) for judges
-- Internet: Stable connection (mobile hotspot backup)
-
-### Success Metrics
-
-**Technical Metrics**:
-
-- ✅ Unified search returns results <2s (with cache)
-- ✅ All 12 data sources reachable
-- ✅ Network graph renders 50 nodes smoothly (60fps)
-- ✅ Strategist report generates in <30s
-- ✅ Workspace operations instant (<100ms)
-- ✅ Zero crashes during 5-7 min demo
-
-**Functional Metrics**:
-
-- ✅ Can search and save items across all data types
-- ✅ Can create multiple workspaces
-- ✅ Can generate actionable Strategist report
-- ✅ Can visualize protein networks
-- ✅ Can view protein features
-
-**Judging Criteria (Estimated)**:
-
-- **Innovation**: 30% - "First unified biomedical intelligence platform with patents + Strategist"
-- **Technical Execution**: 25% - "Smooth demo, real APIs, polished UI"
-- **Impact**: 25% - "Solves real pharma pain point (scattered data)"
-- **AMD Integration**: 10% - "Runs on Ryzen AI, future ROCm roadmap"
-- **Presentation**: 10% - "Clear, confident, time management"
-
-### Post-Hackathon Roadmap
-
-**Week 1-2 (April 15-28)**:
-
-- Add PostgreSQL backend for workspace persistence
-- Implement lightweight auth (magic links)
-- Deploy to cloud (Vercel frontend + Railway backend)
-
-**Week 3-4 (April 29 - May 12)**:
-
-- Add ChEMBL API integration (bioactivity data)
-- Enhance Strategist with citation graphs (Semantic Scholar)
-- Add PDF export for reports
-
-**Month 2 (May-June)**:
-
-- Integrate AlphaFold DB (3D protein structures)
-- Add COSMIC mutation data for cancer research
-- Local LLM inference (llama.cpp + AMD ROCm)
-
-**Month 3+ (June onwards)**:
-
-- Multi-user collaboration (comments, sharing)
-- Workspace versioning
-- Admin dashboard + analytics
-- Mobile-responsive design
-- Open-source release (GitHub)
-
----
-
-**Document Version**: 4.0  
-**Last Updated**: March 30, 2026  
-**Status**: ✅ Build-Ready - Start Implementation
-
-**Next Action**: Reply with "Start Day 1" and I will provide:
-
-1. Exact file/folder creation commands
-2. Complete code for `mcp-europepmc` package
-3. Complete code for `mcp-patents` package
-4. Unified search aggregator implementation
-5. Workspace store implementation
-
-🚀 Let's build the winning hackathon entry!
+- PostgreSQL workspace persistence with lightweight magic-link auth
+- WorkspaceStore v1 → v2 migration utility
+- Live CDSCO and NPPA API integration
+- Multi-language query support (Hindi via Google Translate preprocessing)
+- AlphaFold structure viewer on Protein Profile screen

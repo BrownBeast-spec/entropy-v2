@@ -9,6 +9,7 @@
 .claude/
 .junie/
 .kiro/
+.worktrees/
 
 # Session files
 session-*.md
