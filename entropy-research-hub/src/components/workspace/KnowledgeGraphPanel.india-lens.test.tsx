@@ -44,5 +44,7 @@ describe("KnowledgeGraphPanel India Lens UI", () => {
     expect(screen.getByText(/Graph contains/i)).toBeInTheDocument();
     expect(screen.getByText(/2 nodes/i)).toBeInTheDocument();
     expect(screen.getByText(/2 sources/i)).toBeInTheDocument();
+    expect(screen.getByText(/India Lens active/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 India-relevant nodes/i)).toBeInTheDocument();
   });
 });

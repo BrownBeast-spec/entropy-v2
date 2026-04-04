@@ -26,6 +26,12 @@ Latest execution update (worktree: `amdv2-phase1`):
 - India Lens processor introduced and integrated into augment node ingestion path when India Lens is enabled
 - WorkspaceView now triggers synthesis API after augment and persists generated report sections into workspace state when synthesis succeeds
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
+- Suggestion chip click now submits immediately and executes augmentation against the chip text (no extra submit click required)
+- Follow-up submissions now build cumulative graph snapshots from real in-session node/edge deltas rather than stale pre-query snapshots
+- Query history entries now expose status and submitted-date metadata while preserving contributed-node highlight behavior on history click
+- India Lens graph badge state now remains visible in provenance summary and India Lens toggle persistence is validated with workspace update assertions
+- Persona mode visual weighting behavior now has direct unit validation via exported weighting helper tests
+- Demo fallback dependency reduced: successful augment completion no longer auto-seeds static demo graph data when backend returns empty deltas
 
 ## Status legend
 
@@ -82,9 +88,9 @@ Latest execution update (worktree: `amdv2-phase1`):
    - `src/middleware/error-handler.ts`
 
 6. Existing test coverage (backend)
-    - `src/__tests__/api.test.ts` (session lifecycle routes + health + not found behavior)
-    - `src/__tests__/entropy.test.ts` (entropy search behavior with mocked tool clients)
-    - `src/__tests__/api-e2e.test.ts` (opt-in integration test for full workflow + PDF)
+   - `src/__tests__/api.test.ts` (session lifecycle routes + health + not found behavior)
+   - `src/__tests__/entropy.test.ts` (entropy search behavior with mocked tool clients)
+   - `src/__tests__/api-e2e.test.ts` (opt-in integration test for full workflow + PDF)
 
 7. PRD causaly contract (phase 1) now implemented
    - Route group: `src/routes/causaly.ts`
@@ -162,10 +168,10 @@ Also missing on backend for PRD parity:
      - `src/components/workspace/IntermediateReportPanel.tsx` (demo report rendering + citation chip UI)
      - `src/components/workspace/ResearchProgressOverlay.tsx` (simulated progress log)
      - `src/components/workspace/EntityDetailDrawer.tsx` (node detail drawer)
-    - Demo/mock data sources:
-      - `src/lib/data/demoGraphData.ts`
-      - `src/lib/data/demoReportData.ts`
-      - `src/lib/data/suggestedQueries.ts`
+   - Demo/mock data sources:
+     - `src/lib/data/demoGraphData.ts`
+     - `src/lib/data/demoReportData.ts`
+     - `src/lib/data/suggestedQueries.ts`
 
 4. New frontend persistence and API integration groundwork implemented
    - IndexedDB-backed store module:
@@ -196,8 +202,8 @@ Also missing on backend for PRD parity:
      - syncs current workspace from `workspaceStoreV2`
      - delegates `createWorkspace`, `updateWorkspace`, `deleteWorkspace` to v2 store
      - keeps legacy `workspaceStorage` only as fallback if v2 operations fail
-    - Added context tests:
-      - `src/contexts/WorkspaceContext.test.tsx`
+   - Added context tests:
+     - `src/contexts/WorkspaceContext.test.tsx`
 
 7. Workspace query lifecycle now writes real augmentation metadata
    - `entropy-research-hub/src/pages/WorkspaceView.tsx` now:
@@ -232,45 +238,71 @@ Also missing on backend for PRD parity:
      - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies suggestions fetch invocation and rendered dynamic suggestion chip
 
 10. India Lens processor implemented and wired into workspace query flow
-   - Added processor module:
-     - `entropy-research-hub/src/lib/indiaLens.ts`
-     - Enriches nodes with `metadata.indiaContext` and `indiaRelevant` using static CDSCO/NPPA/company heuristics
-   - Added processor tests:
-     - `src/lib/indiaLens.test.ts`
-     - Covers Indian assignee detection, CDSCO match, NPPA price cap enrichment, and idempotence
-   - Integrated in workspace flow:
-     - `src/pages/WorkspaceView.tsx` now applies `processIndiaLens` to newly-added nodes when India Lens toggle is enabled
-   - Added lifecycle regression:
-     - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies India Lens enrichment on augment-added nodes
-   - Added graph-panel India Lens UI coverage:
-     - `src/components/workspace/KnowledgeGraphPanel.india-lens.test.tsx` verifies rendered summary with India-enriched nodes
-   - Added Entity Detail Drawer India Lens UI behavior:
-     - `entropy-research-hub/src/components/workspace/EntityDetailDrawer.tsx` now renders an `India Lens Signals` section for India-relevant nodes
-     - surfaces CDSCO approval, NPPA price cap (INR), and Indian assignee signal when available
-   - Added drawer coverage:
-     - `src/components/workspace/EntityDetailDrawer.india-lens.test.tsx`
-     - covers both drug and patent India signals
+
+- Added processor module:
+  - `entropy-research-hub/src/lib/indiaLens.ts`
+  - Enriches nodes with `metadata.indiaContext` and `indiaRelevant` using static CDSCO/NPPA/company heuristics
+- Added processor tests:
+  - `src/lib/indiaLens.test.ts`
+  - Covers Indian assignee detection, CDSCO match, NPPA price cap enrichment, and idempotence
+- Integrated in workspace flow:
+  - `src/pages/WorkspaceView.tsx` now applies `processIndiaLens` to newly-added nodes when India Lens toggle is enabled
+- Added lifecycle regression:
+  - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies India Lens enrichment on augment-added nodes
+- Added graph-panel India Lens UI coverage:
+  - `src/components/workspace/KnowledgeGraphPanel.india-lens.test.tsx` verifies rendered summary with India-enriched nodes
+- Added Entity Detail Drawer India Lens UI behavior:
+  - `entropy-research-hub/src/components/workspace/EntityDetailDrawer.tsx` now renders an `India Lens Signals` section for India-relevant nodes
+  - surfaces CDSCO approval, NPPA price cap (INR), and Indian assignee signal when available
+- Added drawer coverage:
+  - `src/components/workspace/EntityDetailDrawer.india-lens.test.tsx`
+  - covers both drug and patent India signals
 
 11. Report synthesis now wired into query completion flow
-   - Added synthesis API client:
-     - `entropy-research-hub/src/lib/api/synthesis.ts`
-     - Calls `POST /api/causaly/synthesise` and normalizes response shape
-   - Added synthesis API tests:
-     - `src/lib/api/synthesis.test.ts`
-     - Covers success, explicit API error message propagation, and malformed-success payload fallback
-   - Updated `WorkspaceView` behavior:
-     - After successful augment and suggestions fetch, calls synthesis endpoint with current graph snapshot + persona mode
-     - On synthesis success, persists report sections in workspace via `updateWorkspace`
-     - On synthesis failure, keeps existing demo-report fallback behavior
-   - Expanded lifecycle regression coverage:
-     - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies synthesis invocation and report persistence update
+
+- Added synthesis API client:
+  - `entropy-research-hub/src/lib/api/synthesis.ts`
+  - Calls `POST /api/causaly/synthesise` and normalizes response shape
+- Added synthesis API tests:
+  - `src/lib/api/synthesis.test.ts`
+  - Covers success, explicit API error message propagation, and malformed-success payload fallback
+- Updated `WorkspaceView` behavior:
+  - After successful augment and suggestions fetch, calls synthesis endpoint with current graph snapshot + persona mode
+  - On synthesis success, persists report sections in workspace via `updateWorkspace`
+  - On synthesis failure, keeps existing demo-report fallback behavior
+- Expanded lifecycle regression coverage:
+  - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies synthesis invocation and report persistence update
 
 12. Citation-to-graph linking is now wired in workspace view
-   - `entropy-research-hub/src/pages/WorkspaceView.tsx`
-     - `IntermediateReportPanel.onCitationClick` now sets `highlightedNodes` so cited nodes are emphasized in `KnowledgeGraphPanel`
-   - Added regression test:
-     - `src/pages/WorkspaceView.citation-linking.test.tsx`
-     - verifies citation click updates graph highlight input
+
+- `entropy-research-hub/src/pages/WorkspaceView.tsx`
+  - `IntermediateReportPanel.onCitationClick` now sets `highlightedNodes` so cited nodes are emphasized in `KnowledgeGraphPanel`
+- Added regression test:
+  - `src/pages/WorkspaceView.citation-linking.test.tsx`
+  - verifies citation click updates graph highlight input
+
+13. Follow-up loop + query history + persona/India visual behavior closed for must-have demo criteria
+    - Workspace query UX updates:
+      - `entropy-research-hub/src/pages/WorkspaceView.tsx`
+      - Suggestion chips now trigger immediate submit using chip text
+      - Query submission now supports explicit query text input path for chip-driven submits
+      - Query completion no longer auto-injects static demo graph on successful augment path
+      - Query history cards now include status and submitted date metadata while retaining click-to-highlight behavior
+    - Graph visual semantics updates:
+      - `entropy-research-hub/src/components/workspace/KnowledgeGraphPanel.tsx`
+      - Extracted `getPersonaWeighting` helper and reused it in Cytoscape node-style generation
+      - India Lens-on state now surfaces an explicit provenance badge and India-relevant node count in panel summary
+    - New/expanded regression coverage:
+      - `src/pages/WorkspaceView.query-lifecycle.test.tsx`
+        - suggestion chip click submits query
+        - cumulative graph snapshot includes prior contributed nodes
+        - query history shows status/date metadata and still highlights contributed nodes on click
+        - India Lens toggle persists via workspace update calls
+        - successful empty-delta augment does not auto-seed demo nodes
+      - `src/components/workspace/KnowledgeGraphPanel.persona-weighting.test.tsx`
+        - researcher/strategist visual weighting expectations for biological vs patent/commercial node types
+      - `src/components/workspace/KnowledgeGraphPanel.india-lens.test.tsx`
+        - validates India Lens badge text and India-relevant node count visibility
 
 ### Scaffolding / partial
 
@@ -284,13 +316,13 @@ Also missing on backend for PRD parity:
    - Demo fallback rows still render when no persisted workspace exists.
 
 3. Query-to-graph behavior is simulated.
-    - `ResearchProgressOverlay` uses timed fake logs and fake completion.
-    - "Load Demo Data" seeds local mock graph data as fallback.
-    - Query lifecycle metadata update is now real for augment success/failure, but graph growth still falls back to demo seeding when overlay completes.
+   - `ResearchProgressOverlay` uses timed fake logs and fake completion.
+   - "Load Demo Data" seeds local mock graph data as fallback.
+   - Query lifecycle metadata update is now real for augment success/failure, but graph growth still falls back to demo seeding when overlay completes.
 
 4. Graph and report are mostly demo-driven.
-    - Graph visuals render from provided nodes/edges.
-    - Report section content and citations come from static demo data.
+   - Graph visuals render from provided nodes/edges.
+   - Report section content and citations come from static demo data.
 
 5. WorkspaceStore v2 is implemented but not yet fully wired as the authoritative runtime store.
    - Resolved: context now uses v2 as primary store.

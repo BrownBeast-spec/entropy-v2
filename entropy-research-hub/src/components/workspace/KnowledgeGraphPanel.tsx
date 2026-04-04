@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape, { Core, NodeSingular } from "cytoscape";
-import { 
-  ZoomIn, 
-  ZoomOut, 
-  Maximize2, 
+import {
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
   Search,
   LayoutGrid,
   Network,
-  Clock
+  Clock,
 } from "lucide-react";
 import { GraphNode, GraphEdge } from "@/types/workspace";
 
@@ -23,6 +23,25 @@ interface KnowledgeGraphPanelProps {
 
 type LayoutType = "cose" | "breadthfirst" | "circle";
 type ViewType = "graph" | "timeline" | "dendrogram";
+
+export function getPersonaWeighting(
+  nodeType: GraphNode["type"],
+  mode: "Researcher" | "Strategist",
+  evidenceScore = 50,
+): { opacity: number; size: number } {
+  const baseSize = 20 + evidenceScore / 5;
+  const isBiological = ["disease", "gene", "protein"].includes(nodeType);
+
+  if (mode === "Researcher" && !isBiological) {
+    return { opacity: 0.5, size: baseSize * 0.7 };
+  }
+
+  if (mode === "Strategist" && isBiological) {
+    return { opacity: 0.6, size: baseSize * 0.8 };
+  }
+
+  return { opacity: 1, size: baseSize };
+}
 
 export default function KnowledgeGraphPanel({
   nodes,
@@ -59,11 +78,11 @@ export default function KnowledgeGraphPanel({
   const getNodeColor = (source: string): string => {
     const colorMap: Record<string, string> = {
       "Open Targets": "#3b82f6", // blue
-      "STRING": "#8b5cf6", // purple
-      "PubMed": "#10b981", // green
+      STRING: "#8b5cf6", // purple
+      PubMed: "#10b981", // green
       "Europe PMC": "#059669", // emerald
-      "PatentsView": "#f59e0b", // amber
-      "OpenFDA": "#ef4444", // red
+      PatentsView: "#f59e0b", // amber
+      OpenFDA: "#ef4444", // red
       "ClinicalTrials.gov": "#06b6d4", // cyan
     };
     return colorMap[source] || "#6b7280"; // gray fallback
@@ -92,20 +111,11 @@ export default function KnowledgeGraphPanel({
 
     // Convert nodes and edges to Cytoscape format
     const cyNodes = nodes.map((node) => {
-      const baseSize = 20 + (node.evidenceScore || 50) / 5; // Size based on evidence score
-      const isBiological = ["disease", "gene", "protein"].includes(node.type);
-      
-      // Visual weighting based on mode
-      let opacity = 1;
-      let size = baseSize;
-      
-      if (mode === "Researcher" && !isBiological) {
-        opacity = 0.5;
-        size = baseSize * 0.7;
-      } else if (mode === "Strategist" && isBiological) {
-        opacity = 0.6;
-        size = baseSize * 0.8;
-      }
+      const { opacity, size } = getPersonaWeighting(
+        node.type,
+        mode,
+        node.evidenceScore ?? 50,
+      );
 
       return {
         data: {
@@ -245,11 +255,14 @@ export default function KnowledgeGraphPanel({
     if (!cyRef.current) return;
 
     cyRef.current.nodes().removeClass("highlighted dimmed");
-    
+
     if (highlightedNodes.length > 0) {
       cyRef.current.nodes().addClass("dimmed");
       highlightedNodes.forEach((nodeId) => {
-        cyRef.current?.getElementById(nodeId).removeClass("dimmed").addClass("highlighted");
+        cyRef.current
+          ?.getElementById(nodeId)
+          .removeClass("dimmed")
+          .addClass("highlighted");
       });
     }
   }, [highlightedNodes]);
@@ -265,9 +278,9 @@ export default function KnowledgeGraphPanel({
 
     const cy = cyRef.current;
     const term = searchTerm.toLowerCase();
-    
+
     cy.nodes().addClass("dimmed");
-    
+
     const matchingNodes = cy.nodes().filter((node) => {
       const label = node.data("label")?.toLowerCase() || "";
       return label.includes(term);
@@ -345,7 +358,9 @@ export default function KnowledgeGraphPanel({
       <div className="h-full flex items-center justify-center bg-background">
         <div className="text-center space-y-2">
           <LayoutGrid className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-lg font-semibold text-foreground">Dendrogram View</p>
+          <p className="text-lg font-semibold text-foreground">
+            Dendrogram View
+          </p>
           <p className="text-sm text-muted-foreground">
             Hierarchical tree coming in later phase...
           </p>
@@ -444,11 +459,29 @@ export default function KnowledgeGraphPanel({
       {/* Provenance panel */}
       <div className="absolute bottom-4 left-4 right-4 z-10">
         <div className="bg-card/95 border border-border rounded-lg px-4 py-2 text-2xs text-muted-foreground backdrop-blur-sm">
-          Graph contains <span className="text-foreground font-medium">{nodes.length} nodes</span> and{" "}
-          <span className="text-foreground font-medium">{edges.length} edges</span> from{" "}
+          Graph contains{" "}
+          <span className="text-foreground font-medium">
+            {nodes.length} nodes
+          </span>{" "}
+          and{" "}
+          <span className="text-foreground font-medium">
+            {edges.length} edges
+          </span>{" "}
+          from{" "}
           <span className="text-foreground font-medium">
             {new Set(nodes.map((n) => n.source)).size} sources
           </span>{" "}
+          {indiaLens ? (
+            <>
+              {" "}
+              —{" "}
+              <span className="text-foreground font-medium">
+                India Lens active
+              </span>{" "}
+              ({nodes.filter((node) => node.indiaRelevant).length}{" "}
+              India-relevant nodes)
+            </>
+          ) : null}{" "}
           — Last updated: <span className="text-foreground">just now</span>
         </div>
       </div>

@@ -1,14 +1,21 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import KnowledgeGraphPanel from "@/components/workspace/KnowledgeGraphPanel";
 import IntermediateReportPanel from "@/components/workspace/IntermediateReportPanel";
 import ResearchProgressOverlay from "@/components/workspace/ResearchProgressOverlay";
 import EntityDetailDrawer from "@/components/workspace/EntityDetailDrawer";
 import { demoNodes, demoEdges } from "@/lib/data/demoGraphData";
-import { getSuggestedQueries, getQueryPlaceholder } from "@/lib/data/suggestedQueries";
+import {
+  getSuggestedQueries,
+  getQueryPlaceholder,
+} from "@/lib/data/suggestedQueries";
 import { Query, GraphNode } from "@/types/workspace";
 import { augmentWorkspace } from "@/lib/api/augmentation";
 import { fetchFollowupSuggestions } from "@/lib/api/suggestions";
@@ -18,7 +25,15 @@ import { generateSynthesis } from "@/lib/api/synthesis";
 export default function WorkspaceView() {
   const { id } = useParams<{ id: string }>();
   const { currentWorkspace, setCurrentWorkspace, workspaces } = useWorkspace();
-  const { addNode, addEdge, addQuery, updateQuery, updateWorkspace, removeNode, toggleSavedItem } = useWorkspaceActions();
+  const {
+    addNode,
+    addEdge,
+    addQuery,
+    updateQuery,
+    updateWorkspace,
+    removeNode,
+    toggleSavedItem,
+  } = useWorkspaceActions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showDemoData, setShowDemoData] = useState(false);
   const [queryText, setQueryText] = useState("");
@@ -40,20 +55,22 @@ export default function WorkspaceView() {
   // Load demo data for visualization
   const handleLoadDemoData = () => {
     if (!currentWorkspace) return;
-    
+
     demoNodes.forEach((node) => addNode(node));
     demoEdges.forEach((edge) => addEdge(edge));
     setShowDemoData(true);
   };
 
   // Submit query
-  const handleSubmitQuery = async () => {
-    if (!currentWorkspace || !queryText.trim()) return;
+  const handleSubmitQuery = async (explicitQueryText?: string) => {
+    if (!currentWorkspace) return;
+    const queryValue = (explicitQueryText ?? queryText).trim();
+    if (!queryValue) return;
 
     const query: Query = {
       id: `query_${Date.now()}`,
       workspaceId: currentWorkspace.id,
-      text: queryText,
+      text: queryValue,
       mode: currentWorkspace.mode,
       indiaLens: currentWorkspace.indiaLens,
       submittedAt: new Date(),
@@ -77,7 +94,7 @@ export default function WorkspaceView() {
       };
 
       const result = await augmentWorkspace({
-        query: queryText,
+        query: queryValue,
         graphSnapshot,
         personaMode: currentWorkspace.mode,
         indiaLens: currentWorkspace.indiaLens,
@@ -89,25 +106,32 @@ export default function WorkspaceView() {
       const addedNodes: GraphNode[] = [];
 
       if (Array.isArray(result.newNodes)) {
-        const normalizedNodes: GraphNode[] = result.newNodes.map((nodeLike, idx) => {
-          const id = typeof nodeLike.id === "string" ? nodeLike.id : `node_${Date.now()}_${idx}`;
-          const label = typeof nodeLike.label === "string" ? nodeLike.label : id;
-          const type =
-            typeof nodeLike.type === "string"
-              ? (nodeLike.type as GraphNode["type"])
-              : ("protein" as GraphNode["type"]);
+        const normalizedNodes: GraphNode[] = result.newNodes.map(
+          (nodeLike, idx) => {
+            const id =
+              typeof nodeLike.id === "string"
+                ? nodeLike.id
+                : `node_${Date.now()}_${idx}`;
+            const label =
+              typeof nodeLike.label === "string" ? nodeLike.label : id;
+            const type =
+              typeof nodeLike.type === "string"
+                ? (nodeLike.type as GraphNode["type"])
+                : ("protein" as GraphNode["type"]);
 
-          return {
-            id,
-            label,
-            type,
-            source: "Open Targets",
-            metadata: typeof nodeLike.data === "object" && nodeLike.data !== null
-              ? (nodeLike.data as Record<string, any>)
-              : {},
-            addedByQuery: query.id,
-          };
-        });
+            return {
+              id,
+              label,
+              type,
+              source: "Open Targets",
+              metadata:
+                typeof nodeLike.data === "object" && nodeLike.data !== null
+                  ? (nodeLike.data as Record<string, any>)
+                  : {},
+              addedByQuery: query.id,
+            };
+          },
+        );
 
         const enrichedNodes = currentWorkspace.indiaLens
           ? processIndiaLens(normalizedNodes)
@@ -122,12 +146,17 @@ export default function WorkspaceView() {
 
       if (Array.isArray(result.newEdges)) {
         result.newEdges.forEach((edgeLike, idx) => {
-          if (typeof edgeLike.source !== "string" || typeof edgeLike.target !== "string") {
+          if (
+            typeof edgeLike.source !== "string" ||
+            typeof edgeLike.target !== "string"
+          ) {
             return;
           }
 
           const edgeId =
-            typeof edgeLike.id === "string" ? edgeLike.id : `edge_${Date.now()}_${idx}`;
+            typeof edgeLike.id === "string"
+              ? edgeLike.id
+              : `edge_${Date.now()}_${idx}`;
 
           addEdge({
             id: edgeId,
@@ -160,7 +189,9 @@ export default function WorkspaceView() {
             ? result.completenessScore
             : undefined,
         iterations:
-          typeof result.iterationsRun === "number" ? result.iterationsRun : undefined,
+          typeof result.iterationsRun === "number"
+            ? result.iterationsRun
+            : undefined,
       });
 
       try {
@@ -200,7 +231,11 @@ export default function WorkspaceView() {
           reportSections:
             currentWorkspace.mode === "Researcher"
               ? ["Overview", "Key Targets and Evidence", "Safety Signals"]
-              : ["Overview", "Competitive Landscape", "Strategic Recommendations"],
+              : [
+                  "Overview",
+                  "Competitive Landscape",
+                  "Strategic Recommendations",
+                ],
         });
 
         if (synthesis.sections.length > 0) {
@@ -237,13 +272,7 @@ export default function WorkspaceView() {
   };
 
   // Handle research completion
-  const handleResearchComplete = (nodesAdded: number, edgesAdded: number) => {
-    // In real implementation, this would add actual nodes from MCP tools
-    // For demo, we just load the demo data
-    if (!showDemoData) {
-      handleLoadDemoData();
-    }
-
+  const handleResearchComplete = (_nodesAdded: number, _edgesAdded: number) => {
     setShowResearchProgress(false);
     setQueryText("");
   };
@@ -254,7 +283,7 @@ export default function WorkspaceView() {
   };
 
   // Get suggested queries based on mode
-  const suggestedQueries = currentWorkspace 
+  const suggestedQueries = currentWorkspace
     ? runtimeSuggestions.length > 0
       ? runtimeSuggestions
       : getSuggestedQueries(currentWorkspace.mode, currentWorkspace.indiaLens)
@@ -279,7 +308,10 @@ export default function WorkspaceView() {
   // Handle India Lens toggle
   const handleIndiaLensToggle = () => {
     if (!currentWorkspace) return;
-    updateWorkspace({ ...currentWorkspace, indiaLens: !currentWorkspace.indiaLens });
+    updateWorkspace({
+      ...currentWorkspace,
+      indiaLens: !currentWorkspace.indiaLens,
+    });
   };
 
   // Handle node click - open drawer
@@ -305,12 +337,12 @@ export default function WorkspaceView() {
   const handleFindConnections = (nodeId: string) => {
     // For now, just highlight the node and its neighbors
     if (!currentWorkspace) return;
-    
+
     const connectedNodeIds = currentWorkspace.edges
       .filter((e) => e.source === nodeId || e.target === nodeId)
       .flatMap((e) => [e.source, e.target])
       .filter((id) => id !== nodeId);
-    
+
     setHighlightedNodes([nodeId, ...connectedNodeIds]);
   };
 
@@ -350,7 +382,9 @@ export default function WorkspaceView() {
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Entropy</span>
           <span className="text-muted-foreground">›</span>
-          <span className="text-foreground font-medium">{currentWorkspace.name}</span>
+          <span className="text-foreground font-medium">
+            {currentWorkspace.name}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           {/* Persona Toggle */}
@@ -358,8 +392,8 @@ export default function WorkspaceView() {
             <button
               onClick={() => handleModeToggle("Researcher")}
               className={`px-3 py-1 rounded-md text-[13px] font-medium transition-colors ${
-                currentWorkspace.mode === "Researcher" 
-                  ? "bg-blue-500/20 text-blue-400" 
+                currentWorkspace.mode === "Researcher"
+                  ? "bg-blue-500/20 text-blue-400"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -368,21 +402,21 @@ export default function WorkspaceView() {
             <button
               onClick={() => handleModeToggle("Strategist")}
               className={`px-3 py-1 rounded-md text-[13px] font-medium transition-colors ${
-                currentWorkspace.mode === "Strategist" 
-                  ? "bg-amber-500/20 text-amber-400" 
+                currentWorkspace.mode === "Strategist"
+                  ? "bg-amber-500/20 text-amber-400"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Strategist
             </button>
           </div>
-          
+
           {/* India Lens Toggle */}
           <label className="flex items-center gap-2 text-[13px] text-muted-foreground cursor-pointer">
-            <input 
-              type="checkbox" 
-              className="rounded" 
-              checked={currentWorkspace.indiaLens} 
+            <input
+              type="checkbox"
+              className="rounded"
+              checked={currentWorkspace.indiaLens}
               onChange={handleIndiaLensToggle}
             />
             <span>India Lens</span>
@@ -393,10 +427,12 @@ export default function WorkspaceView() {
       {/* Three-panel layout */}
       <div className="flex-1 flex min-h-0">
         {/* Left Sidebar - Query Panel */}
-        <div className={`${sidebarCollapsed ? 'w-12' : 'w-[280px]'} border-r border-border bg-card transition-all duration-200 flex flex-col`}>
+        <div
+          className={`${sidebarCollapsed ? "w-12" : "w-[280px]"} border-r border-border bg-card transition-all duration-200 flex flex-col`}
+        >
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center py-4 gap-4">
-              <button 
+              <button
                 onClick={() => setSidebarCollapsed(false)}
                 className="p-2 hover:bg-accent rounded-md transition-colors"
               >
@@ -406,15 +442,17 @@ export default function WorkspaceView() {
           ) : (
             <>
               <div className="flex items-center justify-between p-4 border-b border-border">
-                <h3 className="text-sm font-semibold text-foreground">Research Query</h3>
-                <button 
+                <h3 className="text-sm font-semibold text-foreground">
+                  Research Query
+                </h3>
+                <button
                   onClick={() => setSidebarCollapsed(true)}
                   className="p-1 hover:bg-accent rounded-md transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {/* Add to graph input */}
                 <div>
@@ -433,8 +471,8 @@ export default function WorkspaceView() {
                       }
                     }}
                   />
-                  <button 
-                    onClick={handleSubmitQuery}
+                  <button
+                    onClick={() => void handleSubmitQuery()}
                     disabled={!queryText.trim()}
                     className="w-full mt-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -449,9 +487,12 @@ export default function WorkspaceView() {
                   </h4>
                   <div className="space-y-1">
                     {suggestedQueries.map((suggestedQuery, idx) => (
-                      <button 
+                      <button
                         key={idx}
-                        onClick={() => setQueryText(suggestedQuery)}
+                        onClick={() => {
+                          setQueryText(suggestedQuery);
+                          void handleSubmitQuery(suggestedQuery);
+                        }}
                         className="w-full text-left px-3 py-2 rounded-md text-[12px] text-muted-foreground bg-accent hover:bg-accent/80 transition-colors"
                       >
                         {suggestedQuery}
@@ -466,7 +507,9 @@ export default function WorkspaceView() {
                     Query History
                   </h4>
                   {currentWorkspace.queries.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No queries yet</p>
+                    <p className="text-xs text-muted-foreground">
+                      No queries yet
+                    </p>
                   ) : (
                     <div className="space-y-1">
                       {currentWorkspace.queries.map((query) => (
@@ -475,9 +518,17 @@ export default function WorkspaceView() {
                           onClick={() => handleQueryHistoryClick(query)}
                           className="w-full text-left px-3 py-2 rounded-md text-[12px] bg-accent/50 hover:bg-accent transition-colors"
                         >
-                          <p className="text-foreground truncate">{query.text}</p>
+                          <p className="text-foreground truncate">
+                            {query.text}
+                          </p>
                           <p className="text-muted-foreground text-2xs mt-0.5">
                             {query.contributedNodes.length} nodes added
+                          </p>
+                          <p className="text-muted-foreground text-2xs mt-0.5">
+                            Status: {query.status}
+                          </p>
+                          <p className="text-muted-foreground text-2xs mt-0.5">
+                            Submitted: {query.submittedAt.toLocaleDateString()}
                           </p>
                         </button>
                       ))}
@@ -491,11 +542,16 @@ export default function WorkspaceView() {
                     Saved Items
                   </h4>
                   {currentWorkspace.savedItems.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No saved items</p>
+                    <p className="text-xs text-muted-foreground">
+                      No saved items
+                    </p>
                   ) : (
                     <div className="space-y-1">
                       {currentWorkspace.savedItems.map((item) => (
-                        <div key={item.id} className="px-3 py-2 rounded-md text-[12px] bg-accent/50 text-foreground">
+                        <div
+                          key={item.id}
+                          className="px-3 py-2 rounded-md text-[12px] bg-accent/50 text-foreground"
+                        >
                           Saved item {item.nodeId.substring(0, 8)}...
                         </div>
                       ))}
@@ -514,7 +570,9 @@ export default function WorkspaceView() {
             {currentWorkspace.nodes.length === 0 && !showDemoData ? (
               <div className="h-full bg-background border-b border-border flex items-center justify-center">
                 <div className="text-center space-y-4">
-                  <p className="text-lg font-semibold text-foreground">Knowledge Graph Canvas</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    Knowledge Graph Canvas
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     No nodes yet — submit a query to start building the graph
                   </p>
@@ -543,14 +601,14 @@ export default function WorkspaceView() {
 
           {/* Bottom: Intermediate Report Panel */}
           <ResizablePanel defaultSize={45} minSize={20}>
-              <IntermediateReportPanel
-                report={currentWorkspace.report}
-                mode={currentWorkspace.mode}
-                onRegenerateSynthesis={() => console.log("Regenerate synthesis")}
-                onGenerateFullDossier={() => console.log("Generate full dossier")}
-                onCitationClick={(nodeId) => setHighlightedNodes([nodeId])}
-                onExport={(format) => console.log("Export as:", format)}
-              />
+            <IntermediateReportPanel
+              report={currentWorkspace.report}
+              mode={currentWorkspace.mode}
+              onRegenerateSynthesis={() => console.log("Regenerate synthesis")}
+              onGenerateFullDossier={() => console.log("Generate full dossier")}
+              onCitationClick={(nodeId) => setHighlightedNodes([nodeId])}
+              onExport={(format) => console.log("Export as:", format)}
+            />
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import WorkspaceView from "./WorkspaceView";
 
@@ -14,13 +20,15 @@ const mockUpdateWorkspace = vi.fn();
 const mockRemoveNode = vi.fn();
 const mockToggleSavedItem = vi.fn();
 const mockSetCurrentWorkspace = vi.fn();
+const mockKgPanel = vi.fn();
 
 vi.mock("@/lib/api/augmentation", () => ({
   augmentWorkspace: (...args: unknown[]) => mockAugmentWorkspace(...args),
 }));
 
 vi.mock("@/lib/api/suggestions", () => ({
-  fetchFollowupSuggestions: (...args: unknown[]) => mockFetchSuggestions(...args),
+  fetchFollowupSuggestions: (...args: unknown[]) =>
+    mockFetchSuggestions(...args),
 }));
 
 vi.mock("@/lib/api/synthesis", () => ({
@@ -60,7 +68,10 @@ vi.mock("@/contexts/WorkspaceContext", () => ({
 }));
 
 vi.mock("@/components/workspace/KnowledgeGraphPanel", () => ({
-  default: () => <div data-testid="kg-panel" />,
+  default: (props: unknown) => {
+    mockKgPanel(props);
+    return <div data-testid="kg-panel" />;
+  },
 }));
 vi.mock("@/components/workspace/IntermediateReportPanel", () => ({
   default: () => <div data-testid="report-panel" />,
@@ -77,6 +88,19 @@ describe("WorkspaceView query lifecycle", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    baseWorkspace.mode = "Researcher";
+    baseWorkspace.indiaLens = false;
+    baseWorkspace.nodes = [];
+    baseWorkspace.edges = [];
+    baseWorkspace.queries = [];
+
+    mockAddNode.mockImplementation((node) => {
+      baseWorkspace.nodes = [...baseWorkspace.nodes, node];
+    });
+    mockAddEdge.mockImplementation((edge) => {
+      baseWorkspace.edges = [...baseWorkspace.edges, edge];
+    });
+
     mockFetchSuggestions.mockResolvedValue([
       "What Indian trials are active for this mechanism?",
       "Which safety signals are emerging?",
@@ -87,7 +111,9 @@ describe("WorkspaceView query lifecycle", () => {
         {
           title: "Overview",
           content: "Metformin shows relevant evidence.",
-          citations: [{ id: "c1", nodeId: "N1", source: "Open Targets", label: "OT:N1" }],
+          citations: [
+            { id: "c1", nodeId: "N1", source: "Open Targets", label: "OT:N1" },
+          ],
         },
       ],
     });
@@ -255,9 +281,7 @@ describe("WorkspaceView query lifecycle", () => {
   it("enriches added nodes with India Lens metadata when indiaLens is enabled", async () => {
     baseWorkspace.indiaLens = true;
     mockAugmentWorkspace.mockResolvedValue({
-      newNodes: [
-        { id: "D1", label: "Metformin", type: "drug", data: {} },
-      ],
+      newNodes: [{ id: "D1", label: "Metformin", type: "drug", data: {} }],
       newEdges: [],
       completenessScore: 80,
       iterationsRun: 1,
@@ -289,5 +313,200 @@ describe("WorkspaceView query lifecycle", () => {
     expect(added.metadata.indiaContext.isCDSCO).toBe(true);
 
     baseWorkspace.indiaLens = false;
+  });
+
+  it("clicking a suggestion chip submits it as a query", async () => {
+    mockAugmentWorkspace.mockResolvedValue({
+      newNodes: [],
+      newEdges: [],
+      completenessScore: 60,
+      iterationsRun: 1,
+      failedSources: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const suggestion =
+      "What are the safety signals for long-term metformin use in hepatic impairment?";
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: suggestion }));
+    });
+
+    await waitFor(() => {
+      expect(mockAugmentWorkspace).toHaveBeenCalledWith(
+        expect.objectContaining({ query: suggestion }),
+      );
+      expect(mockAddQuery).toHaveBeenCalled();
+    });
+  });
+
+  it("submits cumulative graph snapshot on follow-up query", async () => {
+    mockAugmentWorkspace
+      .mockResolvedValueOnce({
+        newNodes: [{ id: "N1", label: "Node 1", type: "protein", data: {} }],
+        newEdges: [],
+        completenessScore: 70,
+        iterationsRun: 1,
+        failedSources: [],
+      })
+      .mockResolvedValueOnce({
+        newNodes: [{ id: "N2", label: "Node 2", type: "protein", data: {} }],
+        newEdges: [],
+        completenessScore: 78,
+        iterationsRun: 1,
+        failedSources: [],
+      });
+
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const input = screen.getByRole("textbox");
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "first query" } });
+      fireEvent.click(screen.getByRole("button", { name: /Submit Query/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockAugmentWorkspace).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "second query" } });
+      fireEvent.click(screen.getByRole("button", { name: /Submit Query/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockAugmentWorkspace).toHaveBeenCalledTimes(2);
+    });
+
+    const secondCallPayload = mockAugmentWorkspace.mock.calls[1][0];
+    expect(secondCallPayload.graphSnapshot.nodeIds).toContain("N1");
+  });
+
+  it("shows query history status/date metadata and still highlights contributed nodes on click", async () => {
+    const submittedAt = new Date("2026-04-02T10:15:00.000Z");
+    baseWorkspace.nodes = [
+      {
+        id: "N1",
+        label: "Node 1",
+        type: "protein",
+        source: "Open Targets",
+        metadata: {},
+        addedByQuery: "query_a",
+      },
+    ];
+    baseWorkspace.queries = [
+      {
+        id: "query_a",
+        workspaceId: baseWorkspace.id,
+        text: "first query",
+        mode: "Researcher",
+        indiaLens: false,
+        submittedAt,
+        status: "complete",
+        contributedNodes: ["N1"],
+        contributedEdges: [],
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/Status: complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/Submitted:/i)).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /first query/i }));
+    });
+
+    const lastKgProps = mockKgPanel.mock.calls.at(-1)?.[0] as {
+      highlightedNodes?: string[];
+    };
+    expect(lastKgProps.highlightedNodes).toEqual(["N1"]);
+  });
+
+  it("does not auto-seed demo graph after successful augment with empty delta", async () => {
+    mockAugmentWorkspace.mockResolvedValue({
+      newNodes: [],
+      newEdges: [],
+      completenessScore: 92,
+      iterationsRun: 1,
+      failedSources: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const input = screen.getByRole("textbox");
+
+    await act(async () => {
+      fireEvent.change(input, {
+        target: { value: "no-delta query" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /Submit Query/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockUpdateQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "complete" }),
+      );
+    });
+
+    const addedNodeIds = mockAddNode.mock.calls.map((call) => call[0]?.id);
+    expect(addedNodeIds).not.toContain("disease_nash");
+    expect(addedNodeIds).not.toContain("drug_metformin");
+  });
+
+  it("persists India Lens toggle and passes enabled state to graph panel", async () => {
+    baseWorkspace.nodes = [
+      {
+        id: "D1",
+        label: "Metformin",
+        type: "drug",
+        source: "OpenFDA",
+        metadata: { indiaContext: { isCDSCO: true } },
+        addedByQuery: "query_1",
+        indiaRelevant: true,
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("checkbox", { name: /India Lens/i }));
+    });
+
+    expect(mockUpdateWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ indiaLens: true }),
+    );
   });
 });
