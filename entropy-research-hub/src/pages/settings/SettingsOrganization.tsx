@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
+import { useWorkspaceActions } from "@/contexts/WorkspaceContext";
 
 export default function SettingsOrganization() {
   const [orgName, setOrgName] = useState("Entropy");
   const [orgUrl, setOrgUrl] = useState("entropy");
   const [domain, setDomain] = useState("causaly.com");
   const [autoJoin, setAutoJoin] = useState(false);
+  const { resetToDemoState } = useWorkspaceActions();
 
   return (
     <div className="p-6 max-w-3xl animate-fade-in">
@@ -68,6 +70,18 @@ export default function SettingsOrganization() {
       <div className="mt-8">
         <h2 className="text-sm font-semibold text-destructive mb-3">Danger Zone</h2>
         <div className="bg-card border border-destructive/30 rounded-lg p-6 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Reset to Demo State</p>
+            <p className="text-2xs text-muted-foreground mt-0.5">Re-seed the default demo workspace for rehearsals.</p>
+          </div>
+          <button
+            onClick={() => void resetToDemoState()}
+            className="px-4 py-2 border border-destructive/50 rounded-md text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            Reset to Demo State
+          </button>
+        </div>
+        <div className="bg-card border border-destructive/30 rounded-lg p-6 flex items-center justify-between mt-3">
           <div>
             <p className="text-sm font-semibold text-foreground">Delete Organization</p>
             <p className="text-2xs text-muted-foreground mt-0.5">Permanently delete this organization and all of its data. This action cannot be undone.</p>

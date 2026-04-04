@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Workspace, WorkspaceMode, GraphNode, GraphEdge, Query, SavedItem } from "@/types/workspace";
 import { workspaceStorage } from "@/lib/storage/workspaceStorage";
 import { workspaceStoreV2 } from "@/lib/storage/workspaceStoreV2";
+import { createDemoWorkspaceSeed } from "@/lib/data/demoWorkspaceSeed";
 
 export interface WorkspaceGraphSnapshot {
   nodeIds: string[];
@@ -27,6 +28,7 @@ interface WorkspaceActionsContextValue {
   updateQuery: (query: Query) => void;
   toggleSavedItem: (nodeId: string) => void;
   getGraphSnapshot: () => WorkspaceGraphSnapshot;
+  resetToDemoState: () => Promise<void>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -71,6 +73,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     id: node.id,
     type: node.type,
     label: node.label,
+    source: node.source,
+    metadata: node.metadata ?? {},
+    evidenceScore: node.evidenceScore,
+    addedByQuery: node.addedByQuery,
+    indiaRelevant: node.indiaRelevant,
     data: node.metadata ?? {},
     provenance: [
       {
@@ -79,7 +86,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         timestamp: new Date().toISOString(),
       },
     ],
-    indiaContext: node.indiaRelevant ? { isCDSCO: true } : undefined,
+    indiaContext:
+      (node.metadata as any)?.indiaContext ??
+      (node.indiaRelevant ? { isCDSCO: true } : undefined),
   });
 
   const denormalizeEdge = (edge: GraphEdge) => ({
@@ -88,17 +97,46 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     target: edge.target,
     type: edge.type,
     confidence: edge.confidence,
+    metadata: edge.metadata ?? {},
     evidenceTypes: [],
     provenance: [],
   });
 
+  const persistDemoWorkspaceV2 = async (): Promise<Workspace> => {
+    const demoWorkspace = createDemoWorkspaceSeed();
+    await workspaceStoreV2.saveWorkspace({
+      ...demoWorkspace,
+      nodes: demoWorkspace.nodes.map(denormalizeNode as any),
+      edges: demoWorkspace.edges.map(denormalizeEdge as any),
+    } as any);
+    return demoWorkspace;
+  };
+
+  const persistDemoWorkspaceLegacy = (): Workspace => {
+    const demoWorkspace = createDemoWorkspaceSeed();
+    workspaceStorage.save(demoWorkspace);
+    return demoWorkspace;
+  };
+
   const loadFromStore = async () => {
     try {
       const loaded = await workspaceStoreV2.getAll();
+      if (loaded.length === 0) {
+        const seeded = await persistDemoWorkspaceV2();
+        setWorkspaces([seeded]);
+        return;
+      }
+
       const normalized = loaded.map(normalizeWorkspace);
       setWorkspaces(normalized);
     } catch {
       const loaded = workspaceStorage.getAll();
+      if (loaded.length === 0) {
+        const seeded = persistDemoWorkspaceLegacy();
+        setWorkspaces([seeded]);
+        return;
+      }
+
       setWorkspaces(loaded);
     }
   };
@@ -290,6 +328,30 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     };
   };
 
+  const resetToDemoState = async (): Promise<void> => {
+    let seeded: Workspace | null = null;
+
+    try {
+      await workspaceStoreV2.clear();
+      seeded = await persistDemoWorkspaceV2();
+    } catch {
+      seeded = null;
+    }
+
+    try {
+      workspaceStorage.clear();
+    } catch {
+      // No-op
+    }
+
+    if (!seeded) {
+      seeded = persistDemoWorkspaceLegacy();
+    }
+
+    setWorkspaces([seeded]);
+    setCurrentWorkspace(seeded);
+  };
+
   const contextValue: WorkspaceContextValue = {
     workspaces,
     currentWorkspace,
@@ -309,6 +371,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     updateQuery,
     toggleSavedItem,
     getGraphSnapshot,
+    resetToDemoState,
   };
 
   return (
