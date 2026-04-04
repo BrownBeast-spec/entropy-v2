@@ -194,7 +194,7 @@ describe("WorkspaceView query lifecycle", () => {
     expect(reportWorkspaceUpdate.report.sections).toHaveLength(1);
   });
 
-  it("marks query failed when augment request throws", async () => {
+  it("marks query failed and shows offline fallback notice when augment request throws", async () => {
     mockAugmentWorkspace.mockRejectedValue(new Error("network down"));
 
     render(
@@ -223,6 +223,9 @@ describe("WorkspaceView query lifecycle", () => {
       .find((q) => q.status === "failed");
 
     expect(failedUpdate).toBeDefined();
+    expect(
+      screen.getByText(/Offline.*showing cached data/i),
+    ).toBeInTheDocument();
   });
 
   it("uses the same generated edge ids for graph updates and query contribution metadata", async () => {

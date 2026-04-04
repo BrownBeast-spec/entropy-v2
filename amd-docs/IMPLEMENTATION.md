@@ -36,6 +36,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - WorkspaceView now triggers dossier generation via new frontend SSE client and includes regression coverage for API invocation flow
 - India Lens disclosure tooltip now appears in graph provenance summary with PRD-aligned caution copy
 - Workspace bootstrap now auto-seeds a deterministic Metformin NASH demo workspace when persistence is empty, and Settings Organization now includes a Reset to Demo State control that clears persisted workspace state and re-seeds the demo baseline
+- Workspace query failure path now surfaces an explicit offline fallback notice ("Offline - showing cached data") in the query panel, with lifecycle test coverage for augment-network failure handling
 
 ## Status legend
 

@@ -40,6 +40,7 @@ export default function WorkspaceView() {
   const [queryText, setQueryText] = useState("");
   const [runtimeSuggestions, setRuntimeSuggestions] = useState<string[]>([]);
   const [showResearchProgress, setShowResearchProgress] = useState(false);
+  const [requestNotice, setRequestNotice] = useState<string | null>(null);
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -88,6 +89,7 @@ export default function WorkspaceView() {
     if (!currentWorkspace) return;
     const queryValue = (explicitQueryText ?? queryText).trim();
     if (!queryValue) return;
+    setRequestNotice(null);
 
     const query: Query = {
       id: `query_${Date.now()}`,
@@ -288,6 +290,7 @@ export default function WorkspaceView() {
         ...query,
         status: "failed",
       });
+      setRequestNotice("Offline - showing cached data");
       // Fallback to demo behavior if API is unavailable in local scaffold mode
       handleResearchComplete(0, 0);
     }
@@ -500,6 +503,9 @@ export default function WorkspaceView() {
                   >
                     Submit Query
                   </button>
+                  {requestNotice ? (
+                    <p className="mt-2 text-xs text-amber-400">{requestNotice}</p>
+                  ) : null}
                 </div>
 
                 {/* Suggested questions */}
