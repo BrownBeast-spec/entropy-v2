@@ -596,7 +596,7 @@ export default function WorkspaceView() {
           {/* Top: Knowledge Graph Panel */}
           <ResizablePanel defaultSize={55} minSize={30}>
             {currentWorkspace.nodes.length === 0 && !showDemoData ? (
-              <div className="h-full bg-background border-b border-border flex items-center justify-center">
+              <div className="h-full bg-background border-b border-border flex items-center justify-center relative">
                 <div className="text-center space-y-4">
                   <p className="text-lg font-semibold text-foreground">
                     Knowledge Graph Canvas
@@ -610,6 +610,25 @@ export default function WorkspaceView() {
                   >
                     Load Demo Data (16 nodes, 20 edges)
                   </button>
+                </div>
+
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div
+                    data-testid="workspace-provenance-summary"
+                    className="bg-card/95 border border-border rounded-lg px-4 py-2 text-2xs text-muted-foreground backdrop-blur-sm"
+                  >
+                    Graph contains{" "}
+                    <span className="text-foreground font-medium">
+                      {currentWorkspace.nodes.length} nodes
+                    </span>{" "}
+                    and{" "}
+                    <span className="text-foreground font-medium">
+                      {currentWorkspace.edges.length} edges
+                    </span>{" "}
+                    from{" "}
+                    <span className="text-foreground font-medium">0 sources</span> — Last updated:{" "}
+                    <span className="text-foreground">just now</span>
+                  </div>
                 </div>
               </div>
             ) : (

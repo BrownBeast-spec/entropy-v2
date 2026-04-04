@@ -512,4 +512,20 @@ describe("WorkspaceView query lifecycle", () => {
       expect.objectContaining({ indiaLens: true }),
     );
   });
+
+  it("shows provenance summary even when graph is empty", () => {
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const provenanceSummary = screen.getByTestId("workspace-provenance-summary");
+    expect(provenanceSummary).toHaveTextContent("Graph contains");
+    expect(provenanceSummary).toHaveTextContent("0 nodes");
+    expect(provenanceSummary).toHaveTextContent("0 edges");
+    expect(provenanceSummary).toHaveTextContent("0 sources");
+  });
 });
