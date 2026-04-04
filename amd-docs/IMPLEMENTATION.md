@@ -241,6 +241,8 @@ Also missing on backend for PRD parity:
      - `src/pages/WorkspaceView.tsx` now applies `processIndiaLens` to newly-added nodes when India Lens toggle is enabled
    - Added lifecycle regression:
      - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies India Lens enrichment on augment-added nodes
+   - Added graph-panel India Lens UI coverage:
+     - `src/components/workspace/KnowledgeGraphPanel.india-lens.test.tsx` verifies rendered summary with India-enriched nodes
 
 ### Scaffolding / partial
 

@@ -1,0 +1,48 @@
+import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import KnowledgeGraphPanel from "./KnowledgeGraphPanel";
+
+describe("KnowledgeGraphPanel India Lens UI", () => {
+  it("shows India-related source count in provenance summary when enriched nodes are present", () => {
+    render(
+      <KnowledgeGraphPanel
+        indiaLens
+        nodes={[
+          {
+            id: "drug_1",
+            label: "Metformin",
+            type: "drug",
+            source: "OpenFDA",
+            metadata: {
+              indiaContext: {
+                isCDSCO: true,
+                isNPPA: true,
+                nppaPriceCapInr: 16.2,
+              },
+            },
+            addedByQuery: "q1",
+            indiaRelevant: true,
+          },
+          {
+            id: "pat_1",
+            label: "Formulation patent",
+            type: "patent",
+            source: "PatentsView",
+            metadata: {
+              indiaContext: {
+                isIndianPatent: true,
+              },
+            },
+            addedByQuery: "q1",
+            indiaRelevant: true,
+          },
+        ]}
+        edges={[]}
+      />,
+    );
+
+    expect(screen.getByText(/Graph contains/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 nodes/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 sources/i)).toBeInTheDocument();
+  });
+});
