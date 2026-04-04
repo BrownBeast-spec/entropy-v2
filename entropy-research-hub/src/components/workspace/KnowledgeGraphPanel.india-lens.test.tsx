@@ -46,5 +46,11 @@ describe("KnowledgeGraphPanel India Lens UI", () => {
     expect(screen.getByText(/2 sources/i)).toBeInTheDocument();
     expect(screen.getByText(/India Lens active/i)).toBeInTheDocument();
     expect(screen.getByText(/2 India-relevant nodes/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/India Lens disclosure/i),
+    ).toHaveAttribute(
+      "title",
+      "India signals are inferred from public data using heuristic matching — verify before citing",
+    );
   });
 });

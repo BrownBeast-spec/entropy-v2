@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Network,
   Clock,
+  Info,
 } from "lucide-react";
 import { GraphNode, GraphEdge } from "@/types/workspace";
 
@@ -480,6 +481,13 @@ export default function KnowledgeGraphPanel({
               </span>{" "}
               ({nodes.filter((node) => node.indiaRelevant).length}{" "}
               India-relevant nodes)
+              <span
+                aria-label="India Lens disclosure"
+                title="India signals are inferred from public data using heuristic matching — verify before citing"
+                className="inline-flex align-middle ml-1"
+              >
+                <Info className="w-3 h-3" />
+              </span>
             </>
           ) : null}{" "}
           — Last updated: <span className="text-foreground">just now</span>

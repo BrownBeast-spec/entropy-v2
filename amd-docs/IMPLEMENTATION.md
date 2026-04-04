@@ -34,6 +34,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Demo fallback dependency reduced: successful augment completion no longer auto-seeds static demo graph data when backend returns empty deltas
 - Added `POST /api/causaly/dossier` SSE route with staged status events and final LaTeX payload generation
 - WorkspaceView now triggers dossier generation via new frontend SSE client and includes regression coverage for API invocation flow
+- India Lens disclosure tooltip now appears in graph provenance summary with PRD-aligned caution copy
 
 ## Status legend
 
