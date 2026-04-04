@@ -821,14 +821,14 @@ Not in scope for April 7-8, but mentioned in PRD:
 
 ## Final Checklist Before Demo
 
-- [ ] All tests passing: `npm test` across all packages
-- [ ] Demo workspace pre-loaded and accessible
-- [ ] Network failure tested and handled gracefully
-- [ ] India Lens disclosure tooltip visible
-- [ ] Provenance panel always visible below graph
-- [ ] Citation click → node highlight works
-- [ ] Persona mode toggle works without data loss
-- [ ] Follow-up suggestions appear after query
+- [x] All tests passing: `npm test` across all packages
+- [x] Demo workspace pre-loaded and accessible
+- [x] Network failure tested and handled gracefully
+- [x] India Lens disclosure tooltip visible
+- [x] Provenance panel always visible below graph
+- [x] Citation click → node highlight works
+- [x] Persona mode toggle works without data loss
+- [x] Follow-up suggestions appear after query
 - [ ] Demo rehearsed 3 times, under 5 minutes
 - [ ] Backup video recorded
 - [ ] Slide deck finalized (3-5 slides)
