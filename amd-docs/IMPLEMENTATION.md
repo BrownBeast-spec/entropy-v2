@@ -16,6 +16,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Frontend scaffold in this worktree synced to `entropy-research-hub/` and converted from gitlink tracking to regular repository files
 - WorkspaceStore v2 implementation started in frontend with IndexedDB-backed storage module and passing unit tests
 - Workspace navigation baseline now wired: create workspace action navigates to `/workspaces/:id`, route is mounted, and app is wrapped with `WorkspaceProvider`
+- Workspace context persistence now migrated to WorkspaceStore v2 (`idb-keyval`) with legacy adapter retained only as fallback safety path
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
 
 ## Status legend
@@ -181,6 +182,15 @@ Also missing on backend for PRD parity:
      - `src/pages/WorkspacesPage.test.tsx`
      - `src/pages/WorkspaceView.routing.test.tsx`
 
+6. Workspace context now uses WorkspaceStore v2 as primary persistence backend
+   - `entropy-research-hub/src/contexts/WorkspaceContext.tsx` now:
+     - loads from `workspaceStoreV2` on mount
+     - syncs current workspace from `workspaceStoreV2`
+     - delegates `createWorkspace`, `updateWorkspace`, `deleteWorkspace` to v2 store
+     - keeps legacy `workspaceStorage` only as fallback if v2 operations fail
+   - Added context tests:
+     - `src/contexts/WorkspaceContext.test.tsx`
+
 ### Scaffolding / partial
 
 1. Workspace flow is implemented mostly as isolated scaffolding, not wired app behavior.
@@ -201,14 +211,13 @@ Also missing on backend for PRD parity:
     - Report section content and citations come from static demo data.
 
 5. WorkspaceStore v2 is implemented but not yet fully wired as the authoritative runtime store.
-   - Existing context (`WorkspaceContext`) still uses legacy localStorage adapter (`workspaceStorage.ts`)
-   - V2 store currently validated by unit tests and available for incremental migration
+   - Resolved: context now uses v2 as primary store.
+   - Remaining: remove legacy adapter fallback once migration confidence is high.
 
 ### Not implemented (vs PRD)
 
 Core PRD deltas still missing on frontend:
 
-- Full migration of app runtime from legacy workspaceStorage to WorkspaceStore v2 everywhere
 - End-to-end augmentation flow against `/api/causaly/augment`
 - Real follow-up suggestion calls and staleness tracking
 - India Lens processor with static CDSCO/NPPA/company datasets

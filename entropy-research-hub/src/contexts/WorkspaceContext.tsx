@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Workspace, WorkspaceMode, GraphNode, GraphEdge, Query, SavedItem } from "@/types/workspace";
 import { workspaceStorage } from "@/lib/storage/workspaceStorage";
+import { workspaceStoreV2 } from "@/lib/storage/workspaceStoreV2";
 
 export interface WorkspaceGraphSnapshot {
   nodeIds: string[];
@@ -15,9 +16,9 @@ interface WorkspaceContextValue {
 }
 
 interface WorkspaceActionsContextValue {
-  createWorkspace: (name: string, description: string, mode: WorkspaceMode) => Workspace;
-  updateWorkspace: (workspace: Workspace) => void;
-  deleteWorkspace: (id: string) => void;
+  createWorkspace: (name: string, description: string, mode: WorkspaceMode) => Promise<Workspace>;
+  updateWorkspace: (workspace: Workspace) => Promise<void>;
+  deleteWorkspace: (id: string) => Promise<void>;
   addNode: (node: GraphNode) => void;
   removeNode: (nodeId: string) => void;
   addEdge: (edge: GraphEdge) => void;
@@ -35,57 +36,159 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
 
+  const normalizeWorkspace = (ws: any): Workspace => ({
+    ...ws,
+    nodes: (ws.nodes ?? []).map((n: any) => ({
+      id: n.id,
+      label: n.label,
+      type: n.type,
+      source: n.source ?? "Open Targets",
+      metadata: n.metadata ?? n.data ?? {},
+      evidenceScore: n.evidenceScore,
+      addedByQuery: n.addedByQuery ?? n.provenance?.[0]?.query ?? "initial",
+      indiaRelevant:
+        n.indiaRelevant ??
+        Boolean(
+          n.indiaContext?.isCDSCO ||
+            n.indiaContext?.isNPPA ||
+            n.indiaContext?.isIndianPatent ||
+            n.indiaContext?.isIndianSponsor,
+        ),
+    })),
+    edges: (ws.edges ?? []).map((e: any) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      type: e.type,
+      confidence: e.confidence,
+      metadata: e.metadata ?? {},
+    })),
+    queries: ws.queries ?? [],
+    savedItems: ws.savedItems ?? [],
+  });
+
+  const denormalizeNode = (node: GraphNode) => ({
+    id: node.id,
+    type: node.type,
+    label: node.label,
+    data: node.metadata ?? {},
+    provenance: [
+      {
+        source: node.source,
+        query: node.addedByQuery,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+    indiaContext: node.indiaRelevant ? { isCDSCO: true } : undefined,
+  });
+
+  const denormalizeEdge = (edge: GraphEdge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    type: edge.type,
+    confidence: edge.confidence,
+    evidenceTypes: [],
+    provenance: [],
+  });
+
+  const loadFromStore = async () => {
+    try {
+      const loaded = await workspaceStoreV2.getAll();
+      const normalized = loaded.map(normalizeWorkspace);
+      setWorkspaces(normalized);
+    } catch {
+      const loaded = workspaceStorage.getAll();
+      setWorkspaces(loaded);
+    }
+  };
+
   // Load workspaces from storage on mount
   useEffect(() => {
-    const loaded = workspaceStorage.getAll();
-    setWorkspaces(loaded);
+    loadFromStore();
   }, []);
 
   // Sync current workspace when it changes
   useEffect(() => {
-    if (currentWorkspace) {
-      const fresh = workspaceStorage.getById(currentWorkspace.id);
-      if (fresh && JSON.stringify(fresh) !== JSON.stringify(currentWorkspace)) {
-        setCurrentWorkspace(fresh);
+    const syncCurrent = async () => {
+      if (!currentWorkspace) return;
+      try {
+        const fresh = await workspaceStoreV2.getById(currentWorkspace.id);
+        if (!fresh) return;
+        const normalized = normalizeWorkspace(fresh);
+        if (JSON.stringify(normalized) !== JSON.stringify(currentWorkspace)) {
+          setCurrentWorkspace(normalized);
+        }
+      } catch {
+        const fresh = workspaceStorage.getById(currentWorkspace.id);
+        if (fresh && JSON.stringify(fresh) !== JSON.stringify(currentWorkspace)) {
+          setCurrentWorkspace(fresh);
+        }
       }
-    }
-  }, [workspaces]);
-
-  const refreshWorkspaces = () => {
-    setWorkspaces(workspaceStorage.getAll());
-  };
-
-  const createWorkspace = (name: string, description: string, mode: WorkspaceMode): Workspace => {
-    const workspace: Workspace = {
-      id: `ws_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name,
-      description,
-      mode,
-      indiaLens: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      nodes: [],
-      edges: [],
-      queries: [],
-      savedItems: [],
     };
 
-    workspaceStorage.save(workspace);
-    refreshWorkspaces();
-    return workspace;
+    syncCurrent();
+  }, [workspaces]);
+
+  const refreshWorkspaces = async () => {
+    await loadFromStore();
   };
 
-  const updateWorkspace = (workspace: Workspace) => {
-    workspaceStorage.save(workspace);
-    refreshWorkspaces();
+  const createWorkspace = async (
+    name: string,
+    description: string,
+    mode: WorkspaceMode,
+  ): Promise<Workspace> => {
+    try {
+      const created = await workspaceStoreV2.createWorkspace(name, description, mode);
+      const normalized = normalizeWorkspace(created);
+      await refreshWorkspaces();
+      return normalized;
+    } catch {
+      const workspace: Workspace = {
+        id: `ws_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        name,
+        description,
+        mode,
+        indiaLens: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        nodes: [],
+        edges: [],
+        queries: [],
+        savedItems: [],
+      };
+      workspaceStorage.save(workspace);
+      await refreshWorkspaces();
+      return workspace;
+    }
+  };
+
+  const updateWorkspace = async (workspace: Workspace): Promise<void> => {
+    try {
+      await workspaceStoreV2.saveWorkspace({
+        ...workspace,
+        nodes: workspace.nodes.map(denormalizeNode as any),
+        edges: workspace.edges.map(denormalizeEdge as any),
+      } as any);
+    } catch {
+      workspaceStorage.save(workspace);
+    }
+
+    await refreshWorkspaces();
     if (currentWorkspace?.id === workspace.id) {
       setCurrentWorkspace(workspace);
     }
   };
 
-  const deleteWorkspace = (id: string) => {
-    workspaceStorage.delete(id);
-    refreshWorkspaces();
+  const deleteWorkspace = async (id: string): Promise<void> => {
+    try {
+      await workspaceStoreV2.deleteWorkspace(id);
+    } catch {
+      workspaceStorage.delete(id);
+    }
+
+    await refreshWorkspaces();
     if (currentWorkspace?.id === id) {
       setCurrentWorkspace(null);
     }
@@ -97,7 +200,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ...currentWorkspace,
       nodes: [...currentWorkspace.nodes, node],
     };
-    updateWorkspace(updated);
+    void updateWorkspace(updated);
   };
 
   const removeNode = (nodeId: string) => {
@@ -107,7 +210,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       nodes: currentWorkspace.nodes.filter((n) => n.id !== nodeId),
       edges: currentWorkspace.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
     };
-    updateWorkspace(updated);
+    void updateWorkspace(updated);
   };
 
   const addEdge = (edge: GraphEdge) => {
@@ -116,7 +219,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ...currentWorkspace,
       edges: [...currentWorkspace.edges, edge],
     };
-    updateWorkspace(updated);
+    void updateWorkspace(updated);
   };
 
   const removeEdge = (edgeId: string) => {
@@ -125,7 +228,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ...currentWorkspace,
       edges: currentWorkspace.edges.filter((e) => e.id !== edgeId),
     };
-    updateWorkspace(updated);
+    void updateWorkspace(updated);
   };
 
   const addQuery = (query: Query) => {
@@ -134,7 +237,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ...currentWorkspace,
       queries: [...currentWorkspace.queries, query],
     };
-    updateWorkspace(updated);
+    void updateWorkspace(updated);
   };
 
   const updateQuery = (query: Query) => {
@@ -143,7 +246,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ...currentWorkspace,
       queries: currentWorkspace.queries.map((q) => (q.id === query.id ? query : q)),
     };
-    updateWorkspace(updated);
+    void updateWorkspace(updated);
   };
 
   const toggleSavedItem = (nodeId: string) => {
@@ -168,7 +271,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           ],
         };
     
-    updateWorkspace(updated);
+    void updateWorkspace(updated);
   };
 
   const getGraphSnapshot = (): WorkspaceGraphSnapshot => {
