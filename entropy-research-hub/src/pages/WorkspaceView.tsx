@@ -15,7 +15,7 @@ import { augmentWorkspace } from "@/lib/api/augmentation";
 export default function WorkspaceView() {
   const { id } = useParams<{ id: string }>();
   const { currentWorkspace, setCurrentWorkspace, workspaces } = useWorkspace();
-  const { addNode, addEdge, addQuery, updateWorkspace, removeNode, toggleSavedItem } = useWorkspaceActions();
+  const { addNode, addEdge, addQuery, updateQuery, updateWorkspace, removeNode, toggleSavedItem } = useWorkspaceActions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showDemoData, setShowDemoData] = useState(false);
   const [queryText, setQueryText] = useState("");
@@ -80,6 +80,9 @@ export default function WorkspaceView() {
         workspaceId: currentWorkspace.id,
       });
 
+      const contributedNodes: string[] = [];
+      const contributedEdges: string[] = [];
+
       if (Array.isArray(result.newNodes)) {
         result.newNodes.forEach((nodeLike, idx) => {
           const id = typeof nodeLike.id === "string" ? nodeLike.id : `node_${Date.now()}_${idx}`;
@@ -99,6 +102,7 @@ export default function WorkspaceView() {
               : {},
             addedByQuery: query.id,
           });
+          contributedNodes.push(id);
         });
       }
 
@@ -108,8 +112,11 @@ export default function WorkspaceView() {
             return;
           }
 
+          const edgeId =
+            typeof edgeLike.id === "string" ? edgeLike.id : `edge_${Date.now()}_${idx}`;
+
           addEdge({
-            id: typeof edgeLike.id === "string" ? edgeLike.id : `edge_${Date.now()}_${idx}`,
+            id: edgeId,
             source: edgeLike.source,
             target: edgeLike.target,
             type:
@@ -125,14 +132,32 @@ export default function WorkspaceView() {
                 ? (edgeLike as Record<string, any>)
                 : {},
           });
+          contributedEdges.push(edgeId);
         });
       }
+
+      updateQuery({
+        ...query,
+        status: "complete",
+        contributedNodes,
+        contributedEdges,
+        completenessScore:
+          typeof result.completenessScore === "number"
+            ? result.completenessScore
+            : undefined,
+        iterations:
+          typeof result.iterationsRun === "number" ? result.iterationsRun : undefined,
+      });
 
       handleResearchComplete(
         Array.isArray(result.newNodes) ? result.newNodes.length : 0,
         Array.isArray(result.newEdges) ? result.newEdges.length : 0,
       );
     } catch {
+      updateQuery({
+        ...query,
+        status: "failed",
+      });
       // Fallback to demo behavior if API is unavailable in local scaffold mode
       handleResearchComplete(0, 0);
     }

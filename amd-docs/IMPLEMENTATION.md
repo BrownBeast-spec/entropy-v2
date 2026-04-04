@@ -17,6 +17,11 @@ Latest execution update (worktree: `amdv2-phase1`):
 - WorkspaceStore v2 implementation started in frontend with IndexedDB-backed storage module and passing unit tests
 - Workspace navigation baseline now wired: create workspace action navigates to `/workspaces/:id`, route is mounted, and app is wrapped with `WorkspaceProvider`
 - Workspace context persistence now migrated to WorkspaceStore v2 (`idb-keyval`) with legacy adapter retained only as fallback safety path
+- Workspace query lifecycle now updates query status/metrics from real augment responses (`running -> complete/failed`, contributed node/edge IDs, completeness score, iterations)
+- Fixed query contribution edge-ID mismatch bug so edge IDs persisted to graph and query metadata are consistent
+- Added lifecycle regression test coverage in `WorkspaceView.query-lifecycle.test.tsx`
+- Cytoscape dependency now explicitly installed in `entropy-research-hub` and validated with a non-mocked `KnowledgeGraphPanel` smoke test
+- Frontend test setup now includes canvas context polyfill needed for Cytoscape runtime under jsdom
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
 
 ## Status legend
@@ -188,8 +193,27 @@ Also missing on backend for PRD parity:
      - syncs current workspace from `workspaceStoreV2`
      - delegates `createWorkspace`, `updateWorkspace`, `deleteWorkspace` to v2 store
      - keeps legacy `workspaceStorage` only as fallback if v2 operations fail
-   - Added context tests:
-     - `src/contexts/WorkspaceContext.test.tsx`
+    - Added context tests:
+      - `src/contexts/WorkspaceContext.test.tsx`
+
+7. Workspace query lifecycle now writes real augmentation metadata
+   - `entropy-research-hub/src/pages/WorkspaceView.tsx` now:
+     - creates query in `running` state on submit
+     - updates query to `complete` with contributed node IDs, contributed edge IDs, completeness score, and iteration count on successful `/api/causaly/augment`
+     - updates query to `failed` when augment API throws
+     - preserves consistent generated edge IDs across `addEdge` and query contribution metadata
+   - Added lifecycle tests:
+     - `src/pages/WorkspaceView.query-lifecycle.test.tsx`
+
+8. Cytoscape runtime/testing baseline validated
+   - Added missing runtime dependency:
+     - `entropy-research-hub/package.json` now includes `cytoscape`
+   - Added non-mocked Cytoscape smoke test:
+     - `src/components/workspace/KnowledgeGraphPanel.test.tsx`
+     - Verifies component renders with real Cytoscape initialization (not mocked) in test environment
+   - Added test-environment support for canvas:
+     - `src/test/setup.ts` adds `HTMLCanvasElement.getContext` polyfill for jsdom
+   - `KnowledgeGraphPanel` now supplies explicit layout bounding box fallback for test/runtime environments where container sizing is unavailable
 
 ### Scaffolding / partial
 
@@ -203,8 +227,9 @@ Also missing on backend for PRD parity:
    - Demo fallback rows still render when no persisted workspace exists.
 
 3. Query-to-graph behavior is simulated.
-   - `ResearchProgressOverlay` uses timed fake logs and fake completion.
-   - "Load Demo Data" seeds local mock graph data.
+    - `ResearchProgressOverlay` uses timed fake logs and fake completion.
+    - "Load Demo Data" seeds local mock graph data as fallback.
+    - Query lifecycle metadata update is now real for augment success/failure, but graph growth still falls back to demo seeding when overlay completes.
 
 4. Graph and report are mostly demo-driven.
     - Graph visuals render from provided nodes/edges.
@@ -228,7 +253,8 @@ Core PRD deltas still missing on frontend:
 - Standalone Protein Profile screen from PRD
 - PRD-aligned settings persistence behavior
 
-No real API integration was found in the frontend scaffold at this point.
+Frontend now contains partial real API integration via `/api/causaly/augment` from `WorkspaceView`, with fallback demo behavior still present.
+The graph panel now has direct runtime test coverage with real Cytoscape initialization in unit tests.
 
 ---
 

@@ -197,6 +197,12 @@ export default function KnowledgeGraphPanel({
         name: layout,
         animate: true,
         animationDuration: 500,
+        boundingBox: {
+          x1: 0,
+          y1: 0,
+          w: containerRef.current.clientWidth || 1024,
+          h: containerRef.current.clientHeight || 768,
+        },
       } as any,
       minZoom: 0.3,
       maxZoom: 3,
@@ -410,33 +416,25 @@ export default function KnowledgeGraphPanel({
         <div className="flex items-center gap-1 bg-card border border-border rounded-md p-0.5">
           <button
             onClick={() => setView("graph")}
-            className={`px-3 py-1 rounded-md text-[13px] font-medium transition-colors ${
-              view === "graph" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className="px-3 py-1 rounded-md text-[13px] font-medium transition-colors bg-primary text-primary-foreground"
           >
             Graph
           </button>
           <button
             onClick={() => setView("timeline")}
-            className={`px-3 py-1 rounded-md text-[13px] font-medium transition-colors ${
-              view === "timeline" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className="px-3 py-1 rounded-md text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground"
           >
             Timeline
           </button>
           <button
             onClick={() => setView("dendrogram")}
-            className={`px-3 py-1 rounded-md text-[13px] font-medium transition-colors ${
-              view === "dendrogram" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className="px-3 py-1 rounded-md text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground"
           >
             Dendrogram
           </button>
           <button
             onClick={() => setView("dendrogram")}
-            className={`px-3 py-1 rounded-md text-[13px] font-medium transition-colors ${
-              view === "dendrogram" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className="px-3 py-1 rounded-md text-[13px] font-medium transition-colors text-muted-foreground hover:text-foreground"
           >
             Dendrogram
           </button>
