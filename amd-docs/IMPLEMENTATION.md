@@ -38,6 +38,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Workspace bootstrap now auto-seeds a deterministic Metformin NASH demo workspace when persistence is empty, and Settings Organization now includes a Reset to Demo State control that clears persisted workspace state and re-seeds the demo baseline
 - Workspace query failure path now surfaces an explicit offline fallback notice ("Offline - showing cached data") in the query panel, with lifecycle test coverage for augment-network failure handling
 - Workspace empty-graph state now includes an always-visible provenance summary strip so source/node/edge context remains visible even before first query results
+- Repository-wide verification now passes after recursive package build (`pnpm -r build` then `pnpm test`), including API, frontend, MCP packages, and Mastra suites
 
 ## Status legend
 
