@@ -22,6 +22,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Added lifecycle regression test coverage in `WorkspaceView.query-lifecycle.test.tsx`
 - Cytoscape dependency now explicitly installed in `entropy-research-hub` and validated with a non-mocked `KnowledgeGraphPanel` smoke test
 - Frontend test setup now includes canvas context polyfill needed for Cytoscape runtime under jsdom
+- WorkspaceView now fetches live follow-up suggestions from `/api/causaly/suggestions` after successful augment and falls back to static suggestions on API failure
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
 
 ## Status legend
@@ -215,6 +216,19 @@ Also missing on backend for PRD parity:
      - `src/test/setup.ts` adds `HTMLCanvasElement.getContext` polyfill for jsdom
    - `KnowledgeGraphPanel` now supplies explicit layout bounding box fallback for test/runtime environments where container sizing is unavailable
 
+9. Follow-up suggestions now wired to backend endpoint in workspace flow
+   - Added API client:
+     - `entropy-research-hub/src/lib/api/suggestions.ts`
+     - Calls `GET /api/causaly/suggestions` with graph snapshot + persona mode
+   - Added API client tests:
+     - `src/lib/api/suggestions.test.ts`
+     - Covers success, API error propagation, and response filtering
+   - Updated `WorkspaceView` behavior:
+     - On successful augment completion, fetches fresh suggestions for current graph state and updates left-panel suggestion chips
+     - Falls back to local mode/India-Lens templates when suggestions request fails
+   - Expanded lifecycle coverage:
+     - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies suggestions fetch invocation and rendered dynamic suggestion chip
+
 ### Scaffolding / partial
 
 1. Workspace flow is implemented mostly as isolated scaffolding, not wired app behavior.
@@ -255,6 +269,7 @@ Core PRD deltas still missing on frontend:
 
 Frontend now contains partial real API integration via `/api/causaly/augment` from `WorkspaceView`, with fallback demo behavior still present.
 The graph panel now has direct runtime test coverage with real Cytoscape initialization in unit tests.
+Follow-up suggestion chips now use real backend suggestions after augment, with deterministic local fallback retained.
 
 ---
 

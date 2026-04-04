@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import WorkspaceView from "./WorkspaceView";
 
 const mockAugmentWorkspace = vi.fn();
+const mockFetchSuggestions = vi.fn();
 const mockAddNode = vi.fn();
 const mockAddEdge = vi.fn();
 const mockAddQuery = vi.fn();
@@ -15,6 +16,10 @@ const mockSetCurrentWorkspace = vi.fn();
 
 vi.mock("@/lib/api/augmentation", () => ({
   augmentWorkspace: (...args: unknown[]) => mockAugmentWorkspace(...args),
+}));
+
+vi.mock("@/lib/api/suggestions", () => ({
+  fetchFollowupSuggestions: (...args: unknown[]) => mockFetchSuggestions(...args),
 }));
 
 const baseWorkspace = {
@@ -67,6 +72,11 @@ describe("WorkspaceView query lifecycle", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetchSuggestions.mockResolvedValue([
+      "What Indian trials are active for this mechanism?",
+      "Which safety signals are emerging?",
+      "What competitor assets are nearby?",
+    ]);
     let tick = 1000;
     nowSpy = vi.spyOn(Date, "now").mockImplementation(() => {
       tick += 1;
@@ -116,6 +126,7 @@ describe("WorkspaceView query lifecycle", () => {
       expect(mockAddQuery).toHaveBeenCalled();
       expect(mockAugmentWorkspace).toHaveBeenCalled();
       expect(mockUpdateQuery).toHaveBeenCalled();
+      expect(mockFetchSuggestions).toHaveBeenCalled();
     });
 
     const completeUpdate = mockUpdateQuery.mock.calls
@@ -127,6 +138,11 @@ describe("WorkspaceView query lifecycle", () => {
     expect(completeUpdate.contributedEdges).toContain("E1");
     expect(completeUpdate.completenessScore).toBe(86);
     expect(completeUpdate.iterations).toBe(2);
+    expect(
+      screen.getByRole("button", {
+        name: /What Indian trials are active for this mechanism\?/i,
+      }),
+    ).toBeInTheDocument();
   });
 
   it("marks query failed when augment request throws", async () => {

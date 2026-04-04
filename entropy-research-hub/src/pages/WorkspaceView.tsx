@@ -11,6 +11,7 @@ import { demoNodes, demoEdges } from "@/lib/data/demoGraphData";
 import { getSuggestedQueries, getQueryPlaceholder } from "@/lib/data/suggestedQueries";
 import { Query, GraphNode } from "@/types/workspace";
 import { augmentWorkspace } from "@/lib/api/augmentation";
+import { fetchFollowupSuggestions } from "@/lib/api/suggestions";
 
 export default function WorkspaceView() {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +20,7 @@ export default function WorkspaceView() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showDemoData, setShowDemoData] = useState(false);
   const [queryText, setQueryText] = useState("");
+  const [runtimeSuggestions, setRuntimeSuggestions] = useState<string[]>([]);
   const [showResearchProgress, setShowResearchProgress] = useState(false);
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -149,6 +151,33 @@ export default function WorkspaceView() {
           typeof result.iterationsRun === "number" ? result.iterationsRun : undefined,
       });
 
+      try {
+        const suggestions = await fetchFollowupSuggestions({
+          graphSnapshot: {
+            nodeIds: [
+              ...currentWorkspace.nodes.map((n) => n.id),
+              ...contributedNodes,
+            ],
+            edgeSummary: [
+              ...currentWorkspace.edges.map((e) => ({
+                id: e.id,
+                source: e.source,
+                target: e.target,
+                type: e.type,
+              })),
+              ...contributedEdges.map((id) => ({ id })),
+            ],
+          },
+          personaMode: currentWorkspace.mode,
+        });
+
+        if (suggestions.length > 0) {
+          setRuntimeSuggestions(suggestions);
+        }
+      } catch {
+        // Keep local suggestion fallback when network suggestions fail.
+      }
+
       handleResearchComplete(
         Array.isArray(result.newNodes) ? result.newNodes.length : 0,
         Array.isArray(result.newEdges) ? result.newEdges.length : 0,
@@ -182,7 +211,9 @@ export default function WorkspaceView() {
 
   // Get suggested queries based on mode
   const suggestedQueries = currentWorkspace 
-    ? getSuggestedQueries(currentWorkspace.mode, currentWorkspace.indiaLens)
+    ? runtimeSuggestions.length > 0
+      ? runtimeSuggestions
+      : getSuggestedQueries(currentWorkspace.mode, currentWorkspace.indiaLens)
     : [];
 
   // Get query placeholder
