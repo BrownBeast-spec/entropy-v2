@@ -24,6 +24,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Frontend test setup now includes canvas context polyfill needed for Cytoscape runtime under jsdom
 - WorkspaceView now fetches live follow-up suggestions from `/api/causaly/suggestions` after successful augment and falls back to static suggestions on API failure
 - India Lens processor introduced and integrated into augment node ingestion path when India Lens is enabled
+- WorkspaceView now triggers synthesis API after augment and persists generated report sections into workspace state when synthesis succeeds
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
 
 ## Status legend
@@ -244,6 +245,20 @@ Also missing on backend for PRD parity:
    - Added graph-panel India Lens UI coverage:
      - `src/components/workspace/KnowledgeGraphPanel.india-lens.test.tsx` verifies rendered summary with India-enriched nodes
 
+11. Report synthesis now wired into query completion flow
+   - Added synthesis API client:
+     - `entropy-research-hub/src/lib/api/synthesis.ts`
+     - Calls `POST /api/causaly/synthesise` and normalizes response shape
+   - Added synthesis API tests:
+     - `src/lib/api/synthesis.test.ts`
+     - Covers success, explicit API error message propagation, and malformed-success payload fallback
+   - Updated `WorkspaceView` behavior:
+     - After successful augment and suggestions fetch, calls synthesis endpoint with current graph snapshot + persona mode
+     - On synthesis success, persists report sections in workspace via `updateWorkspace`
+     - On synthesis failure, keeps existing demo-report fallback behavior
+   - Expanded lifecycle regression coverage:
+     - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies synthesis invocation and report persistence update
+
 ### Scaffolding / partial
 
 1. Workspace flow is implemented mostly as isolated scaffolding, not wired app behavior.
@@ -286,6 +301,7 @@ Frontend now contains partial real API integration via `/api/causaly/augment` fr
 The graph panel now has direct runtime test coverage with real Cytoscape initialization in unit tests.
 Follow-up suggestion chips now use real backend suggestions after augment, with deterministic local fallback retained.
 India Lens node enrichment is now active in augment flow when India Lens is on, but currently uses static in-module reference data.
+Intermediate report generation now has a real API-backed path in `WorkspaceView`, with existing demo report retained as fallback.
 
 ---
 

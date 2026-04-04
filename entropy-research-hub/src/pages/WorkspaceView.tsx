@@ -13,6 +13,7 @@ import { Query, GraphNode } from "@/types/workspace";
 import { augmentWorkspace } from "@/lib/api/augmentation";
 import { fetchFollowupSuggestions } from "@/lib/api/suggestions";
 import { processIndiaLens } from "@/lib/indiaLens";
+import { generateSynthesis } from "@/lib/api/synthesis";
 
 export default function WorkspaceView() {
   const { id } = useParams<{ id: string }>();
@@ -85,6 +86,7 @@ export default function WorkspaceView() {
 
       const contributedNodes: string[] = [];
       const contributedEdges: string[] = [];
+      const addedNodes: GraphNode[] = [];
 
       if (Array.isArray(result.newNodes)) {
         const normalizedNodes: GraphNode[] = result.newNodes.map((nodeLike, idx) => {
@@ -113,6 +115,7 @@ export default function WorkspaceView() {
 
         enrichedNodes.forEach((node) => {
           addNode(node);
+          addedNodes.push(node);
           contributedNodes.push(node.id);
         });
       }
@@ -185,6 +188,38 @@ export default function WorkspaceView() {
         }
       } catch {
         // Keep local suggestion fallback when network suggestions fail.
+      }
+
+      try {
+        const synthesis = await generateSynthesis({
+          graphSnapshot: {
+            nodes: [...currentWorkspace.nodes, ...addedNodes],
+            edges: currentWorkspace.edges,
+          },
+          personaMode: currentWorkspace.mode,
+          reportSections:
+            currentWorkspace.mode === "Researcher"
+              ? ["Overview", "Key Targets and Evidence", "Safety Signals"]
+              : ["Overview", "Competitive Landscape", "Strategic Recommendations"],
+        });
+
+        if (synthesis.sections.length > 0) {
+          await updateWorkspace({
+            ...currentWorkspace,
+            report: {
+              workspaceId: currentWorkspace.id,
+              sections: synthesis.sections,
+              generatedAt: new Date(),
+              wordCount: synthesis.sections
+                .map((section) => section.content)
+                .join(" ")
+                .split(/\s+/)
+                .filter(Boolean).length,
+            },
+          });
+        }
+      } catch {
+        // Keep demo report fallback when synthesis is unavailable.
       }
 
       handleResearchComplete(

@@ -5,6 +5,7 @@ import WorkspaceView from "./WorkspaceView";
 
 const mockAugmentWorkspace = vi.fn();
 const mockFetchSuggestions = vi.fn();
+const mockGenerateSynthesis = vi.fn();
 const mockAddNode = vi.fn();
 const mockAddEdge = vi.fn();
 const mockAddQuery = vi.fn();
@@ -20,6 +21,10 @@ vi.mock("@/lib/api/augmentation", () => ({
 
 vi.mock("@/lib/api/suggestions", () => ({
   fetchFollowupSuggestions: (...args: unknown[]) => mockFetchSuggestions(...args),
+}));
+
+vi.mock("@/lib/api/synthesis", () => ({
+  generateSynthesis: (...args: unknown[]) => mockGenerateSynthesis(...args),
 }));
 
 const baseWorkspace = {
@@ -77,6 +82,15 @@ describe("WorkspaceView query lifecycle", () => {
       "Which safety signals are emerging?",
       "What competitor assets are nearby?",
     ]);
+    mockGenerateSynthesis.mockResolvedValue({
+      sections: [
+        {
+          title: "Overview",
+          content: "Metformin shows relevant evidence.",
+          citations: [{ id: "c1", nodeId: "N1", source: "Open Targets", label: "OT:N1" }],
+        },
+      ],
+    });
     let tick = 1000;
     nowSpy = vi.spyOn(Date, "now").mockImplementation(() => {
       tick += 1;
@@ -127,6 +141,8 @@ describe("WorkspaceView query lifecycle", () => {
       expect(mockAugmentWorkspace).toHaveBeenCalled();
       expect(mockUpdateQuery).toHaveBeenCalled();
       expect(mockFetchSuggestions).toHaveBeenCalled();
+      expect(mockGenerateSynthesis).toHaveBeenCalled();
+      expect(mockUpdateWorkspace).toHaveBeenCalled();
     });
 
     const completeUpdate = mockUpdateQuery.mock.calls
@@ -143,6 +159,13 @@ describe("WorkspaceView query lifecycle", () => {
         name: /What Indian trials are active for this mechanism\?/i,
       }),
     ).toBeInTheDocument();
+
+    const reportWorkspaceUpdate = mockUpdateWorkspace.mock.calls
+      .map((call) => call[0])
+      .find((ws) => ws?.report?.sections?.[0]?.title === "Overview");
+
+    expect(reportWorkspaceUpdate).toBeDefined();
+    expect(reportWorkspaceUpdate.report.sections).toHaveLength(1);
   });
 
   it("marks query failed when augment request throws", async () => {
