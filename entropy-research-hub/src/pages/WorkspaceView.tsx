@@ -21,6 +21,7 @@ import { augmentWorkspace } from "@/lib/api/augmentation";
 import { fetchFollowupSuggestions } from "@/lib/api/suggestions";
 import { processIndiaLens } from "@/lib/indiaLens";
 import { generateSynthesis } from "@/lib/api/synthesis";
+import { generateDossier } from "@/lib/api/dossier";
 
 export default function WorkspaceView() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +43,27 @@ export default function WorkspaceView() {
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const handleGenerateFullDossier = async () => {
+    if (!currentWorkspace || !currentWorkspace.report) return;
+
+    const latestQuery =
+      currentWorkspace.queries[currentWorkspace.queries.length - 1]?.text ??
+      "Generated from current workspace graph";
+
+    try {
+      const result = await generateDossier({
+        workspaceId: currentWorkspace.id,
+        query: latestQuery,
+        personaMode: currentWorkspace.mode,
+        reportSections: currentWorkspace.report.sections,
+      });
+
+      console.log("Dossier generated:", result.filename);
+    } catch (error) {
+      console.error("Failed to generate dossier", error);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -605,7 +627,7 @@ export default function WorkspaceView() {
               report={currentWorkspace.report}
               mode={currentWorkspace.mode}
               onRegenerateSynthesis={() => console.log("Regenerate synthesis")}
-              onGenerateFullDossier={() => console.log("Generate full dossier")}
+              onGenerateFullDossier={() => void handleGenerateFullDossier()}
               onCitationClick={(nodeId) => setHighlightedNodes([nodeId])}
               onExport={(format) => console.log("Export as:", format)}
             />

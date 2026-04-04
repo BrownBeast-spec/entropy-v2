@@ -32,6 +32,8 @@ Latest execution update (worktree: `amdv2-phase1`):
 - India Lens graph badge state now remains visible in provenance summary and India Lens toggle persistence is validated with workspace update assertions
 - Persona mode visual weighting behavior now has direct unit validation via exported weighting helper tests
 - Demo fallback dependency reduced: successful augment completion no longer auto-seeds static demo graph data when backend returns empty deltas
+- Added `POST /api/causaly/dossier` SSE route with staged status events and final LaTeX payload generation
+- WorkspaceView now triggers dossier generation via new frontend SSE client and includes regression coverage for API invocation flow
 
 ## Status legend
 
@@ -126,15 +128,11 @@ Latest execution update (worktree: `amdv2-phase1`):
 
 ### Not implemented (vs PRD)
 
-PRD-specified API contract additions are not present yet:
-
-- `POST /api/causaly/dossier` (SSE stream)
-
 Also missing on backend for PRD parity:
 
 - Full production CompletenessAgent LLM implementation (current logic is deterministic fallback helper)
 - FollowUpSuggestionAgent LLM-driven generation (current helper is deterministic templates)
-- Dossier SSE generation route and stream contract
+- Production-grade dossier generation contract parity (streaming progress depth, formatting pipeline, and integration with final PDF toolchain)
 - Production-grade caching and invalidation strategy aligned to final PRD hashing/TTL rules
 
 ---
@@ -338,7 +336,7 @@ Core PRD deltas still missing on frontend:
 - Persona mode and India Lens persistence per workspace with full behavior semantics
 - Provenance-first graph panel with source/query/timestamp traceability at node/edge level
 - Strategist full report view from PRD
-- Dossier generation overlay using SSE stream
+- Dossier generation overlay UX/state model using SSE stream
 - Standalone Protein Profile screen from PRD
 - PRD-aligned settings persistence behavior
 
@@ -364,7 +362,7 @@ Intermediate report generation now has a real API-backed path in `WorkspaceView`
 | Intermediate report behavior        | Scaffolding (demo data)                                                                  | Partial: 74-78       |
 | Detail drawers                      | Scaffolding                                                                              | Partial: 85-93       |
 | Strategist full report view         | Not implemented                                                                          | None: 94-109         |
-| Full dossier generation             | Not implemented                                                                          | None: 110-117        |
+| Full dossier generation             | Partial (backend SSE route + frontend trigger wired; final UX/PDF flow still pending)   | Partial: 110-117     |
 | Standalone Protein Profile          | Not implemented                                                                          | None: 118-123        |
 | Settings + data source status model | Partial (mostly static pages)                                                            | Partial: 124-129     |
 | Testing against PRD decisions       | Partial (backend tests exist; frontend tests minimal)                                    | N/A                  |

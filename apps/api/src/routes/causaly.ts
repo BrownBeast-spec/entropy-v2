@@ -40,6 +40,28 @@ const SuggestionQuerySchema = z.object({
   personaMode: z.enum(["Researcher", "Strategist"]),
 });
 
+const DossierSectionSchema = z.object({
+  title: z.string().trim().min(1),
+  content: z.string(),
+  citations: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1),
+        nodeId: z.string().trim().min(1),
+        source: z.string().trim().min(1),
+        label: z.string().trim().min(1),
+      }),
+    )
+    .default([]),
+});
+
+const DossierRequestSchema = z.object({
+  workspaceId: z.string().trim().min(1),
+  query: z.string().trim().min(1),
+  personaMode: z.enum(["Researcher", "Strategist"]),
+  reportSections: z.array(DossierSectionSchema).min(1),
+});
+
 type GraphNode = {
   id: string;
   type: string;
@@ -80,6 +102,8 @@ type AugmentResult = {
   iterationsRun: number;
   failedSources: string[];
 };
+
+type DossierSection = z.infer<typeof DossierSectionSchema>;
 
 const MAX_ITERATIONS = 3;
 const COMPLETENESS_THRESHOLD = 85;
@@ -223,6 +247,54 @@ function parseSnapshotFromQuery(raw: string): {
 
 function provenance(source: string, query: string) {
   return [{ source, query, timestamp: new Date().toISOString() }];
+}
+
+function escapeLatex(value: string): string {
+  return value
+    .replaceAll("\\", "\\textbackslash{}")
+    .replaceAll("&", "\\&")
+    .replaceAll("%", "\\%")
+    .replaceAll("$", "\\$")
+    .replaceAll("#", "\\#")
+    .replaceAll("_", "\\_")
+    .replaceAll("{", "\\{")
+    .replaceAll("}", "\\}")
+    .replaceAll("~", "\\textasciitilde{}")
+    .replaceAll("^", "\\textasciicircum{}");
+}
+
+function renderDossierLatex(input: z.infer<typeof DossierRequestSchema>): string {
+  const sections = input.reportSections
+    .map((section: DossierSection) => {
+      const citations = section.citations
+        .map((citation) => `\\item ${escapeLatex(citation.source)}: ${escapeLatex(citation.label)}`)
+        .join("\n");
+
+      const citationBlock = citations.length
+        ? `\n\\textbf{Citations}\n\\begin{itemize}\n${citations}\n\\end{itemize}`
+        : "";
+
+      return `\\section*{${escapeLatex(section.title)}}\n${escapeLatex(section.content)}${citationBlock}`;
+    })
+    .join("\n\n");
+
+  return `\\documentclass[12pt,a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{geometry}
+\\geometry{margin=2.5cm}
+
+\\begin{document}
+
+\\section*{Dossier Metadata}
+\\textbf{Workspace}: ${escapeLatex(input.workspaceId)}\\\\
+\\textbf{Persona}: ${escapeLatex(input.personaMode)}\\\\
+\\textbf{Query}: ${escapeLatex(input.query)}
+
+${sections}
+
+\\end{document}
+`;
 }
 
 async function fetchTargetNodes(query: string): Promise<ToolCall> {
@@ -492,6 +564,63 @@ causaly.get("/suggestions", async (c) => {
   });
 
   return c.json(result);
+});
+
+causaly.post("/dossier", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+
+  const parsed = DossierRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse(c, 400, "VALIDATION_ERROR", "Invalid request body", {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const payload = parsed.data;
+  const filename = `dossier-${payload.workspaceId}.tex`;
+  const latex = renderDossierLatex(payload);
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const send = (event: string, data: Record<string, unknown>) => {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+        );
+      };
+
+      send("status", {
+        stage: "starting",
+        message: "Preparing dossier generation",
+      });
+
+      send("status", {
+        stage: "rendering",
+        message: "Rendering LaTeX document",
+      });
+
+      send("complete", {
+        filename,
+        latex,
+      });
+
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 });
 
 export { causaly };
