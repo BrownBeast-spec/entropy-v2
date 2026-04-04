@@ -12,6 +12,7 @@ import { getSuggestedQueries, getQueryPlaceholder } from "@/lib/data/suggestedQu
 import { Query, GraphNode } from "@/types/workspace";
 import { augmentWorkspace } from "@/lib/api/augmentation";
 import { fetchFollowupSuggestions } from "@/lib/api/suggestions";
+import { processIndiaLens } from "@/lib/indiaLens";
 
 export default function WorkspaceView() {
   const { id } = useParams<{ id: string }>();
@@ -86,7 +87,7 @@ export default function WorkspaceView() {
       const contributedEdges: string[] = [];
 
       if (Array.isArray(result.newNodes)) {
-        result.newNodes.forEach((nodeLike, idx) => {
+        const normalizedNodes: GraphNode[] = result.newNodes.map((nodeLike, idx) => {
           const id = typeof nodeLike.id === "string" ? nodeLike.id : `node_${Date.now()}_${idx}`;
           const label = typeof nodeLike.label === "string" ? nodeLike.label : id;
           const type =
@@ -94,7 +95,7 @@ export default function WorkspaceView() {
               ? (nodeLike.type as GraphNode["type"])
               : ("protein" as GraphNode["type"]);
 
-          addNode({
+          return {
             id,
             label,
             type,
@@ -103,8 +104,16 @@ export default function WorkspaceView() {
               ? (nodeLike.data as Record<string, any>)
               : {},
             addedByQuery: query.id,
-          });
-          contributedNodes.push(id);
+          };
+        });
+
+        const enrichedNodes = currentWorkspace.indiaLens
+          ? processIndiaLens(normalizedNodes)
+          : normalizedNodes;
+
+        enrichedNodes.forEach((node) => {
+          addNode(node);
+          contributedNodes.push(node.id);
         });
       }
 

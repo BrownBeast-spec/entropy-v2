@@ -228,4 +228,43 @@ describe("WorkspaceView query lifecycle", () => {
     expect(augmentEdgeCall).toBeDefined();
     expect(completeUpdate.contributedEdges[0]).toBe(augmentEdgeCall.id);
   });
+
+  it("enriches added nodes with India Lens metadata when indiaLens is enabled", async () => {
+    baseWorkspace.indiaLens = true;
+    mockAugmentWorkspace.mockResolvedValue({
+      newNodes: [
+        { id: "D1", label: "Metformin", type: "drug", data: {} },
+      ],
+      newEdges: [],
+      completenessScore: 80,
+      iterationsRun: 1,
+      failedSources: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const input = screen.getByRole("textbox");
+    await act(async () => {
+      fireEvent.change(input, {
+        target: { value: "metformin opportunity in india" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /Submit Query/i }));
+    });
+
+    await waitFor(() => {
+      expect(mockAddNode).toHaveBeenCalled();
+    });
+
+    const added = mockAddNode.mock.calls[0][0];
+    expect(added.indiaRelevant).toBe(true);
+    expect(added.metadata.indiaContext.isCDSCO).toBe(true);
+
+    baseWorkspace.indiaLens = false;
+  });
 });

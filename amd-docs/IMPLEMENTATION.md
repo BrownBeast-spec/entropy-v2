@@ -23,6 +23,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Cytoscape dependency now explicitly installed in `entropy-research-hub` and validated with a non-mocked `KnowledgeGraphPanel` smoke test
 - Frontend test setup now includes canvas context polyfill needed for Cytoscape runtime under jsdom
 - WorkspaceView now fetches live follow-up suggestions from `/api/causaly/suggestions` after successful augment and falls back to static suggestions on API failure
+- India Lens processor introduced and integrated into augment node ingestion path when India Lens is enabled
 - Repository-level testing guardrails added in `CLAUDE.md` and failure-log process added in `amd-docs/TEST_FAILURES.md`
 
 ## Status legend
@@ -229,6 +230,18 @@ Also missing on backend for PRD parity:
    - Expanded lifecycle coverage:
      - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies suggestions fetch invocation and rendered dynamic suggestion chip
 
+10. India Lens processor implemented and wired into workspace query flow
+   - Added processor module:
+     - `entropy-research-hub/src/lib/indiaLens.ts`
+     - Enriches nodes with `metadata.indiaContext` and `indiaRelevant` using static CDSCO/NPPA/company heuristics
+   - Added processor tests:
+     - `src/lib/indiaLens.test.ts`
+     - Covers Indian assignee detection, CDSCO match, NPPA price cap enrichment, and idempotence
+   - Integrated in workspace flow:
+     - `src/pages/WorkspaceView.tsx` now applies `processIndiaLens` to newly-added nodes when India Lens toggle is enabled
+   - Added lifecycle regression:
+     - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies India Lens enrichment on augment-added nodes
+
 ### Scaffolding / partial
 
 1. Workspace flow is implemented mostly as isolated scaffolding, not wired app behavior.
@@ -270,6 +283,7 @@ Core PRD deltas still missing on frontend:
 Frontend now contains partial real API integration via `/api/causaly/augment` from `WorkspaceView`, with fallback demo behavior still present.
 The graph panel now has direct runtime test coverage with real Cytoscape initialization in unit tests.
 Follow-up suggestion chips now use real backend suggestions after augment, with deterministic local fallback retained.
+India Lens node enrichment is now active in augment flow when India Lens is on, but currently uses static in-module reference data.
 
 ---
 
