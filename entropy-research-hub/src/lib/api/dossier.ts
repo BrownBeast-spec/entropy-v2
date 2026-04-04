@@ -1,4 +1,5 @@
 import { WorkspaceMode } from "@/types/workspace";
+import { buildApiUrl } from "./baseUrl";
 
 type DossierSection = {
   title: string;
@@ -26,7 +27,7 @@ export type GenerateDossierResult = {
 export async function generateDossier(
   payload: GenerateDossierRequest,
 ): Promise<GenerateDossierResult> {
-  const res = await fetch("/api/causaly/dossier", {
+  const res = await fetch(buildApiUrl("/api/causaly/dossier"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

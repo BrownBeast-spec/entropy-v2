@@ -1,4 +1,5 @@
 import { GraphEdge, GraphNode, WorkspaceMode } from "@/types/workspace";
+import { buildApiUrl } from "./baseUrl";
 
 export type SynthesisSection = {
   title: string;
@@ -23,7 +24,7 @@ export type SynthesisRequest = {
 export async function generateSynthesis(
   payload: SynthesisRequest,
 ): Promise<{ sections: SynthesisSection[] }> {
-  const res = await fetch("/api/causaly/synthesise", {
+  const res = await fetch(buildApiUrl("/api/causaly/synthesise"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

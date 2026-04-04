@@ -40,6 +40,12 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Workspace empty-graph state now includes an always-visible provenance summary strip so source/node/edge context remains visible even before first query results
 - Repository-wide verification now passes after recursive package build (`pnpm -r build` then `pnpm test`), including API, frontend, MCP packages, and Mastra suites
 - Added explicit persona-mode toggle regression coverage ensuring mode switches persist while preserving existing node/edge graph state
+- Frontend API clients now resolve through `VITE_API_BASE_URL` when provided, and Vite is configured with `envDir: ".."` so frontend app in `entropy-research-hub/` correctly reads the repo-root `.env`
+- Knowledge graph rendering now guards against orphan edges (edges whose source/target node is missing) to prevent Cytoscape runtime crashes on stale or partially-migrated workspace payloads; added regression coverage for orphan-edge tolerance and seed graph referential integrity
+- KnowledgeGraphPanel lifecycle cleanup now explicitly stops active Cytoscape animation/layout loops before destroy to avoid renderer-null animation-frame crashes during rapid rerender/unmount cycles; added dedicated lifecycle regression test
+- KnowledgeGraphPanel now tears down Cytoscape immediately when view mode leaves Graph (e.g., switching to Timeline/Dendrogram) so hidden-view transitions cannot leave stale RAF/layout work running against a destroyed renderer
+- **Fixed persistent `renderer3 is null` crash**: Disabled Cytoscape layout animation (`animate: false`) to prevent requestAnimationFrame loops from continuing after instance destruction; the animation's RAF callbacks were attempting to call `renderer3.notify()` after the renderer was destroyed during component unmount or view-mode switches, causing runtime crashes despite proper `stop()` + `destroy()` sequencing
+- **Fixed "Load Demo Data" race condition**: Updated `handleLoadDemoData` in WorkspaceView to add all demo nodes and edges in a single atomic workspace update instead of calling `addNode`/`addEdge` in a loop, preventing persistence race conditions where only partial data would be saved
 
 ## Status legend
 

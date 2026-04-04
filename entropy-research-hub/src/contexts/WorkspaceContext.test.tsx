@@ -233,6 +233,15 @@ describe("WorkspaceContext", () => {
     expect(persistedDemoPayload.nodes[0]?.source).toBeTruthy();
     expect(persistedDemoPayload.nodes[0]?.evidenceScore).toBeTruthy();
     expect(persistedDemoPayload.edges[0]?.metadata).toBeTruthy();
+    const persistedNodeIds = new Set(
+      persistedDemoPayload.nodes.map((node: { id: string }) => node.id),
+    );
+    expect(
+      persistedDemoPayload.edges.every(
+        (edge: { source: string; target: string }) =>
+          persistedNodeIds.has(edge.source) && persistedNodeIds.has(edge.target),
+      ),
+    ).toBe(true);
   });
 
   it("resetToDemoState falls back to legacy storage when v2 reset fails", async () => {

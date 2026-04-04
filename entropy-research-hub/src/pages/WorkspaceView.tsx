@@ -79,8 +79,12 @@ export default function WorkspaceView() {
   const handleLoadDemoData = () => {
     if (!currentWorkspace) return;
 
-    demoNodes.forEach((node) => addNode(node));
-    demoEdges.forEach((edge) => addEdge(edge));
+    // Add all nodes and edges in a single update to avoid race conditions
+    updateWorkspace({
+      ...currentWorkspace,
+      nodes: [...currentWorkspace.nodes, ...demoNodes],
+      edges: [...currentWorkspace.edges, ...demoEdges],
+    });
     setShowDemoData(true);
   };
 

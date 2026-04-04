@@ -59,6 +59,20 @@ export default function KnowledgeGraphPanel({
   const [layout, setLayout] = useState<LayoutType>("cose");
   const [view, setView] = useState<ViewType>("graph");
 
+  const destroyCyInstance = (instance: Core | null) => {
+    if (!instance) return;
+    
+    try {
+      instance.stop();
+    } catch {
+      // No-op: stop can fail for already torn-down instances.
+    }
+    instance.destroy();
+    if (cyRef.current === instance) {
+      cyRef.current = null;
+    }
+  };
+
   // Node shape mapping
   const getNodeShape = (type: string): string => {
     const shapeMap: Record<string, string> = {
@@ -103,12 +117,13 @@ export default function KnowledgeGraphPanel({
 
   // Initialize Cytoscape
   useEffect(() => {
-    if (!containerRef.current || nodes.length === 0) return;
+    if (view !== "graph" || !containerRef.current || nodes.length === 0) {
+      destroyCyInstance(cyRef.current);
+      return;
+    }
 
     // Clear existing instance
-    if (cyRef.current) {
-      cyRef.current.destroy();
-    }
+    destroyCyInstance(cyRef.current);
 
     // Convert nodes and edges to Cytoscape format
     const cyNodes = nodes.map((node) => {
@@ -146,7 +161,13 @@ export default function KnowledgeGraphPanel({
       };
     });
 
-    const cyEdges = edges.map((edge) => ({
+    const validNodeIds = new Set(nodes.map((node) => node.id));
+    const cyEdges = edges
+      .filter(
+        (edge) =>
+          validNodeIds.has(edge.source) && validNodeIds.has(edge.target),
+      )
+      .map((edge) => ({
       data: {
         id: edge.id,
         source: edge.source,
@@ -206,8 +227,7 @@ export default function KnowledgeGraphPanel({
       ],
       layout: {
         name: layout,
-        animate: true,
-        animationDuration: 500,
+        animate: false,
         boundingBox: {
           x1: 0,
           y1: 0,
@@ -245,11 +265,9 @@ export default function KnowledgeGraphPanel({
     cyRef.current = cy;
 
     return () => {
-      if (cyRef.current) {
-        cyRef.current.destroy();
-      }
+      destroyCyInstance(cy);
     };
-  }, [nodes, edges, layout, mode, indiaLens]);
+  }, [nodes, edges, layout, mode, indiaLens, view]);
 
   // Highlight nodes
   useEffect(() => {

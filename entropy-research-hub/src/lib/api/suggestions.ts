@@ -1,4 +1,5 @@
 import { WorkspaceMode } from "@/types/workspace";
+import { buildApiUrl } from "./baseUrl";
 
 export type SuggestionsRequest = {
   graphSnapshot: {
@@ -16,7 +17,9 @@ export async function fetchFollowupSuggestions(
     personaMode: payload.personaMode,
   });
 
-  const res = await fetch(`/api/causaly/suggestions?${params.toString()}`);
+  const res = await fetch(
+    `${buildApiUrl("/api/causaly/suggestions")}?${params.toString()}`,
+  );
   if (!res.ok) {
     const body = await res
       .json()

@@ -1,3 +1,5 @@
+import { buildApiUrl } from "./baseUrl";
+
 export type AugmentRequest = {
   query: string;
   graphSnapshot: {
@@ -20,7 +22,7 @@ export type AugmentResponse = {
 export async function augmentWorkspace(
   payload: AugmentRequest,
 ): Promise<AugmentResponse> {
-  const res = await fetch("/api/causaly/augment", {
+  const res = await fetch(buildApiUrl("/api/causaly/augment"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
