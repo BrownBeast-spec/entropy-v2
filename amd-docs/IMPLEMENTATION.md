@@ -244,6 +244,12 @@ Also missing on backend for PRD parity:
      - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies India Lens enrichment on augment-added nodes
    - Added graph-panel India Lens UI coverage:
      - `src/components/workspace/KnowledgeGraphPanel.india-lens.test.tsx` verifies rendered summary with India-enriched nodes
+   - Added Entity Detail Drawer India Lens UI behavior:
+     - `entropy-research-hub/src/components/workspace/EntityDetailDrawer.tsx` now renders an `India Lens Signals` section for India-relevant nodes
+     - surfaces CDSCO approval, NPPA price cap (INR), and Indian assignee signal when available
+   - Added drawer coverage:
+     - `src/components/workspace/EntityDetailDrawer.india-lens.test.tsx`
+     - covers both drug and patent India signals
 
 11. Report synthesis now wired into query completion flow
    - Added synthesis API client:

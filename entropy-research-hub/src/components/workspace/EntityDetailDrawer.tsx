@@ -22,6 +22,49 @@ export default function EntityDetailDrawer({
 
   // Render entity-specific content based on node type
   const renderEntityContent = () => {
+    const indiaContext = node.metadata?.indiaContext as
+      | {
+          isCDSCO?: boolean;
+          isNPPA?: boolean;
+          nppaPriceCapInr?: number;
+          isIndianPatent?: boolean;
+        }
+      | undefined;
+
+    const renderIndiaLensSignals = () => {
+      if (!node.indiaRelevant || !indiaContext) return null;
+
+      return (
+        <div>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            India Lens Signals
+          </h4>
+          <div className="space-y-2 text-sm">
+            {indiaContext.isCDSCO && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">CDSCO Approved:</span>
+                <span className="text-foreground font-medium">Yes</span>
+              </div>
+            )}
+            {indiaContext.isNPPA && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">NPPA Price Cap:</span>
+                <span className="text-foreground font-medium">
+                  INR {indiaContext.nppaPriceCapInr ?? "N/A"}
+                </span>
+              </div>
+            )}
+            {indiaContext.isIndianPatent && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Indian Assignee:</span>
+                <span className="text-foreground font-medium">Yes</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
     switch (node.type) {
       case "protein":
       case "gene":
@@ -60,6 +103,7 @@ export default function EntityDetailDrawer({
               </h4>
               <p className="text-sm text-foreground">{node.source}</p>
             </div>
+            {renderIndiaLensSignals()}
           </div>
         );
 
@@ -108,6 +152,7 @@ export default function EntityDetailDrawer({
               </h4>
               <p className="text-sm text-foreground">{node.source}</p>
             </div>
+            {renderIndiaLensSignals()}
           </div>
         );
 
@@ -143,6 +188,7 @@ export default function EntityDetailDrawer({
               </h4>
               <p className="text-sm text-foreground">{node.source}</p>
             </div>
+            {renderIndiaLensSignals()}
           </div>
         );
 
@@ -196,6 +242,7 @@ export default function EntityDetailDrawer({
               </h4>
               <p className="text-sm text-foreground">{node.source}</p>
             </div>
+            {renderIndiaLensSignals()}
           </div>
         );
 
@@ -243,6 +290,7 @@ export default function EntityDetailDrawer({
               </h4>
               <p className="text-sm text-foreground">{node.source}</p>
             </div>
+            {renderIndiaLensSignals()}
           </div>
         );
 
@@ -270,6 +318,7 @@ export default function EntityDetailDrawer({
               </h4>
               <p className="text-sm text-foreground">{node.source}</p>
             </div>
+            {renderIndiaLensSignals()}
           </div>
         );
 
@@ -305,6 +354,7 @@ export default function EntityDetailDrawer({
               </h4>
               <p className="text-sm text-foreground">{node.source}</p>
             </div>
+            {renderIndiaLensSignals()}
           </div>
         );
 
