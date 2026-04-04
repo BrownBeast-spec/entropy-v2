@@ -543,14 +543,14 @@ export default function WorkspaceView() {
 
           {/* Bottom: Intermediate Report Panel */}
           <ResizablePanel defaultSize={45} minSize={20}>
-            <IntermediateReportPanel
-              report={currentWorkspace.report}
-              mode={currentWorkspace.mode}
-              onRegenerateSynthesis={() => console.log("Regenerate synthesis")}
-              onGenerateFullDossier={() => console.log("Generate full dossier")}
-              onCitationClick={(nodeId) => console.log("Citation clicked:", nodeId)}
-              onExport={(format) => console.log("Export as:", format)}
-            />
+              <IntermediateReportPanel
+                report={currentWorkspace.report}
+                mode={currentWorkspace.mode}
+                onRegenerateSynthesis={() => console.log("Regenerate synthesis")}
+                onGenerateFullDossier={() => console.log("Generate full dossier")}
+                onCitationClick={(nodeId) => setHighlightedNodes([nodeId])}
+                onExport={(format) => console.log("Export as:", format)}
+              />
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

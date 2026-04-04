@@ -265,6 +265,13 @@ Also missing on backend for PRD parity:
    - Expanded lifecycle regression coverage:
      - `src/pages/WorkspaceView.query-lifecycle.test.tsx` now verifies synthesis invocation and report persistence update
 
+12. Citation-to-graph linking is now wired in workspace view
+   - `entropy-research-hub/src/pages/WorkspaceView.tsx`
+     - `IntermediateReportPanel.onCitationClick` now sets `highlightedNodes` so cited nodes are emphasized in `KnowledgeGraphPanel`
+   - Added regression test:
+     - `src/pages/WorkspaceView.citation-linking.test.tsx`
+     - verifies citation click updates graph highlight input
+
 ### Scaffolding / partial
 
 1. Workspace flow is implemented mostly as isolated scaffolding, not wired app behavior.
