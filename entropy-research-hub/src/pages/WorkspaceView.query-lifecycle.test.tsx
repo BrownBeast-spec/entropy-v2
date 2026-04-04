@@ -513,6 +513,62 @@ describe("WorkspaceView query lifecycle", () => {
     );
   });
 
+  it("toggles persona mode without dropping existing graph data", async () => {
+    baseWorkspace.mode = "Researcher";
+    baseWorkspace.nodes = [
+      {
+        id: "N1",
+        label: "Node 1",
+        type: "protein",
+        source: "Open Targets",
+        metadata: {},
+        addedByQuery: "query_1",
+      },
+      {
+        id: "N2",
+        label: "Node 2",
+        type: "drug",
+        source: "PubMed",
+        metadata: {},
+        addedByQuery: "query_1",
+      },
+    ];
+    baseWorkspace.edges = [
+      {
+        id: "E1",
+        source: "N1",
+        target: "N2",
+        type: "association",
+        metadata: {},
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:id" element={<WorkspaceView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^Strategist$/i }));
+    });
+
+    expect(mockUpdateWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "Strategist",
+        nodes: expect.arrayContaining([
+          expect.objectContaining({ id: "N1" }),
+          expect.objectContaining({ id: "N2" }),
+        ]),
+        edges: expect.arrayContaining([expect.objectContaining({ id: "E1" })]),
+      }),
+    );
+    expect(baseWorkspace.nodes).toHaveLength(2);
+    expect(baseWorkspace.edges).toHaveLength(1);
+  });
+
   it("shows provenance summary even when graph is empty", () => {
     render(
       <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
