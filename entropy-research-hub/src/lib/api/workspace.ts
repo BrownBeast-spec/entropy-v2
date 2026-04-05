@@ -1,4 +1,4 @@
-import { GraphNode, GraphEdge, WorkspaceMode } from "@/types/workspace";
+import { GraphNode, GraphEdge, QueryStatus, WorkspaceMode } from "@/types/workspace";
 import { buildApiUrl } from "./baseUrl";
 
 /**
@@ -65,6 +65,41 @@ export interface AddNodesResponse {
   data: {
     addedNodes: GraphNode[];
     inferredEdges: GraphEdge[];
+  };
+}
+
+export interface WorkspaceQueryRecord {
+  id: string;
+  workspaceId: string;
+  text: string;
+  mode: WorkspaceMode;
+  indiaLens: boolean;
+  status: QueryStatus;
+  submittedAt: string;
+  contributedNodes?: string[];
+  contributedEdges?: string[];
+  completenessScore?: number;
+  iterations?: number;
+}
+
+export interface CreateQueryRequest {
+  text: string;
+  mode: WorkspaceMode;
+  indiaLens?: boolean;
+  status?: QueryStatus;
+  completenessScore?: number;
+  iterations?: number;
+}
+
+export interface CreateQueryResponse {
+  success: boolean;
+  data: WorkspaceQueryRecord;
+}
+
+export interface GetWorkspaceQueriesResponse {
+  success: boolean;
+  data: {
+    queries: WorkspaceQueryRecord[];
   };
 }
 
@@ -210,6 +245,89 @@ export async function addNodesToWorkspace(
     data: {
       addedNodes,
       inferredEdges,
+    },
+  };
+}
+
+/**
+ * Creates a new query for a workspace
+ */
+export async function createQuery(
+  workspaceId: string,
+  data: CreateQueryRequest
+): Promise<CreateQueryResponse> {
+  const response = await fetch(buildApiUrl(`/api/workspace/${workspaceId}/queries`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response
+      .json()
+      .catch(() => ({ error: { message: "Unknown error" } }));
+    const message =
+      errorBody?.error?.message ??
+      `Failed to create workspace query: HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  const wrapped = normalizeWrappedResponse<WorkspaceQueryRecord>(payload);
+  const query = wrapped.data;
+
+  return {
+    success: wrapped.success,
+    data: {
+      ...query,
+      contributedNodes: Array.isArray(query?.contributedNodes)
+        ? query.contributedNodes
+        : [],
+      contributedEdges: Array.isArray(query?.contributedEdges)
+        ? query.contributedEdges
+        : [],
+    },
+  };
+}
+
+/**
+ * Lists all queries for a workspace
+ */
+export async function getWorkspaceQueries(
+  workspaceId: string
+): Promise<GetWorkspaceQueriesResponse> {
+  const response = await fetch(buildApiUrl(`/api/workspace/${workspaceId}/queries`));
+
+  if (!response.ok) {
+    const errorBody = await response
+      .json()
+      .catch(() => ({ error: { message: "Unknown error" } }));
+    const message =
+      errorBody?.error?.message ??
+      `Failed to fetch workspace queries: HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+  const wrapped = normalizeWrappedResponse<{ queries?: WorkspaceQueryRecord[] }>(
+    payload
+  );
+  const rawQueries = Array.isArray(wrapped.data?.queries)
+    ? wrapped.data.queries
+    : [];
+
+  return {
+    success: wrapped.success,
+    data: {
+      queries: rawQueries.map((query) => ({
+        ...query,
+        contributedNodes: Array.isArray(query?.contributedNodes)
+          ? query.contributedNodes
+          : [],
+        contributedEdges: Array.isArray(query?.contributedEdges)
+          ? query.contributedEdges
+          : [],
+      })),
     },
   };
 }

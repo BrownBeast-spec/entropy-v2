@@ -4,6 +4,8 @@ import {
   getWorkspace,
   getWorkspaceGraph,
   addNodesToWorkspace,
+  createQuery,
+  getWorkspaceQueries,
 } from "./workspace";
 
 // Mock fetch globally
@@ -402,6 +404,78 @@ describe("Workspace API Client", () => {
       expect(result.data.addedNodes).toHaveLength(1);
       expect(result.data.inferredEdges).toHaveLength(1);
       expect(result.data.inferredEdges[0].id).toBe("edge-raw-1");
+    });
+  });
+
+  describe("workspace queries", () => {
+    it("should create a workspace query", async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          id: "query-123",
+          workspaceId: "ws-123",
+          text: "Assess target novelty",
+          mode: "Researcher" as const,
+          indiaLens: true,
+          status: "pending" as const,
+          submittedAt: "2026-04-06T00:00:00Z",
+          contributedNodes: [],
+          contributedEdges: [],
+        },
+      };
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await createQuery("ws-123", {
+        text: "Assess target novelty",
+        mode: "Researcher",
+        indiaLens: true,
+        status: "pending",
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/workspace/ws-123/queries",
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(result.data.id).toBe("query-123");
+      expect(result.data.workspaceId).toBe("ws-123");
+    });
+
+    it("should list workspace queries", async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          queries: [
+            {
+              id: "query-123",
+              workspaceId: "ws-123",
+              text: "Assess target novelty",
+              mode: "Researcher" as const,
+              indiaLens: true,
+              status: "pending" as const,
+              submittedAt: "2026-04-06T00:00:00Z",
+              contributedNodes: [],
+              contributedEdges: [],
+            },
+          ],
+        },
+      };
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await getWorkspaceQueries("ws-123");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/workspace/ws-123/queries",
+      );
+      expect(result.data.queries).toHaveLength(1);
+      expect(result.data.queries[0].id).toBe("query-123");
     });
   });
 });

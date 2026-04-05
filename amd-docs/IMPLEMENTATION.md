@@ -26,6 +26,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Workspace creation path is now backend-first in `WorkspaceContext`: `createWorkspace` calls backend workspace APIs (`create`, `get`, `graph`) and persists normalized backend data into local store as a cache/fallback, while preserving legacy local creation fallback on API failure
 - Current-workspace synchronization now attempts backend hydration (`getWorkspace` + `getWorkspaceGraph`) before local-store sync, ensuring workspace query routes render latest backend graph data while retaining local fallback when backend calls fail
 - Frontend add-to-graph edge contract is now standardized on `inferredEdges` in workspace API clients/components; legacy raw backend `addedEdges` is normalized inside `src/lib/api/workspace.ts` to keep route-shape compatibility while presenting a single typed frontend contract
+- Workspace query persistence wiring is now backend-first for query creation: `src/lib/api/workspace.ts` adds typed `createQuery` and `getWorkspaceQueries` clients for `/api/workspace/:id/queries` with wrapped/raw response normalization, and `WorkspaceQueriesPage` now blocks local query creation fallback (shows inline error + keeps user on composer when API create fails); regression coverage updated in `workspace.test.ts` and `WorkspaceQueriesPage.test.tsx`
 
 - Backend PRD phase-1 causaly routes implemented and tested (`augment`, `synthesise`, `suggestions`)
 - Mastra helper agents for completeness/synthesis/follow-ups added and exported

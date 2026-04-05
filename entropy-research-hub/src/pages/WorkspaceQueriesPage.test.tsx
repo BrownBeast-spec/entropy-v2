@@ -3,9 +3,17 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import WorkspaceQueriesPage from "./WorkspaceQueriesPage";
 
-const mockNavigate = vi.fn();
-const mockUpdateWorkspace = vi.fn();
-const mockSetCurrentWorkspace = vi.fn();
+const {
+  mockNavigate,
+  mockUpdateWorkspace,
+  mockSetCurrentWorkspace,
+  mockCreateQuery,
+} = vi.hoisted(() => ({
+  mockNavigate: vi.fn(),
+  mockUpdateWorkspace: vi.fn(),
+  mockSetCurrentWorkspace: vi.fn(),
+  mockCreateQuery: vi.fn(),
+}));
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -50,10 +58,28 @@ vi.mock("@/contexts/WorkspaceContext", () => ({
   }),
 }));
 
+vi.mock("@/lib/api/workspace", () => ({
+  createQuery: mockCreateQuery,
+}));
+
 describe("WorkspaceQueriesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUpdateWorkspace.mockResolvedValue(undefined);
+    mockCreateQuery.mockResolvedValue({
+      success: true,
+      data: {
+        id: "query_backend_1",
+        workspaceId: "ws_1",
+        text: "new query from composer",
+        mode: "Researcher",
+        indiaLens: false,
+        submittedAt: new Date("2026-04-03T00:00:00Z"),
+        status: "pending",
+        contributedNodes: [],
+        contributedEdges: [],
+      },
+    });
   });
 
   const renderPage = () =>
@@ -78,20 +104,31 @@ describe("WorkspaceQueriesPage", () => {
     fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
       target: { value: "new query from composer" },
     });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+    });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
     await waitFor(() => {
-      expect(mockUpdateWorkspace).toHaveBeenCalled();
+      expect(mockCreateQuery).toHaveBeenCalledWith("ws_1", {
+        text: "new query from composer",
+        mode: "Researcher",
+        indiaLens: false,
+        status: "pending",
+      });
     });
+
+    expect(mockUpdateWorkspace).toHaveBeenCalled();
 
     const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
     expect(updatedWorkspace).toMatchObject({
       id: "ws_1",
-      activeQueryId: expect.stringMatching(/^query_/),
+      activeQueryId: "query_backend_1",
     });
     expect(updatedWorkspace.queries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          id: "query_backend_1",
           workspaceId: "ws_1",
           mode: "Researcher",
           text: "new query from composer",
@@ -107,15 +144,40 @@ describe("WorkspaceQueriesPage", () => {
   it("creates a strategist query from multiline composer mode switch", async () => {
     renderPage();
 
+    mockCreateQuery.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "query_backend_2",
+        workspaceId: "ws_1",
+        text: "strategic framing",
+        mode: "Strategist",
+        indiaLens: false,
+        submittedAt: new Date("2026-04-03T00:00:00Z"),
+        status: "pending",
+        contributedNodes: [],
+        contributedEdges: [],
+      },
+    });
+
     fireEvent.click(screen.getByRole("button", { name: /strategist/i }));
     fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
       target: { value: "strategic framing" },
     });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+    });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
     await waitFor(() => {
-      expect(mockUpdateWorkspace).toHaveBeenCalled();
+      expect(mockCreateQuery).toHaveBeenCalledWith("ws_1", {
+        text: "strategic framing",
+        mode: "Strategist",
+        indiaLens: false,
+        status: "pending",
+      });
     });
+
+    expect(mockUpdateWorkspace).toHaveBeenCalled();
 
     const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
     const newestQuery = updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
@@ -148,21 +210,73 @@ describe("WorkspaceQueriesPage", () => {
   it("supports multiline input for query composer", async () => {
     renderPage();
 
+    mockCreateQuery.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "query_backend_3",
+        workspaceId: "ws_1",
+        text: "AMPK for NASH",
+        mode: "Researcher",
+        indiaLens: false,
+        submittedAt: new Date("2026-04-03T00:00:00Z"),
+        status: "pending",
+        contributedNodes: [],
+        contributedEdges: [],
+      },
+    });
+
     fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
       target: { value: "AMPK for NASH" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
     await waitFor(() => {
-      expect(mockUpdateWorkspace).toHaveBeenCalled();
+      expect(mockCreateQuery).toHaveBeenCalledWith("ws_1", {
+        text: "AMPK for NASH",
+        mode: "Researcher",
+        indiaLens: false,
+        status: "pending",
+      });
     });
+
+    expect(mockUpdateWorkspace).toHaveBeenCalled();
 
     const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
     const newestQuery = updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
     expect(newestQuery.text).toBe("AMPK for NASH");
     expect(mockNavigate).toHaveBeenCalledWith(
-      `/workspaces/ws_1/queries/${updatedWorkspace.activeQueryId}`,
+      "/workspaces/ws_1/queries/query_backend_3",
     );
+  });
+
+  it("does not fall back to local query creation when API create fails", async () => {
+    renderPage();
+
+    mockCreateQuery.mockRejectedValueOnce(new Error("Workspace API unavailable"));
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+      target: { value: "retry this" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+    await waitFor(() => {
+      expect(mockCreateQuery).toHaveBeenCalledWith("ws_1", {
+        text: "retry this",
+        mode: "Researcher",
+        indiaLens: false,
+        status: "pending",
+      });
+    });
+
+    expect(mockUpdateWorkspace).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText("Workspace API unavailable")).toBeInTheDocument();
   });
 
   it("navigates when existing query row is clicked", () => {

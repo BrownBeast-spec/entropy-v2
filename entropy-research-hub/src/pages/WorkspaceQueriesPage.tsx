@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { MessageSquare, ArrowUpRight, SendHorizonal, Clock3 } from "lucide-react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 import type { Query, WorkspaceMode } from "@/types/workspace";
+import { createQuery as createQueryApi } from "@/lib/api/workspace";
 
 function toRelative(date: Date): string {
   const diffMs = Math.max(0, Date.now() - date.getTime());
@@ -22,6 +23,8 @@ export default function WorkspaceQueriesPage() {
 
   const [queryDraft, setQueryDraft] = useState("");
   const [modeDraft, setModeDraft] = useState<WorkspaceMode>("Researcher");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const workspace = workspaces.find((ws) => ws.id === workspaceId);
 
@@ -44,34 +47,54 @@ export default function WorkspaceQueriesPage() {
     const trimmed = queryDraft.trim();
     if (!trimmed) return;
 
-    const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    setSubmitError(null);
+    setIsSubmitting(true);
 
-    const query: Query = {
-      id: queryId,
-      workspaceId: workspace.id,
-      text: trimmed,
-      mode: modeDraft,
-      indiaLens: false,
-      submittedAt: new Date(),
-      status: "pending",
-      contributedNodes: [],
-      contributedEdges: [],
-    };
+    try {
+      const created = await createQueryApi(workspace.id, {
+        text: trimmed,
+        mode: modeDraft,
+        indiaLens: false,
+        status: "pending",
+      });
 
-    const updatedWorkspace = {
-      ...workspace,
-      queries: [...workspace.queries, query],
-      activeQueryId: queryId,
-      updatedAt: new Date(),
-    };
+      const query: Query = {
+        id: created.data.id,
+        workspaceId: created.data.workspaceId,
+        text: created.data.text,
+        mode: created.data.mode,
+        indiaLens: created.data.indiaLens,
+        submittedAt: new Date(created.data.submittedAt),
+        status: created.data.status,
+        contributedNodes: created.data.contributedNodes ?? [],
+        contributedEdges: created.data.contributedEdges ?? [],
+        completenessScore: created.data.completenessScore,
+        iterations: created.data.iterations,
+      };
 
-    await updateWorkspace(updatedWorkspace);
-    if (!currentWorkspace || currentWorkspace.id !== workspace.id) {
-      setCurrentWorkspace(updatedWorkspace);
+      const updatedWorkspace = {
+        ...workspace,
+        queries: [...workspace.queries, query],
+        activeQueryId: query.id,
+        updatedAt: new Date(),
+      };
+
+      await updateWorkspace(updatedWorkspace);
+      if (!currentWorkspace || currentWorkspace.id !== workspace.id) {
+        setCurrentWorkspace(updatedWorkspace);
+      }
+
+      setQueryDraft("");
+      navigate(`/workspaces/${workspace.id}/queries/${query.id}`);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create query. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setQueryDraft("");
-    navigate(`/workspaces/${workspace.id}/queries/${queryId}`);
   };
 
   return (
@@ -128,13 +151,19 @@ export default function WorkspaceQueriesPage() {
               </button>
               <button
                 onClick={() => void createQuery()}
-                disabled={!queryDraft.trim()}
+                disabled={!queryDraft.trim() || isSubmitting}
                 className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
               >
-                Run Query
+                {isSubmitting ? "Creating..." : "Run Query"}
                 <SendHorizonal className="h-3.5 w-3.5" />
               </button>
             </div>
+
+            {submitError ? (
+              <p role="alert" className="mt-2 text-xs text-destructive">
+                {submitError}
+              </p>
+            ) : null}
           </div>
         </section>
 
