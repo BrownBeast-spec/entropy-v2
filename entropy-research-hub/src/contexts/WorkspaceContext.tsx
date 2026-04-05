@@ -7,6 +7,7 @@ import {
   createWorkspace as createWorkspaceApi,
   getWorkspace as getWorkspaceApi,
   getWorkspaceGraph as getWorkspaceGraphApi,
+  getWorkspaceQueries as getWorkspaceQueriesApi,
 } from "@/lib/api/workspace";
 
 export interface WorkspaceGraphSnapshot {
@@ -217,6 +218,30 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
+      let hydratedQueries: Query[] = workspace.queries;
+      try {
+        const workspaceQueries = await getWorkspaceQueriesApi(workspace.id);
+        hydratedQueries = workspaceQueries.data.queries.map((query) => ({
+          id: query.id,
+          workspaceId: query.workspaceId,
+          text: query.text,
+          mode: query.mode,
+          indiaLens: query.indiaLens,
+          submittedAt: new Date(query.submittedAt),
+          status: query.status,
+          contributedNodes: query.contributedNodes ?? [],
+          contributedEdges: query.contributedEdges ?? [],
+          completenessScore: query.completenessScore,
+          iterations: query.iterations,
+        }));
+      } catch {
+        hydratedQueries = workspace.queries;
+      }
+
+      const activeQueryId =
+        hydratedQueries.find((query) => query.id === workspace.activeQueryId)
+          ?.id ?? hydratedQueries[0]?.id;
+
       const hydrated = normalizeWorkspace({
         id: workspaceMeta.data.id,
         name: workspaceMeta.data.name,
@@ -227,8 +252,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         updatedAt: workspaceMeta.data.updatedAt ?? workspaceMeta.data.createdAt,
         nodes: workspaceGraph.data.nodes,
         edges: workspaceGraph.data.edges,
-        queries: workspace.queries,
-        activeQueryId: workspace.activeQueryId,
+        queries: hydratedQueries,
+        activeQueryId,
         savedItems: workspace.savedItems,
         report: workspace.report,
       });
@@ -305,6 +330,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         getWorkspaceGraphApi(workspaceId),
       ]);
 
+      const workspaceQueries = await getWorkspaceQueriesApi(workspaceId).catch(
+        () => ({ success: true, data: { queries: [] as Query[] } }),
+      );
+
       const normalized = normalizeWorkspace({
         id: workspaceMeta.data.id,
         name: workspaceMeta.data.name,
@@ -315,7 +344,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         updatedAt: workspaceMeta.data.updatedAt ?? workspaceMeta.data.createdAt,
         nodes: workspaceGraph.data.nodes,
         edges: workspaceGraph.data.edges,
-        queries: [],
+        queries: workspaceQueries.data.queries,
         savedItems: [],
       });
 

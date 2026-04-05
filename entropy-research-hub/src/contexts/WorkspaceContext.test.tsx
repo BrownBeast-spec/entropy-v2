@@ -28,6 +28,7 @@ vi.mock("@/lib/api/workspace", () => ({
   createWorkspace: vi.fn(),
   getWorkspace: vi.fn(),
   getWorkspaceGraph: vi.fn(),
+  getWorkspaceQueries: vi.fn(),
 }));
 
 import { workspaceStoreV2 } from "@/lib/storage/workspaceStoreV2";
@@ -54,6 +55,7 @@ const mockWorkspaceApi = workspaceApi as unknown as {
   createWorkspace: ReturnType<typeof vi.fn>;
   getWorkspace: ReturnType<typeof vi.fn>;
   getWorkspaceGraph: ReturnType<typeof vi.fn>;
+  getWorkspaceQueries: ReturnType<typeof vi.fn>;
 };
 
 function Harness({
@@ -132,6 +134,10 @@ describe("WorkspaceContext", () => {
     mockWorkspaceApi.getWorkspaceGraph.mockResolvedValue({
       success: true,
       data: { nodes: [], edges: [] },
+    });
+    mockWorkspaceApi.getWorkspaceQueries.mockResolvedValue({
+      success: true,
+      data: { queries: [] },
     });
   });
 
@@ -434,6 +440,26 @@ describe("WorkspaceContext", () => {
         edges: [],
       },
     });
+    mockWorkspaceApi.getWorkspaceQueries.mockResolvedValueOnce({
+      success: true,
+      data: {
+        queries: [
+          {
+            id: "query_backend_1",
+            workspaceId: "ws_backend_2",
+            text: "Assess backend hydration",
+            mode: "Researcher",
+            indiaLens: false,
+            submittedAt: "2026-04-02T00:00:00.000Z",
+            status: "complete",
+            contributedNodes: ["node_backend_1"],
+            contributedEdges: [],
+            completenessScore: 0.82,
+            iterations: 2,
+          },
+        ],
+      },
+    });
 
     let latestCtx:
       | {
@@ -461,10 +487,102 @@ describe("WorkspaceContext", () => {
     await waitFor(() => {
       expect(latestCtx?.state.currentWorkspace?.nodes).toHaveLength(1);
       expect(latestCtx?.state.currentWorkspace?.nodes[0]?.id).toBe("node_backend_1");
+      expect(latestCtx?.state.currentWorkspace?.queries).toHaveLength(1);
+      expect(latestCtx?.state.currentWorkspace?.queries[0]?.id).toBe("query_backend_1");
+      expect(latestCtx?.state.currentWorkspace?.activeQueryId).toBe("query_backend_1");
     });
 
     expect(mockWorkspaceApi.getWorkspace).toHaveBeenCalledWith("ws_backend_2");
     expect(mockWorkspaceApi.getWorkspaceGraph).toHaveBeenCalledWith("ws_backend_2");
+    expect(mockWorkspaceApi.getWorkspaceQueries).toHaveBeenCalledWith("ws_backend_2");
     expect(mockStoreV2.saveWorkspace).toHaveBeenCalled();
+  });
+
+  it("falls back to local queries when backend query list fetch fails", async () => {
+    const now = new Date("2026-04-01T00:00:00.000Z");
+
+    mockStoreV2.getAll.mockResolvedValueOnce([
+      {
+        id: "ws_backend_3",
+        name: "Workspace With Local Query",
+        description: "from store",
+        mode: "Researcher",
+        indiaLens: false,
+        createdAt: now,
+        updatedAt: now,
+        nodes: [],
+        edges: [],
+        queries: [
+          {
+            id: "query_local_1",
+            workspaceId: "ws_backend_3",
+            text: "local fallback query",
+            mode: "Researcher",
+            indiaLens: false,
+            submittedAt: now,
+            status: "pending",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
+        activeQueryId: "query_local_1",
+        savedItems: [],
+      },
+    ]);
+
+    mockWorkspaceApi.getWorkspace.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "ws_backend_3",
+        name: "Workspace With Local Query",
+        description: "from api",
+        mode: "Researcher",
+        indiaLens: false,
+        createdAt: "2026-04-01T00:00:00.000Z",
+      },
+    });
+    mockWorkspaceApi.getWorkspaceGraph.mockResolvedValueOnce({
+      success: true,
+      data: {
+        nodes: [],
+        edges: [],
+      },
+    });
+    mockWorkspaceApi.getWorkspaceQueries.mockRejectedValueOnce(
+      new Error("Query list unavailable"),
+    );
+
+    let latestCtx:
+      | {
+          actions: ReturnType<typeof useWorkspaceActions>;
+          state: ReturnType<typeof useWorkspace>;
+        }
+      | null = null;
+
+    renderWithProvider(
+      <Harness
+        onReady={(ctx) => {
+          latestCtx = ctx;
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(latestCtx?.state.workspaces[0]?.id).toBe("ws_backend_3");
+    });
+
+    act(() => {
+      latestCtx?.state.setCurrentWorkspace(latestCtx.state.workspaces[0]);
+    });
+
+    await waitFor(() => {
+      expect(latestCtx?.state.currentWorkspace?.queries).toHaveLength(1);
+      expect(latestCtx?.state.currentWorkspace?.queries[0]?.id).toBe("query_local_1");
+      expect(latestCtx?.state.currentWorkspace?.activeQueryId).toBe("query_local_1");
+    });
+
+    expect(mockWorkspaceApi.getWorkspace).toHaveBeenCalledWith("ws_backend_3");
+    expect(mockWorkspaceApi.getWorkspaceGraph).toHaveBeenCalledWith("ws_backend_3");
+    expect(mockWorkspaceApi.getWorkspaceQueries).toHaveBeenCalledWith("ws_backend_3");
   });
 });
