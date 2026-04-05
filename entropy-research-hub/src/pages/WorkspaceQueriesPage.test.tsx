@@ -72,10 +72,13 @@ describe("WorkspaceQueriesPage", () => {
     expect(screen.getByText("First query")).toBeInTheDocument();
   });
 
-  it("creates a researcher query and persists workspace before navigating", async () => {
+  it("creates a researcher query from multiline composer and navigates", async () => {
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: /new researcher query/i }));
+    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+      target: { value: "new query from composer" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
     await waitFor(() => {
       expect(mockUpdateWorkspace).toHaveBeenCalled();
@@ -91,6 +94,7 @@ describe("WorkspaceQueriesPage", () => {
         expect.objectContaining({
           workspaceId: "ws_1",
           mode: "Researcher",
+          text: "new query from composer",
         }),
       ]),
     );
@@ -100,10 +104,14 @@ describe("WorkspaceQueriesPage", () => {
     );
   });
 
-  it("creates a strategist query from query-list page", async () => {
+  it("creates a strategist query from multiline composer mode switch", async () => {
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: /new strategist query/i }));
+    fireEvent.click(screen.getByRole("button", { name: /strategist/i }));
+    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+      target: { value: "strategic framing" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
     await waitFor(() => {
       expect(mockUpdateWorkspace).toHaveBeenCalled();
@@ -112,23 +120,38 @@ describe("WorkspaceQueriesPage", () => {
     const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
     const newestQuery = updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
     expect(newestQuery.mode).toBe("Strategist");
+    expect(newestQuery.text).toBe("strategic framing");
   });
 
-  it("renders bolder query-mode cards", () => {
+  it("renders editorial composer and no large create-query cards", () => {
     renderPage();
 
-    expect(screen.getByText(/query sessions/i)).toBeInTheDocument();
-    expect(screen.getAllByText("Research").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Strategy").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Query Composer/i)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /query prompt/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new researcher query/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new strategist query/i })).not.toBeInTheDocument();
   });
 
-  it("supports quick onboarding input for first query", async () => {
+  it("requires typed input before enabling run query action", () => {
     renderPage();
 
-    fireEvent.change(screen.getByPlaceholderText(/what are you investigating/i), {
+    const runButton = screen.getByRole("button", { name: /run query/i });
+    expect(runButton).toBeDisabled();
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
       target: { value: "AMPK for NASH" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /run first query/i }));
+
+    expect(runButton).not.toBeDisabled();
+  });
+
+  it("supports multiline input for query composer", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+      target: { value: "AMPK for NASH" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
     await waitFor(() => {
       expect(mockUpdateWorkspace).toHaveBeenCalled();

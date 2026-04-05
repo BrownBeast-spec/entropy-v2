@@ -76,12 +76,12 @@ describe("WorkspacesPage", () => {
       target: { value: "Metformin India Lens" },
     });
 
-    fireEvent.change(screen.getByPlaceholderText(/Brief description/i), {
+    fireEvent.change(screen.getByPlaceholderText(/What problem are you trying to solve/i), {
       target: { value: "Regulatory + target evidence" },
     });
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Create and start researching/i }),
+      screen.getByRole("button", { name: /Create Workspace/i }),
     );
 
     await waitFor(() => {
@@ -101,7 +101,7 @@ describe("WorkspacesPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByText("Workspace Alpha"));
+    fireEvent.click(screen.getByRole("button", { name: /Open Workspace/i }));
     expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1");
   });
 
@@ -166,8 +166,18 @@ describe("WorkspacesPage", () => {
 
     expect(screen.queryByRole("button", { name: /^Researcher$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Strategist$/i })).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/query mode is selected inside workspace/i),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/query mode is selected inside workspace/i)).not.toBeInTheDocument();
+  });
+
+  it("renders workspace deck cards instead of table layout", () => {
+    render(
+      <MemoryRouter>
+        <WorkspacesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/Workspace Deck/i)).toBeInTheDocument();
+    expect(screen.getByText(/Open Workspace/i)).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });

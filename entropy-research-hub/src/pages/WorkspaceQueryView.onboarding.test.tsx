@@ -61,16 +61,13 @@ describe("WorkspaceQueryView onboarding", () => {
       </MemoryRouter>,
     );
 
-  it("shows onboarding copy when query is new and graph has no evidence", () => {
+  it("does not show first-query onboarding banner in query view", () => {
     renderView();
 
-    expect(screen.getByText(/ready to run your first query/i)).toBeInTheDocument();
-    expect(screen.getByText(/enter your query/i)).toBeInTheDocument();
-    expect(screen.getByText(/fetch from sources/i)).toBeInTheDocument();
-    expect(screen.getByText(/add evidence to graph/i)).toBeInTheDocument();
+    expect(screen.queryByText(/ready to run your first query/i)).not.toBeInTheDocument();
   });
 
-  it("hides onboarding copy once query has contributed evidence", () => {
+  it("continues to render workspace view once query has evidence", () => {
     mockUseWorkspace.mockReturnValueOnce({
       currentWorkspace: null,
       setCurrentWorkspace: mockSetCurrentWorkspace,
@@ -112,6 +109,6 @@ describe("WorkspaceQueryView onboarding", () => {
 
     renderView();
 
-    expect(screen.queryByText(/ready to run your first query/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("workspace-view")).toBeInTheDocument();
   });
 });

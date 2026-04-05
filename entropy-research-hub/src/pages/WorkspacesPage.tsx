@@ -1,14 +1,24 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, MoreHorizontal } from "lucide-react";
+import {
+  Search,
+  Plus,
+  ArrowRight,
+  Activity,
+  Database,
+  Radar,
+  Sparkles,
+  MoreHorizontal,
+} from "lucide-react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 
-interface WorkspaceRow {
+interface WorkspaceCardData {
   id: string;
   name: string;
   nodes: number;
   lastQuery: string;
   lastUpdated: string;
+  energyLabel: string;
 }
 
 function toRelative(updatedAt: Date): string {
@@ -22,179 +32,262 @@ function toRelative(updatedAt: Date): string {
   return `${days}d ago`;
 }
 
-const fallbackRows: WorkspaceRow[] = [
+const fallbackRows: WorkspaceCardData[] = [
   {
     id: "demo-1",
     name: "Metformin NASH Pipeline",
     nodes: 47,
-    lastQuery: "NASH drug targets with FDA...",
+    lastQuery: "NASH drug targets with FDA signal",
     lastUpdated: "2h ago",
+    energyLabel: "High signal",
   },
   {
     id: "demo-2",
     name: "Competitive Intelligence - Oncology",
     nodes: 123,
-    lastQuery: "Top 5 PD-L1 inhibitors...",
+    lastQuery: "Top 5 PD-L1 inhibitors and trial velocity",
     lastUpdated: "1d ago",
+    energyLabel: "Watchlist",
   },
   {
     id: "demo-3",
     name: "India Regulatory Landscape",
     nodes: 31,
-    lastQuery: "CDSCO approval timeline...",
+    lastQuery: "CDSCO approval timeline for GLP-1s",
     lastUpdated: "3d ago",
+    energyLabel: "Emerging",
   },
 ];
+
+const dataSources = [
+  { name: "Open Targets", status: "live" },
+  { name: "PubMed", status: "live" },
+  { name: "ClinicalTrials", status: "live" },
+  { name: "STRING", status: "cached" },
+  { name: "Patents", status: "diagnostic" },
+];
+
+const sourceTone: Record<string, string> = {
+  live: "bg-emerald-400",
+  cached: "bg-amber-400",
+  diagnostic: "bg-slate-400",
+};
 
 export default function WorkspacesPage() {
   const navigate = useNavigate();
   const { workspaces } = useWorkspace();
   const { createWorkspace } = useWorkspaceActions();
 
-  const workspaceRows: WorkspaceRow[] = useMemo(
-    () => {
-      if (!workspaces.length) {
-        return fallbackRows;
-      }
+  const workspaceCards: WorkspaceCardData[] = useMemo(() => {
+    if (!workspaces.length) {
+      return fallbackRows;
+    }
 
-      return [...workspaces]
-        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-        .map((ws) => {
-          const activeQuery = ws.queries.find((query) => query.id === ws.activeQueryId);
-          const latestQuery =
-            activeQuery ??
-            ws.queries
-              .slice()
-              .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())[0];
+    return [...workspaces]
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .map((ws) => {
+        const activeQuery = ws.queries.find((query) => query.id === ws.activeQueryId);
+        const latestQuery =
+          activeQuery ??
+          ws.queries
+            .slice()
+            .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())[0];
 
-          return {
-            id: ws.id,
-            name: ws.name,
-            nodes: ws.nodes.length,
-            lastQuery: latestQuery?.text || "No queries yet",
-            lastUpdated: toRelative(ws.updatedAt),
-          };
-        });
-    },
-    [workspaces],
-  );
+        const energyLabel =
+          ws.nodes.length > 80
+            ? "Dense map"
+            : ws.nodes.length > 20
+              ? "Building momentum"
+              : "Fresh investigation";
 
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
+        return {
+          id: ws.id,
+          name: ws.name,
+          nodes: ws.nodes.length,
+          lastQuery: latestQuery?.text || "No queries yet",
+          lastUpdated: toRelative(ws.updatedAt),
+          energyLabel,
+        };
+      });
+  }, [workspaces]);
+
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceFocus, setWorkspaceFocus] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+
+  const filteredCards = workspaceCards.filter((card) => {
+    const query = searchInput.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      card.name.toLowerCase().includes(query) ||
+      card.lastQuery.toLowerCase().includes(query)
+    );
+  });
 
   const handleCreateWorkspace = async () => {
-    const name = newName.trim();
+    const name = workspaceName.trim();
     if (!name) return;
 
-    const created = await createWorkspace(name, newDesc.trim(), "Researcher");
-    setNewName("");
-    setNewDesc("");
-    setShowCreate(false);
+    const created = await createWorkspace(name, workspaceFocus.trim(), "Researcher");
+    setWorkspaceName("");
+    setWorkspaceFocus("");
     navigate(`/workspaces/${created.id}`);
   };
 
   return (
-    <div className="p-6 animate-fade-in">
-      {/* Recent Workspaces */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider">Recent Workspaces</h2>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-[13px] font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Workspace
-          </button>
-        </div>
+    <div className="min-h-full bg-[radial-gradient(circle_at_15%_10%,rgba(16,185,129,0.16),transparent_38%),radial-gradient(circle_at_88%_20%,rgba(245,158,11,0.15),transparent_35%),linear-gradient(180deg,rgba(12,13,18,0.85),rgba(12,13,18,0.96))]">
+      <div className="px-6 py-6 space-y-6">
+        <section className="rounded-2xl border border-border/70 bg-card/80 p-5 shadow-[0_28px_65px_-42px_rgba(16,185,129,0.65)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-2xs uppercase tracking-[0.22em] text-emerald-300/90 mb-2">
+                Workspace Deck
+              </p>
+              <h1 className="text-3xl font-semibold text-foreground leading-tight">
+                Build investigations with stronger signal flow
+              </h1>
+              <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+                Create a workspace, frame a query, and branch into Researcher or
+                Strategist runs from the query composer.
+              </p>
+            </div>
 
-        <div className="relative mb-3">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input placeholder="Search workspaces..." className="pl-9 pr-4 py-2 bg-card border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-[280px]" />
-        </div>
+            <div className="relative w-full lg:w-[360px]">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search workspace names or latest query"
+                className="w-full rounded-xl border border-border bg-background/90 pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+          </div>
+        </section>
 
-        <div className="border border-border rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Workspace Name</th>
-                <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Nodes</th>
-                <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Last Query</th>
-                <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Last Updated</th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody>
-              {workspaceRows.map((ws) => (
-                <tr
-                  key={ws.id}
-                  onClick={() => navigate(`/workspaces/${ws.id}`)}
-                  className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
+        <section className="grid gap-5 xl:grid-cols-[1.35fr_0.9fr]">
+          <div className="rounded-2xl border border-border/70 bg-card/85 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Recent Workspaces
+              </h2>
+              <span className="text-2xs text-muted-foreground uppercase tracking-[0.14em]">
+                {filteredCards.length} active
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {filteredCards.map((workspace) => (
+                <article
+                  key={workspace.id}
+                  className="group rounded-xl border border-border/80 bg-background/65 px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-foreground/25 hover:shadow-[0_22px_42px_-34px_rgba(251,191,36,0.6)]"
                 >
-                  <td className="px-4 py-3 text-sm text-foreground font-medium">{ws.name}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{ws.nodes}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground truncate max-w-[200px]">{ws.lastQuery}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{ws.lastUpdated}</td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <button className="opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Workspace actions">
-                      <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {workspace.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {workspace.lastQuery}
+                      </p>
+                    </div>
+                    <button
+                      aria-label="Workspace actions"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity rounded-md p-1 hover:bg-accent"
+                    >
+                      <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  </div>
 
-      {/* Create Section */}
-      <div className="border-t border-border pt-6">
-        <h2 className="text-2xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Create New Workspace</h2>
-        <div className={`bg-card border border-border rounded-lg p-6 transition-all ${showCreate ? "ring-1 ring-primary/30" : ""}`}>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground block mb-1.5">Workspace Name</label>
-              <input
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                placeholder="e.g., Metformin NASH Pipeline Analysis"
-                className="w-full bg-accent border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5">
+                      <Radar className="h-3.5 w-3.5 text-emerald-400" />
+                      {workspace.energyLabel}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5">
+                      <Activity className="h-3.5 w-3.5 text-amber-300" />
+                      {workspace.nodes} nodes
+                    </span>
+                    <span>{workspace.lastUpdated}</span>
+                  </div>
+
+                  <div className="mt-4">
+                    <button
+                      onClick={() => navigate(`/workspaces/${workspace.id}`)}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-emerald-300 transition-colors"
+                    >
+                      Open Workspace
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </article>
+              ))}
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground block mb-1.5">Research Focus (optional)</label>
-              <input
-                value={newDesc}
-                onChange={e => setNewDesc(e.target.value)}
-                placeholder="Brief description of your research objective"
-                className="w-full bg-accent border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-2xs uppercase tracking-[0.14em] text-emerald-300/90">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                Query mode is selected inside workspace
+          </div>
+
+          <div className="rounded-2xl border border-border/70 bg-card/90 p-5 shadow-[0_24px_60px_-42px_rgba(245,158,11,0.65)]">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-7 w-7 rounded-full bg-amber-300/20 flex items-center justify-center">
+                <Plus className="h-4 w-4 text-amber-300" />
               </div>
-                <button
-                  onClick={() => void handleCreateWorkspace()}
-                  className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
-                  disabled={!newName.trim()}
-                >
-                Create and start researching
+              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Create New Workspace
+              </h2>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">
+                  Workspace Name
+                </label>
+                <input
+                  value={workspaceName}
+                  onChange={(event) => setWorkspaceName(event.target.value)}
+                  placeholder="e.g., Metformin NASH pipeline analysis"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">
+                  Research Focus
+                </label>
+                <textarea
+                  value={workspaceFocus}
+                  onChange={(event) => setWorkspaceFocus(event.target.value)}
+                  placeholder="What problem are you trying to solve?"
+                  rows={4}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                />
+              </div>
+
+              <button
+                onClick={() => void handleCreateWorkspace()}
+                disabled={!workspaceName.trim()}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                Create Workspace
+                <Sparkles className="h-4 w-4" />
               </button>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Data source status */}
-      <div className="mt-6 flex items-center gap-4 text-2xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary" /> Open Targets</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary" /> PubMed</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary" /> ClinicalTrials.gov</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> STRING (cached)</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" /> PatentsView</span>
+        <section className="rounded-xl border border-border/70 bg-card/70 px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Database className="h-4 w-4 text-muted-foreground" />
+            <p className="text-2xs uppercase tracking-[0.16em] text-muted-foreground">
+              Source Status
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-2xs text-muted-foreground">
+            {dataSources.map((source) => (
+              <span key={source.name} className="inline-flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${sourceTone[source.status]}`} />
+                {source.name}
+              </span>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

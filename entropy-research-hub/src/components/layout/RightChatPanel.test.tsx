@@ -7,6 +7,7 @@ const mockSearchWorkspace = vi.fn();
 const mockAddNodesToWorkspace = vi.fn();
 const mockAddNode = vi.fn();
 const mockAddEdge = vi.fn();
+const mockUpdateWorkspace = vi.fn();
 
 vi.mock("@/lib/api/search", () => ({
   searchWorkspace: (...args: unknown[]) => mockSearchWorkspace(...args),
@@ -43,6 +44,7 @@ vi.mock("@/contexts/WorkspaceContext", () => ({
   useWorkspaceActions: () => ({
     addNode: mockAddNode,
     addEdge: mockAddEdge,
+    updateWorkspace: mockUpdateWorkspace,
   }),
 }));
 
@@ -104,9 +106,7 @@ describe("RightChatPanel - Workspace Mode", () => {
     });
 
     expect(screen.getByText("AMPK")).toBeInTheDocument();
-    expect(
-      screen.getByText(/sources: 1 successful/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/sources: 1 successful/i)).toBeInTheDocument();
   });
 
   it("should enable Add Selected button when results checked", async () => {
@@ -269,7 +269,9 @@ describe("RightChatPanel - Workspace Mode", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
 
-    expect(screen.getByText(/notebook search in progress/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/notebook search in progress/i),
+    ).toBeInTheDocument();
 
     resolveSearch?.({
       results: [],
@@ -349,10 +351,81 @@ describe("RightChatPanel - Workspace Mode", () => {
     });
 
     fireEvent.click(screen.getByRole("checkbox", { name: /select ampk/i }));
-    fireEvent.click(screen.getByRole("button", { name: /add selected to graph/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /add selected to graph/i }),
+    );
 
     await waitFor(() => {
-      expect(screen.getByText(/graph augmented with 1 evidence node/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/graph augmented with 1 evidence node/i),
+      ).toBeInTheDocument();
     });
+  });
+
+  it("persists query contributed nodes when adding selected evidence", async () => {
+    mockSearchWorkspace.mockResolvedValue({
+      results: [
+        {
+          id: "result_1",
+          entityId: "ENSG00001",
+          entityType: "protein",
+          label: "AMPK",
+          source: "STRING",
+          metadata: {},
+          helpfulness: {
+            score: 85,
+            explanation: "Fills gap",
+            gapsFilled: [],
+          },
+        },
+      ],
+      executionTime: 120,
+      searchedSources: ["STRING"],
+    });
+    mockAddNodesToWorkspace.mockResolvedValue({
+      addedNodes: [
+        {
+          id: "N1",
+          label: "AMPK",
+          type: "protein",
+          source: "STRING",
+          metadata: {},
+          addedByQuery: "q_1",
+        },
+      ],
+      addedEdges: [],
+      duplicatesSkipped: 0,
+    });
+
+    renderInWorkspace();
+
+    fireEvent.change(screen.getByPlaceholderText(/search mcp data sources/i), {
+      target: { value: "AMPK" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/fetching from sources/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select ampk/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /add selected to graph/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockUpdateWorkspace).toHaveBeenCalled();
+    });
+
+    expect(mockUpdateWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queries: expect.arrayContaining([
+          expect.objectContaining({
+            id: "q_1",
+            contributedNodes: expect.arrayContaining(["N1"]),
+          }),
+        ]),
+      }),
+    );
   });
 });

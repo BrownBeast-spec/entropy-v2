@@ -69,7 +69,7 @@ export default function RightChatPanel() {
   const location = useLocation();
   const { queryId: routeQueryId } = useParams<{ queryId?: string }>();
   const { currentWorkspace } = useWorkspace();
-  const { addNode, addEdge } = useWorkspaceActions();
+  const { addNode, addEdge, updateWorkspace } = useWorkspaceActions();
 
   const [collapsed, setCollapsed] = useState(false);
   const [message, setMessage] = useState("");
@@ -91,11 +91,11 @@ export default function RightChatPanel() {
   const isWorkspace = location.pathname.startsWith("/workspaces/");
 
   const activeQuery = currentWorkspace
-    ? currentWorkspace.queries.find((query) => query.id === routeQueryId) ??
+    ? (currentWorkspace.queries.find((query) => query.id === routeQueryId) ??
       currentWorkspace.queries.find(
         (query) => query.id === currentWorkspace.activeQueryId,
       ) ??
-      currentWorkspace.queries[currentWorkspace.queries.length - 1]
+      currentWorkspace.queries[currentWorkspace.queries.length - 1])
     : undefined;
 
   const selectedResults = useMemo(() => {
@@ -113,12 +113,14 @@ export default function RightChatPanel() {
   }, [notebookEntries, selectedResultKeys]);
 
   const currentPage =
-    Object.entries(pageNames).find(([path]) => location.pathname.startsWith(path))
-      ?.[1] || "Topics";
+    Object.entries(pageNames).find(([path]) =>
+      location.pathname.startsWith(path),
+    )?.[1] || "Topics";
 
-  const querySeed = activeQuery?.text && activeQuery.text !== "New query"
-    ? activeQuery.text
-    : "";
+  const querySeed =
+    activeQuery?.text && activeQuery.text !== "New query"
+      ? activeQuery.text
+      : "";
 
   const hasOnboardingRun = notebookEntries.length > 0;
 
@@ -224,6 +226,33 @@ export default function RightChatPanel() {
 
       response.addedNodes.forEach((node) => addNode(node));
       response.addedEdges.forEach((edge) => addEdge(edge));
+
+      if (activeQuery) {
+        const contributedNodeIds = response.addedNodes.map((node) => node.id);
+        const contributedEdgeIds = response.addedEdges.map((edge) => edge.id);
+
+        const nextWorkspace = {
+          ...currentWorkspace,
+          queries: currentWorkspace.queries.map((query) => {
+            if (query.id !== activeQuery.id) {
+              return query;
+            }
+
+            return {
+              ...query,
+              contributedNodes: Array.from(
+                new Set([...query.contributedNodes, ...contributedNodeIds]),
+              ),
+              contributedEdges: Array.from(
+                new Set([...query.contributedEdges, ...contributedEdgeIds]),
+              ),
+            };
+          }),
+        };
+
+        await updateWorkspace(nextWorkspace);
+      }
+
       setSelectedResultKeys(new Set());
       if (response.addedNodes.length > 0) {
         setShowGraphAugmentedToast(true);
@@ -278,8 +307,12 @@ export default function RightChatPanel() {
         <div className="border-b border-border px-3 py-2 bg-background/70">
           {!hasOnboardingRun ? (
             <div className="mb-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-2xs text-emerald-200">
-              <p className="uppercase tracking-[0.12em] mb-1">Quick onboarding</p>
-              <p className="text-muted-foreground">Enter query → Fetch from sources → Add evidence to graph.</p>
+              <p className="uppercase tracking-[0.12em] mb-1">
+                Quick onboarding
+              </p>
+              <p className="text-muted-foreground">
+                Enter query → Fetch from sources → Add evidence to graph.
+              </p>
             </div>
           ) : null}
           <div className="grid grid-cols-2 gap-2">
@@ -329,14 +362,16 @@ export default function RightChatPanel() {
                 Start a notebook run
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Ask a focused question, then review evidence cards and add selected
-                entities directly to your graph.
+                Ask a focused question, then review evidence cards and add
+                selected entities directly to your graph.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               {notebookEntries.map((entry) => {
-                const unavailableCount = Object.keys(entry.sourceDiagnostics).length;
+                const unavailableCount = Object.keys(
+                  entry.sourceDiagnostics,
+                ).length;
 
                 return (
                   <article
@@ -351,7 +386,9 @@ export default function RightChatPanel() {
                           <p className="text-2xs uppercase tracking-[0.14em] text-emerald-300/80 mb-1">
                             You asked
                           </p>
-                          <p className="text-sm text-foreground">{entry.query}</p>
+                          <p className="text-sm text-foreground">
+                            {entry.query}
+                          </p>
                         </div>
                       </div>
 
@@ -382,8 +419,8 @@ export default function RightChatPanel() {
                           <>
                             <div className="flex items-center justify-between text-2xs text-muted-foreground">
                               <span>
-                                Fetching from sources complete. {" "}
-                                Sources: {entry.searchedSources.length} successful
+                                Fetching from sources complete. Sources:{" "}
+                                {entry.searchedSources.length} successful
                                 {unavailableCount > 0
                                   ? `, ${unavailableCount} unavailable`
                                   : ""}
@@ -395,7 +432,10 @@ export default function RightChatPanel() {
 
                             <div className="space-y-2">
                               {entry.results.map((result) => {
-                                const resultKey = keyForResult(entry.id, result.id);
+                                const resultKey = keyForResult(
+                                  entry.id,
+                                  result.id,
+                                );
 
                                 return (
                                   <SearchResultCard
@@ -439,7 +479,9 @@ export default function RightChatPanel() {
               <span className="text-xs text-muted-foreground">
                 {selectedResultKeys.size} selected
               </span>
-              <span className="text-2xs text-emerald-300/80">Notebook action</span>
+              <span className="text-2xs text-emerald-300/80">
+                Notebook action
+              </span>
             </div>
             <button
               onClick={() => void handleAddToGraph()}
@@ -587,8 +629,8 @@ export default function RightChatPanel() {
           <div className="p-4 space-y-4">
             <div className="bg-background rounded-lg p-4">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Hey - this is your Entropy research assistant. Create a workspace or
-                open an existing one to get started.
+                Hey - this is your Entropy research assistant. Create a
+                workspace or open an existing one to get started.
               </p>
             </div>
             <div className="space-y-2">
@@ -614,9 +656,8 @@ export default function RightChatPanel() {
               </div>
             </div>
             <div className="text-sm text-muted-foreground leading-relaxed">
-              Hey Alen! How can I help you today? I see you're on the {currentPage}
-              {" "}
-              page - want to explore anything specific?
+              Hey Alen! How can I help you today? I see you're on the{" "}
+              {currentPage} page - want to explore anything specific?
             </div>
           </div>
         )}
