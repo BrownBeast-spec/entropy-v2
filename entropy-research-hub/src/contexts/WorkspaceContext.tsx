@@ -204,10 +204,60 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     loadFromStore();
   }, []);
 
-  // Sync current workspace when it changes
+  const hydrateWorkspaceFromBackend = async (
+    workspace: Workspace,
+  ): Promise<Workspace | null> => {
+    try {
+      const [workspaceMeta, workspaceGraph] = await Promise.all([
+        getWorkspaceApi(workspace.id),
+        getWorkspaceGraphApi(workspace.id),
+      ]);
+
+      if (workspaceMeta.data.id !== workspace.id) {
+        return null;
+      }
+
+      const hydrated = normalizeWorkspace({
+        id: workspaceMeta.data.id,
+        name: workspaceMeta.data.name,
+        description: workspaceMeta.data.description,
+        mode: workspaceMeta.data.mode,
+        indiaLens: workspaceMeta.data.indiaLens,
+        createdAt: workspaceMeta.data.createdAt,
+        updatedAt: workspaceMeta.data.updatedAt ?? workspaceMeta.data.createdAt,
+        nodes: workspaceGraph.data.nodes,
+        edges: workspaceGraph.data.edges,
+        queries: workspace.queries,
+        activeQueryId: workspace.activeQueryId,
+        savedItems: workspace.savedItems,
+        report: workspace.report,
+      });
+
+      await workspaceStoreV2.saveWorkspace({
+        ...hydrated,
+        nodes: hydrated.nodes.map(denormalizeNode as any),
+        edges: hydrated.edges.map(denormalizeEdge as any),
+      } as any);
+
+      return hydrated;
+    } catch {
+      return null;
+    }
+  };
+
+  // Sync current workspace when local or backend state changes
   useEffect(() => {
     const syncCurrent = async () => {
       if (!currentWorkspace) return;
+
+      const hydrated = await hydrateWorkspaceFromBackend(currentWorkspace);
+      if (hydrated) {
+        if (JSON.stringify(hydrated) !== JSON.stringify(currentWorkspace)) {
+          setCurrentWorkspace(hydrated);
+        }
+        return;
+      }
+
       try {
         const fresh = await workspaceStoreV2.getById(currentWorkspace.id);
         if (!fresh) return;
@@ -227,7 +277,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     };
 
     syncCurrent();
-  }, [workspaces]);
+  }, [currentWorkspace, workspaces]);
 
   const refreshWorkspaces = async () => {
     await loadFromStore();

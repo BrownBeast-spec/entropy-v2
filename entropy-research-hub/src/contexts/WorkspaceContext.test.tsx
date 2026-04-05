@@ -387,4 +387,84 @@ describe("WorkspaceContext", () => {
       expect(latestState?.workspaces[0]?.queries[0]?.report).toBeDefined();
     });
   });
+
+  it("hydrates current workspace graph from backend when selected", async () => {
+    const now = new Date("2026-04-01T00:00:00.000Z");
+
+    mockStoreV2.getAll.mockResolvedValueOnce([
+      {
+        id: "ws_backend_2",
+        name: "Backend Workspace",
+        description: "from store",
+        mode: "Researcher",
+        indiaLens: false,
+        createdAt: now,
+        updatedAt: now,
+        nodes: [],
+        edges: [],
+        queries: [],
+        savedItems: [],
+      },
+    ]);
+
+    mockWorkspaceApi.getWorkspace.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "ws_backend_2",
+        name: "Backend Workspace",
+        description: "from api",
+        mode: "Researcher",
+        indiaLens: false,
+        createdAt: "2026-04-01T00:00:00.000Z",
+      },
+    });
+    mockWorkspaceApi.getWorkspaceGraph.mockResolvedValueOnce({
+      success: true,
+      data: {
+        nodes: [
+          {
+            id: "node_backend_1",
+            label: "Backend Node",
+            type: "drug",
+            source: "PubMed",
+            metadata: {},
+            addedByQuery: "query_backend_1",
+          },
+        ],
+        edges: [],
+      },
+    });
+
+    let latestCtx:
+      | {
+          actions: ReturnType<typeof useWorkspaceActions>;
+          state: ReturnType<typeof useWorkspace>;
+        }
+      | null = null;
+
+    renderWithProvider(
+      <Harness
+        onReady={(ctx) => {
+          latestCtx = ctx;
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(latestCtx?.state.workspaces[0]?.id).toBe("ws_backend_2");
+    });
+
+    act(() => {
+      latestCtx?.state.setCurrentWorkspace(latestCtx.state.workspaces[0]);
+    });
+
+    await waitFor(() => {
+      expect(latestCtx?.state.currentWorkspace?.nodes).toHaveLength(1);
+      expect(latestCtx?.state.currentWorkspace?.nodes[0]?.id).toBe("node_backend_1");
+    });
+
+    expect(mockWorkspaceApi.getWorkspace).toHaveBeenCalledWith("ws_backend_2");
+    expect(mockWorkspaceApi.getWorkspaceGraph).toHaveBeenCalledWith("ws_backend_2");
+    expect(mockStoreV2.saveWorkspace).toHaveBeenCalled();
+  });
 });
