@@ -8,11 +8,13 @@ const {
   mockUpdateWorkspace,
   mockSetCurrentWorkspace,
   mockCreateQuery,
+  mockGetWorkspaceQueries,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockUpdateWorkspace: vi.fn(),
   mockSetCurrentWorkspace: vi.fn(),
   mockCreateQuery: vi.fn(),
+  mockGetWorkspaceQueries: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -60,6 +62,7 @@ vi.mock("@/contexts/WorkspaceContext", () => ({
 
 vi.mock("@/lib/api/workspace", () => ({
   createQuery: mockCreateQuery,
+  getWorkspaceQueries: mockGetWorkspaceQueries,
 }));
 
 describe("WorkspaceQueriesPage", () => {
@@ -78,6 +81,24 @@ describe("WorkspaceQueriesPage", () => {
         status: "pending",
         contributedNodes: [],
         contributedEdges: [],
+      },
+    });
+    mockGetWorkspaceQueries.mockResolvedValue({
+      success: true,
+      data: {
+        queries: [
+          {
+            id: "query_backend_1",
+            workspaceId: "ws_1",
+            text: "new query from composer",
+            mode: "Researcher",
+            indiaLens: false,
+            submittedAt: "2026-04-03T00:00:00.000Z",
+            status: "pending",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
       },
     });
   });
@@ -117,6 +138,7 @@ describe("WorkspaceQueriesPage", () => {
         status: "pending",
       });
     });
+    expect(mockGetWorkspaceQueries).toHaveBeenCalledWith("ws_1");
 
     expect(mockUpdateWorkspace).toHaveBeenCalled();
 
@@ -125,6 +147,7 @@ describe("WorkspaceQueriesPage", () => {
       id: "ws_1",
       activeQueryId: "query_backend_1",
     });
+    expect(updatedWorkspace.queries).toHaveLength(1);
     expect(updatedWorkspace.queries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -158,6 +181,24 @@ describe("WorkspaceQueriesPage", () => {
         contributedEdges: [],
       },
     });
+    mockGetWorkspaceQueries.mockResolvedValueOnce({
+      success: true,
+      data: {
+        queries: [
+          {
+            id: "query_backend_2",
+            workspaceId: "ws_1",
+            text: "strategic framing",
+            mode: "Strategist",
+            indiaLens: false,
+            submittedAt: "2026-04-03T00:00:00.000Z",
+            status: "pending",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
+      },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /strategist/i }));
     fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
@@ -176,6 +217,7 @@ describe("WorkspaceQueriesPage", () => {
         status: "pending",
       });
     });
+    expect(mockGetWorkspaceQueries).toHaveBeenCalledWith("ws_1");
 
     expect(mockUpdateWorkspace).toHaveBeenCalled();
 
@@ -224,6 +266,24 @@ describe("WorkspaceQueriesPage", () => {
         contributedEdges: [],
       },
     });
+    mockGetWorkspaceQueries.mockResolvedValueOnce({
+      success: true,
+      data: {
+        queries: [
+          {
+            id: "query_backend_3",
+            workspaceId: "ws_1",
+            text: "AMPK for NASH",
+            mode: "Researcher",
+            indiaLens: false,
+            submittedAt: "2026-04-03T00:00:00.000Z",
+            status: "pending",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
+      },
+    });
 
     fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
       target: { value: "AMPK for NASH" },
@@ -241,6 +301,7 @@ describe("WorkspaceQueriesPage", () => {
         status: "pending",
       });
     });
+    expect(mockGetWorkspaceQueries).toHaveBeenCalledWith("ws_1");
 
     expect(mockUpdateWorkspace).toHaveBeenCalled();
 
@@ -275,8 +336,51 @@ describe("WorkspaceQueriesPage", () => {
     });
 
     expect(mockUpdateWorkspace).not.toHaveBeenCalled();
+    expect(mockGetWorkspaceQueries).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(screen.getByText("Workspace API unavailable")).toBeInTheDocument();
+  });
+
+  it("falls back to created query when query-list refresh fails", async () => {
+    renderPage();
+
+    mockCreateQuery.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "query_backend_4",
+        workspaceId: "ws_1",
+        text: "fallback query",
+        mode: "Researcher",
+        indiaLens: false,
+        submittedAt: "2026-04-03T00:00:00.000Z",
+        status: "pending",
+        contributedNodes: [],
+        contributedEdges: [],
+      },
+    });
+    mockGetWorkspaceQueries.mockRejectedValueOnce(
+      new Error("Unable to refresh query list"),
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+      target: { value: "fallback query" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+    await waitFor(() => {
+      expect(mockGetWorkspaceQueries).toHaveBeenCalledWith("ws_1");
+    });
+
+    expect(mockUpdateWorkspace).toHaveBeenCalled();
+    const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
+    expect(
+      updatedWorkspace.queries.some((query: { id: string }) => query.id === "query_backend_4"),
+    ).toBe(true);
+    expect(updatedWorkspace.activeQueryId).toBe("query_backend_4");
+    expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_4");
   });
 
   it("navigates when existing query row is clicked", () => {

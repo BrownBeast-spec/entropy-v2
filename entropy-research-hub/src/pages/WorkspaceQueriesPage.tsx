@@ -3,7 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { MessageSquare, ArrowUpRight, SendHorizonal, Clock3 } from "lucide-react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 import type { Query, WorkspaceMode } from "@/types/workspace";
-import { createQuery as createQueryApi } from "@/lib/api/workspace";
+import {
+  createQuery as createQueryApi,
+  getWorkspaceQueries as getWorkspaceQueriesApi,
+} from "@/lib/api/workspace";
 
 function toRelative(date: Date): string {
   const diffMs = Math.max(0, Date.now() - date.getTime());
@@ -72,10 +75,33 @@ export default function WorkspaceQueriesPage() {
         iterations: created.data.iterations,
       };
 
+      const fallbackQueries = [...workspace.queries, query];
+
+      const syncedQueries = await getWorkspaceQueriesApi(workspace.id)
+        .then((response) =>
+          response.data.queries.map((item) => ({
+            id: item.id,
+            workspaceId: item.workspaceId,
+            text: item.text,
+            mode: item.mode,
+            indiaLens: item.indiaLens,
+            submittedAt: new Date(item.submittedAt),
+            status: item.status,
+            contributedNodes: item.contributedNodes ?? [],
+            contributedEdges: item.contributedEdges ?? [],
+            completenessScore: item.completenessScore,
+            iterations: item.iterations,
+          })),
+        )
+        .catch(() => fallbackQueries);
+
+      const activeQueryId =
+        syncedQueries.find((item) => item.id === query.id)?.id ?? query.id;
+
       const updatedWorkspace = {
         ...workspace,
-        queries: [...workspace.queries, query],
-        activeQueryId: query.id,
+        queries: syncedQueries,
+        activeQueryId,
         updatedAt: new Date(),
       };
 
@@ -85,7 +111,7 @@ export default function WorkspaceQueriesPage() {
       }
 
       setQueryDraft("");
-      navigate(`/workspaces/${workspace.id}/queries/${query.id}`);
+      navigate(`/workspaces/${workspace.id}/queries/${activeQueryId}`);
     } catch (error) {
       setSubmitError(
         error instanceof Error
