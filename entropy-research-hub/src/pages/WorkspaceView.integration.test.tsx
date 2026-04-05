@@ -35,7 +35,7 @@ vi.mock("@/lib/api/search", () => ({
   searchWorkspace: (...args: unknown[]) => mockSearchWorkspace(...args),
 }));
 
-vi.mock("@/lib/api/addNodes", () => ({
+vi.mock("@/lib/api/workspace", () => ({
   addNodesToWorkspace: (...args: unknown[]) => mockAddNodesToWorkspace(...args),
 }));
 
@@ -101,18 +101,19 @@ describe("WorkspaceView integration", () => {
     });
 
     mockAddNodesToWorkspace.mockResolvedValue({
-      addedNodes: [
-        {
-          id: "ENSG00001",
-          label: "AMPK",
-          type: "protein",
-          source: "STRING",
-          metadata: {},
-          addedByQuery: "query_1",
-        },
-      ],
-      addedEdges: [],
-      duplicatesSkipped: 0,
+      data: {
+        addedNodes: [
+          {
+            id: "ENSG00001",
+            label: "AMPK",
+            type: "protein",
+            source: "STRING",
+            metadata: {},
+            addedByQuery: "query_1",
+          },
+        ],
+        inferredEdges: [],
+      },
     });
 
     const { rerender } = render(

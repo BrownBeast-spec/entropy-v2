@@ -13,7 +13,7 @@ vi.mock("@/lib/api/search", () => ({
   searchWorkspace: (...args: unknown[]) => mockSearchWorkspace(...args),
 }));
 
-vi.mock("@/lib/api/addNodes", () => ({
+vi.mock("@/lib/api/workspace", () => ({
   addNodesToWorkspace: (...args: unknown[]) => mockAddNodesToWorkspace(...args),
 }));
 
@@ -360,6 +360,21 @@ describe("RightChatPanel - Workspace Mode", () => {
         screen.getByText(/graph augmented with 1 evidence node/i),
       ).toBeInTheDocument();
     });
+
+    expect(mockAddNodesToWorkspace).toHaveBeenCalledWith(
+      "test-workspace",
+      expect.objectContaining({
+        queryId: "q_1",
+        inferEdges: true,
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            label: "AMPK",
+            type: "protein",
+            source: "STRING",
+          }),
+        ]),
+      }),
+    );
   });
 
   it("persists query contributed nodes when adding selected evidence", async () => {

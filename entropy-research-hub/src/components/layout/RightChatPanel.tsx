@@ -19,7 +19,7 @@ import {
 import { useMemo, useState } from "react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 import { searchWorkspace, type SearchResult } from "@/lib/api/search";
-import { addNodesToWorkspace } from "@/lib/api/addNodes";
+import { addNodesToWorkspace } from "@/lib/api/workspace";
 import SearchResultCard from "@/components/workspace/SearchResultCard";
 
 const pageNames: Record<string, string> = {
@@ -51,6 +51,38 @@ type NotebookEntry = {
 
 function keyForResult(entryId: string, resultId: string) {
   return `${entryId}::${resultId}`;
+}
+
+function conceptTokensFromMetadata(
+  metadata: Record<string, unknown>,
+): string[] {
+  const concepts: string[] = [];
+
+  if (Array.isArray(metadata.pathways)) {
+    metadata.pathways.forEach((pathway) => {
+      if (typeof pathway === "string") {
+        concepts.push(`pathway:${pathway}`);
+      }
+    });
+  }
+
+  if (Array.isArray(metadata.mechanisms)) {
+    metadata.mechanisms.forEach((mechanism) => {
+      if (typeof mechanism === "string") {
+        concepts.push(`mechanism:${mechanism}`);
+      }
+    });
+  }
+
+  if (Array.isArray(metadata.indications)) {
+    metadata.indications.forEach((indication) => {
+      if (typeof indication === "string") {
+        concepts.push(`indication:${indication}`);
+      }
+    });
+  }
+
+  return concepts;
 }
 
 function collapseLabel(isWorkspace: boolean) {
@@ -152,6 +184,18 @@ export default function RightChatPanel() {
         query,
         graphSnapshot: {
           nodeIds: currentWorkspace.nodes.map((n) => n.id),
+          nodeTypes: Object.fromEntries(
+            currentWorkspace.nodes.map((node) => [node.id, node.type]),
+          ),
+          existingConcepts: Array.from(
+            new Set(
+              currentWorkspace.nodes.flatMap((node) =>
+                conceptTokensFromMetadata(
+                  node.metadata as Record<string, unknown>,
+                ),
+              ),
+            ),
+          ),
           edgeSummary: currentWorkspace.edges.map((e) => ({
             source: e.source,
             target: e.target,
@@ -218,18 +262,33 @@ export default function RightChatPanel() {
     if (!currentWorkspace || selectedResults.length === 0) return;
 
     try {
-      const response = await addNodesToWorkspace({
-        workspaceId: currentWorkspace.id,
+      const response = await addNodesToWorkspace(currentWorkspace.id, {
         queryId: activeQuery?.id || `query_${Date.now()}`,
-        selectedResults,
+        inferEdges: true,
+        nodes: selectedResults.map((result) => ({
+          label: result.label,
+          type: result.entityType,
+          source: result.source,
+          metadata: result.metadata,
+          evidenceScore: result.evidenceScore,
+          indiaRelevant: result.indiaRelevant,
+        })),
       });
 
-      response.addedNodes.forEach((node) => addNode(node));
-      response.addedEdges.forEach((edge) => addEdge(edge));
+      const payload = "data" in response ? response.data : response;
+
+      const returnedEdges = [
+        ...(payload.inferredEdges ?? []),
+        ...(((payload as { addedEdges?: typeof payload.inferredEdges }).addedEdges ??
+          []) as typeof payload.inferredEdges),
+      ];
+
+      payload.addedNodes.forEach((node) => addNode(node));
+      returnedEdges.forEach((edge) => addEdge(edge));
 
       if (activeQuery) {
-        const contributedNodeIds = response.addedNodes.map((node) => node.id);
-        const contributedEdgeIds = response.addedEdges.map((edge) => edge.id);
+        const contributedNodeIds = payload.addedNodes.map((node) => node.id);
+        const contributedEdgeIds = returnedEdges.map((edge) => edge.id);
 
         const nextWorkspace = {
           ...currentWorkspace,
@@ -254,7 +313,7 @@ export default function RightChatPanel() {
       }
 
       setSelectedResultKeys(new Set());
-      if (response.addedNodes.length > 0) {
+      if (payload.addedNodes.length > 0) {
         setShowGraphAugmentedToast(true);
       }
     } catch (error) {
