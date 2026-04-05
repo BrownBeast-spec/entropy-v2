@@ -9,10 +9,14 @@ import {
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
-  Search as SearchIcon,
   Loader2,
+  PanelRightClose,
+  PanelRightOpen,
+  FlaskConical,
+  Sparkles,
+  Library,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 import { searchWorkspace, type SearchResult } from "@/lib/api/search";
 import { addNodesToWorkspace } from "@/lib/api/addNodes";
@@ -34,30 +38,55 @@ const recentConversations = [
   "A Brief Greeting to Start the Chat",
 ];
 
+type NotebookEntry = {
+  id: string;
+  query: string;
+  status: "running" | "complete" | "failed";
+  results: SearchResult[];
+  searchedSources: string[];
+  sourceDiagnostics: Record<string, string>;
+  executionTime?: number;
+  error?: string;
+};
+
+function keyForResult(entryId: string, resultId: string) {
+  return `${entryId}::${resultId}`;
+}
+
+function collapseLabel(isWorkspace: boolean) {
+  return isWorkspace ? "Collapse notebook" : "Collapse assistant";
+}
+
+function expandLabel(isWorkspace: boolean) {
+  return isWorkspace ? "Expand notebook" : "Expand assistant";
+}
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
+}
+
 export default function RightChatPanel() {
   const location = useLocation();
   const { queryId: routeQueryId } = useParams<{ queryId?: string }>();
   const { currentWorkspace } = useWorkspace();
   const { addNode, addEdge } = useWorkspaceActions();
-  const [message, setMessage] = useState("");
 
+  const [collapsed, setCollapsed] = useState(false);
+  const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [selectedResultIds, setSelectedResultIds] = useState<Set<string>>(
+  const [notebookEntries, setNotebookEntries] = useState<NotebookEntry[]>([]);
+  const [selectedResultKeys, setSelectedResultKeys] = useState<Set<string>>(
     new Set(),
   );
   const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [searchedSources, setSearchedSources] = useState<string[]>([]);
-  const [sourceDiagnostics, setSourceDiagnostics] = useState<
-    Record<string, string>
-  >({});
+  const [activeSearchCount, setActiveSearchCount] = useState(0);
   const [indiaLensFilter, setIndiaLensFilter] = useState(false);
   const [timelineStart, setTimelineStart] = useState("");
   const [timelineEnd, setTimelineEnd] = useState("");
 
   const isAgent = location.pathname === "/agent";
-  const isWorkspaces = location.pathname === "/workspaces" || location.pathname === "/";
+  const isWorkspaces =
+    location.pathname === "/workspaces" || location.pathname === "/";
   const isWorkspace = location.pathname.startsWith("/workspaces/");
 
   const activeQuery = currentWorkspace
@@ -68,19 +97,49 @@ export default function RightChatPanel() {
       currentWorkspace.queries[currentWorkspace.queries.length - 1]
     : undefined;
 
-  const currentPage = Object.entries(pageNames).find(([path]) =>
-    location.pathname.startsWith(path)
-  )?.[1] || "Topics";
+  const selectedResults = useMemo(() => {
+    const selected: SearchResult[] = [];
+
+    for (const entry of notebookEntries) {
+      for (const result of entry.results) {
+        if (selectedResultKeys.has(keyForResult(entry.id, result.id))) {
+          selected.push(result);
+        }
+      }
+    }
+
+    return selected;
+  }, [notebookEntries, selectedResultKeys]);
+
+  const currentPage =
+    Object.entries(pageNames).find(([path]) => location.pathname.startsWith(path))
+      ?.[1] || "Topics";
 
   const handleSearch = async () => {
     if (!currentWorkspace || !searchQuery.trim()) return;
 
+    const query = searchQuery.trim();
+    const entryId = `entry_${Date.now()}`;
+
     setIsSearching(true);
-    setSearchError(null);
+    setActiveSearchCount((count) => count + 1);
+    setSearchQuery("");
+
+    setNotebookEntries((prev) => [
+      ...prev,
+      {
+        id: entryId,
+        query,
+        status: "running",
+        results: [],
+        searchedSources: [],
+        sourceDiagnostics: {},
+      },
+    ]);
 
     try {
       const response = await searchWorkspace({
-        query: searchQuery,
+        query,
         graphSnapshot: {
           nodeIds: currentWorkspace.nodes.map((n) => n.id),
           edgeSummary: currentWorkspace.edges.map((e) => ({
@@ -89,7 +148,7 @@ export default function RightChatPanel() {
             type: e.type,
           })),
         },
-        personaMode: currentWorkspace.mode,
+        personaMode: activeQuery?.mode ?? currentWorkspace.mode,
         indiaLens: indiaLensFilter,
         workspaceId: currentWorkspace.id,
         queryId: activeQuery?.id,
@@ -97,69 +156,116 @@ export default function RightChatPanel() {
         timelineEnd: timelineEnd || undefined,
       });
 
-      setSearchResults(response.results);
-      setSearchedSources(response.searchedSources);
-      setSourceDiagnostics(response.sourceDiagnostics ?? {});
-      setSelectedResultIds(new Set());
+      setNotebookEntries((prev) =>
+        prev.map((entry) =>
+          entry.id === entryId
+            ? {
+                ...entry,
+                status: "complete",
+                results: response.results,
+                searchedSources: response.searchedSources,
+                sourceDiagnostics: response.sourceDiagnostics ?? {},
+                executionTime: response.executionTime,
+              }
+            : entry,
+        ),
+      );
+      setSelectedResultKeys(new Set());
     } catch (error) {
-      setSearchError(error instanceof Error ? error.message : "Search failed");
-      setSearchedSources([]);
-      setSourceDiagnostics({});
+      const message = error instanceof Error ? error.message : "Search failed";
+      setNotebookEntries((prev) =>
+        prev.map((entry) =>
+          entry.id === entryId
+            ? {
+                ...entry,
+                status: "failed",
+                error: message,
+              }
+            : entry,
+        ),
+      );
     } finally {
-      setIsSearching(false);
+      setActiveSearchCount((count) => {
+        const next = Math.max(0, count - 1);
+        setIsSearching(next > 0);
+        return next;
+      });
     }
   };
 
-  const handleToggleResult = (id: string) => {
-    const newSelected = new Set(selectedResultIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
+  const handleToggleResult = (resultKey: string) => {
+    const next = new Set(selectedResultKeys);
+    if (next.has(resultKey)) {
+      next.delete(resultKey);
     } else {
-      newSelected.add(id);
+      next.add(resultKey);
     }
-    setSelectedResultIds(newSelected);
+    setSelectedResultKeys(next);
   };
 
   const handleAddToGraph = async () => {
-    if (!currentWorkspace || selectedResultIds.size === 0) return;
-
-    const selected = searchResults.filter((r) => selectedResultIds.has(r.id));
-    const currentQuery = activeQuery;
+    if (!currentWorkspace || selectedResults.length === 0) return;
 
     try {
       const response = await addNodesToWorkspace({
         workspaceId: currentWorkspace.id,
-        queryId: currentQuery?.id || `query_${Date.now()}`,
-        selectedResults: selected,
+        queryId: activeQuery?.id || `query_${Date.now()}`,
+        selectedResults,
       });
 
       response.addedNodes.forEach((node) => addNode(node));
       response.addedEdges.forEach((edge) => addEdge(edge));
-
-      setSelectedResultIds(new Set());
+      setSelectedResultKeys(new Set());
     } catch (error) {
       console.error("Failed to add nodes:", error);
     }
   };
 
+  const renderCollapsedRail = (label: string) => (
+    <div className="w-14 min-w-14 h-screen flex flex-col items-center justify-between border-l border-border bg-card px-2 py-3">
+      <button
+        aria-label={expandLabel(isWorkspace)}
+        onClick={() => setCollapsed(false)}
+        className="h-9 w-9 rounded-lg border border-border bg-background hover:bg-accent transition-colors flex items-center justify-center"
+      >
+        <PanelRightOpen className="h-4 w-4 text-muted-foreground" />
+      </button>
+      <div className="text-2xs uppercase tracking-[0.18em] text-muted-foreground [writing-mode:vertical-rl] [text-orientation:mixed]">
+        {label}
+      </div>
+      <div className="h-9 w-9 rounded-lg bg-accent/50 border border-border" />
+    </div>
+  );
+
   if (isWorkspace && currentWorkspace) {
+    if (collapsed) {
+      return renderCollapsedRail("Notebook");
+    }
+
     return (
-      <div className="w-[340px] min-w-[340px] h-screen flex flex-col border-l border-border bg-card">
-        <div className="h-12 flex items-center justify-between px-4 border-b border-border">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <SearchIcon className="w-4 h-4" />
-            Search
+      <div className="w-[var(--chat-width)] min-w-[var(--chat-width)] h-screen flex flex-col border-l border-border bg-card">
+        <div className="h-14 flex items-center justify-between px-4 border-b border-border bg-gradient-to-r from-emerald-950/40 to-transparent">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Library className="w-4 h-4 text-emerald-400" />
+              Lab Notebook
+            </div>
+            <p className="text-2xs text-muted-foreground truncate mt-0.5">
+              {activeQuery?.text || "Capture evidence as a conversation"}
+            </p>
           </div>
-          <div className="flex items-center gap-1">
-            <button className="p-1 hover:bg-accent rounded transition-colors">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-          </div>
+          <button
+            aria-label={collapseLabel(true)}
+            onClick={() => setCollapsed(true)}
+            className="h-8 w-8 rounded-md border border-border bg-background hover:bg-accent transition-colors flex items-center justify-center"
+          >
+            <PanelRightClose className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
 
-        <div className="p-3 border-b border-border">
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <label className="text-2xs text-muted-foreground flex items-center gap-2">
+        <div className="border-b border-border px-3 py-2 bg-background/70">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-2xs text-muted-foreground flex items-center gap-2 rounded-md border border-border px-2 py-1 bg-accent/20">
               <input
                 aria-label="India Lens"
                 type="checkbox"
@@ -169,7 +275,7 @@ export default function RightChatPanel() {
               />
               India Lens
             </label>
-            <label className="text-2xs text-muted-foreground flex flex-col gap-1">
+            <label className="text-2xs text-muted-foreground flex flex-col gap-1 rounded-md border border-border px-2 py-1 bg-accent/20">
               Timeline Start
               <input
                 aria-label="Timeline Start"
@@ -179,7 +285,7 @@ export default function RightChatPanel() {
                 className="px-2 py-1 text-2xs bg-background border border-border rounded"
               />
             </label>
-            <label className="text-2xs text-muted-foreground flex flex-col gap-1 col-span-2">
+            <label className="text-2xs text-muted-foreground flex flex-col gap-1 rounded-md border border-border px-2 py-1 bg-accent/20 col-span-2">
               Timeline End
               <input
                 aria-label="Timeline End"
@@ -190,100 +296,182 @@ export default function RightChatPanel() {
               />
             </label>
           </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  void handleSearch();
-                }
-              }}
-              placeholder="Search MCP data sources..."
-              className="flex-1 px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <button
-              onClick={() => void handleSearch()}
-              disabled={isSearching || !searchQuery.trim()}
-              className="px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm font-medium"
-              aria-label="Search"
-            >
-              {isSearching ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Search"
-              )}
-            </button>
-          </div>
-          {searchError && (
-            <p className="text-2xs text-destructive mt-2">{searchError}</p>
-          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
-          {searchResults.length > 0 ? (
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground mb-2">
-                Results ({searchResults.length}) - Sort: Helpfulness
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_55%)]">
+          {notebookEntries.length === 0 ? (
+            <div className="rounded-xl border border-border bg-background/80 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <FlaskConical className="h-4 w-4 text-emerald-400" />
+                Start a notebook run
               </div>
-              <div className="text-2xs text-muted-foreground mb-2">
-                Sources: {searchedSources.length} successful
-                {Object.keys(sourceDiagnostics).length > 0
-                  ? `, ${Object.keys(sourceDiagnostics).length} unavailable`
-                  : ""}
-              </div>
-              {searchResults.map((result) => (
-                <SearchResultCard
-                  key={result.id}
-                  result={result}
-                  selected={selectedResultIds.has(result.id)}
-                  onToggle={handleToggleResult}
-                  onViewDetails={() => {
-                    // Reuse EntityDetailDrawer in workspace context (Phase 2 follow-up).
-                  }}
-                />
-              ))}
-              {Object.keys(sourceDiagnostics).length > 0 ? (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-2xs text-amber-200 space-y-1">
-                  {Object.entries(sourceDiagnostics).map(([source, reason]) => (
-                    <p key={source}>
-                      {source}: {reason}
-                    </p>
-                  ))}
-                </div>
-              ) : null}
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Ask a focused question, then review evidence cards and add selected
+                entities directly to your graph.
+              </p>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground text-center py-8">
-              {isSearching ? "Searching..." : "Enter a query to search"}
+            <div className="space-y-4">
+              {notebookEntries.map((entry) => {
+                const unavailableCount = Object.keys(entry.sourceDiagnostics).length;
+
+                return (
+                  <article
+                    key={entry.id}
+                    className="relative rounded-xl border border-border bg-background/85 p-3"
+                  >
+                    <div className="absolute left-3 top-3 h-[calc(100%-24px)] w-px bg-border/70" />
+
+                    <div className="pl-5 space-y-3">
+                      <div className="flex justify-end">
+                        <div className="max-w-[92%] rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                          <p className="text-2xs uppercase tracking-[0.14em] text-emerald-300/80 mb-1">
+                            You asked
+                          </p>
+                          <p className="text-sm text-foreground">{entry.query}</p>
+                        </div>
+                      </div>
+
+                      <div className="max-w-[96%] rounded-lg border border-border bg-card px-3 py-3 space-y-2">
+                        <div className="flex items-center gap-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+                          <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                          {entry.status === "complete"
+                            ? "Entropy found"
+                            : entry.status === "failed"
+                              ? "Entropy issue"
+                              : "Entropy searching"}
+                        </div>
+
+                        {entry.status === "running" ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Gathering evidence across connected sources...
+                          </div>
+                        ) : null}
+
+                        {entry.status === "failed" ? (
+                          <p className="text-xs text-destructive">
+                            {entry.error || "Search failed"}
+                          </p>
+                        ) : null}
+
+                        {entry.status === "complete" ? (
+                          <>
+                            <div className="flex items-center justify-between text-2xs text-muted-foreground">
+                              <span>
+                                Sources: {entry.searchedSources.length} successful
+                                {unavailableCount > 0
+                                  ? `, ${unavailableCount} unavailable`
+                                  : ""}
+                              </span>
+                              {entry.executionTime ? (
+                                <span>{entry.executionTime} ms</span>
+                              ) : null}
+                            </div>
+
+                            <div className="space-y-2">
+                              {entry.results.map((result) => {
+                                const resultKey = keyForResult(entry.id, result.id);
+
+                                return (
+                                  <SearchResultCard
+                                    key={resultKey}
+                                    result={{ ...result, id: resultKey }}
+                                    selected={selectedResultKeys.has(resultKey)}
+                                    onToggle={handleToggleResult}
+                                    onViewDetails={() => {
+                                      // Reuse EntityDetailDrawer in workspace context (follow-up).
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
+
+                            {unavailableCount > 0 ? (
+                              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-2xs text-amber-200 space-y-1">
+                                {Object.entries(entry.sourceDiagnostics).map(
+                                  ([source, reason]) => (
+                                    <p key={`${entry.id}-${source}`}>
+                                      {source}: {reason}
+                                    </p>
+                                  ),
+                                )}
+                              </div>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {selectedResultIds.size > 0 && (
-          <div className="p-3 border-t border-border bg-accent/30">
+        {selectedResultKeys.size > 0 ? (
+          <div className="px-3 py-2 border-t border-border bg-emerald-500/10">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground">
-                {selectedResultIds.size} selected
+                {selectedResultKeys.size} selected
               </span>
+              <span className="text-2xs text-emerald-300/80">Notebook action</span>
             </div>
             <button
               onClick={() => void handleAddToGraph()}
-              disabled={selectedResultIds.size === 0}
+              disabled={selectedResultKeys.size === 0}
               className="w-full px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm font-medium"
             >
               Add Selected to Graph
             </button>
           </div>
-        )}
+        ) : null}
+
+        <div className="p-3 border-t border-border bg-card/95">
+          <div className="bg-background rounded-xl border border-border px-2 py-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    void handleSearch();
+                  }
+                }}
+                placeholder="Search MCP data sources..."
+                className="flex-1 px-2 py-2 text-sm bg-transparent border-none focus:outline-none"
+              />
+              <button
+                onClick={() => void handleSearch()}
+                disabled={isSearching || !searchQuery.trim()}
+                className="px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm font-medium"
+                aria-label="Search"
+              >
+                {isSearching ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Search"
+                )}
+              </button>
+            </div>
+            {activeSearchCount > 0 ? (
+              <p className="text-2xs text-muted-foreground mt-2 px-2">
+                Notebook search in progress...
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
     );
   }
 
+  if (collapsed) {
+    return renderCollapsedRail("Assistant");
+  }
+
   return (
-    <div className="w-[340px] min-w-[340px] h-screen flex flex-col border-l border-border bg-card">
-      {/* Header */}
+    <div className="w-[var(--chat-width)] min-w-[var(--chat-width)] h-screen flex flex-col border-l border-border bg-card">
       <div className="h-12 flex items-center justify-between px-4 border-b border-border">
         {isAgent ? (
           <>
@@ -292,10 +480,25 @@ export default function RightChatPanel() {
               Agent
             </div>
             <div className="flex items-center gap-1">
-              <button className="p-1 hover:bg-accent rounded transition-colors"><Plus className="w-4 h-4 text-muted-foreground" /></button>
-              <button className="p-1 hover:bg-accent rounded transition-colors"><SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" /></button>
-              <button className="p-1 hover:bg-accent rounded transition-colors"><ChevronLeft className="w-4 h-4 text-muted-foreground" /></button>
-              <button className="p-1 hover:bg-accent rounded transition-colors"><ChevronRight className="w-4 h-4 text-muted-foreground" /></button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <Plus className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button
+                aria-label={collapseLabel(false)}
+                onClick={() => setCollapsed(true)}
+                className="p-1 hover:bg-accent rounded transition-colors"
+              >
+                <PanelRightClose className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
           </>
         ) : (
@@ -305,32 +508,52 @@ export default function RightChatPanel() {
               <span className="truncate">A Friendly Greeting to ...</span>
             </div>
             <div className="flex items-center gap-1">
-              <button className="p-1 hover:bg-accent rounded transition-colors"><Plus className="w-4 h-4 text-muted-foreground" /></button>
-              <button className="p-1 hover:bg-accent rounded transition-colors"><SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" /></button>
-              <button className="p-1 hover:bg-accent rounded transition-colors"><ChevronLeft className="w-4 h-4 text-muted-foreground" /></button>
-              <button className="p-1 hover:bg-accent rounded transition-colors"><ChevronRight className="w-4 h-4 text-muted-foreground" /></button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <Plus className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button className="p-1 hover:bg-accent rounded transition-colors">
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button
+                aria-label={collapseLabel(false)}
+                onClick={() => setCollapsed(true)}
+                className="p-1 hover:bg-accent rounded transition-colors"
+              >
+                <PanelRightClose className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
           </>
         )}
       </div>
 
-      {/* Chat content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {isAgent ? (
           <div className="p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Recent conversations</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              Recent conversations
+            </h3>
             <div className="space-y-0.5">
               {recentConversations.map((conv, i) => (
                 <button
                   key={i}
                   className={cn(
                     "w-full text-left px-3 py-2 rounded-md text-[13px] transition-colors",
-                    i === 0 ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    i === 0
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <span className="truncate">{conv}</span>
-                    {i === 0 && <MoreHorizontal className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                    {i === 0 ? (
+                      <MoreHorizontal className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    ) : null}
                   </div>
                 </button>
               ))}
@@ -340,12 +563,20 @@ export default function RightChatPanel() {
           <div className="p-4 space-y-4">
             <div className="bg-background rounded-lg p-4">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Hey — this is your Entropy research assistant. Create a workspace or open an existing one to get started.
+                Hey - this is your Entropy research assistant. Create a workspace or
+                open an existing one to get started.
               </p>
             </div>
             <div className="space-y-2">
-              {["Show me how workspaces work", "What data sources are connected?", "Create a workspace for metformin NASH research."].map((chip, i) => (
-                <button key={i} className="w-full text-left px-3 py-2 rounded-md text-[12px] text-muted-foreground bg-accent hover:bg-accent/80 transition-colors">
+              {[
+                "Show me how workspaces work",
+                "What data sources are connected?",
+                "Create a workspace for metformin NASH research.",
+              ].map((chip, i) => (
+                <button
+                  key={i}
+                  className="w-full text-left px-3 py-2 rounded-md text-[12px] text-muted-foreground bg-accent hover:bg-accent/80 transition-colors"
+                >
                   {chip}
                 </button>
               ))}
@@ -354,16 +585,19 @@ export default function RightChatPanel() {
         ) : (
           <div className="p-4">
             <div className="flex justify-end mb-3">
-              <div className="bg-accent rounded-lg px-3 py-2 text-sm text-foreground">Hey</div>
+              <div className="bg-accent rounded-lg px-3 py-2 text-sm text-foreground">
+                Hey
+              </div>
             </div>
             <div className="text-sm text-muted-foreground leading-relaxed">
-              Hey Alen! 👋 How can I help you today? I see you're on the {currentPage} page — want to explore any specific topics, trends, or anything else?
+              Hey Alen! How can I help you today? I see you're on the {currentPage}
+              {" "}
+              page - want to explore anything specific?
             </div>
           </div>
         )}
       </div>
 
-      {/* Input */}
       <div className="p-3 border-t border-border">
         <div className="bg-background rounded-lg border border-border">
           <textarea
@@ -376,12 +610,16 @@ export default function RightChatPanel() {
           <div className="flex items-center justify-between px-3 pb-2">
             <div className="flex items-center gap-2">
               <button className="w-5 h-5 rounded-full border border-border" />
-              <button><SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" /></button>
+              <button>
+                <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
               <button className="flex items-center gap-1 text-2xs text-muted-foreground">
                 <Calendar className="w-3 h-3" />
                 30d
               </button>
-              <button><Lock className="w-3 h-3 text-muted-foreground" /></button>
+              <button>
+                <Lock className="w-3 h-3 text-muted-foreground" />
+              </button>
             </div>
             <button className="w-7 h-7 rounded-md bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors">
               <Send className="w-3.5 h-3.5 text-primary-foreground" />
@@ -391,8 +629,4 @@ export default function RightChatPanel() {
       </div>
     </div>
   );
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
 }

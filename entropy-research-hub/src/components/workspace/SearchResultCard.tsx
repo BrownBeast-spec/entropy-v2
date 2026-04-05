@@ -30,6 +30,7 @@ export default function SearchResultCard({
             : "border-border hover:border-primary"
         }`}
         role="checkbox"
+        aria-label={`Select ${result.label}`}
         aria-checked={selected}
       >
         {selected && <Check className="h-3 w-3 text-primary-foreground" />}

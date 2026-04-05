@@ -17,6 +17,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Fixed manual search empty-result regression in `POST /api/entropy/search` by supporting `search_targets` tool-name variants and adding a UniProt fallback path (`search_uniprot`) when Open Targets-style target search is unavailable
 - Expanded manual search fanout for `POST /api/entropy/search` to query multiple MCP sources in parallel (Open Targets/UniProt/PubMed/Europe PMC/ClinicalTrials.gov/PatentsView/PubChem) and return `sourceDiagnostics` for unavailable sources instead of silent fallback-only behavior
 - Right sidebar search UX now surfaces source execution summary and per-source unavailability diagnostics in `RightChatPanel`, with test coverage updates
+- Right workspace rail now follows a chat-style "Lab Notebook" interaction model: per-query timeline entries (`You asked` / `Entropy found`), collapsible right rail, widened panel width token (`--chat-width: 400px`), and sticky selection tray for add-to-graph actions; added/expanded regression coverage in `RightChatPanel.test.tsx`
 
 - Backend PRD phase-1 causaly routes implemented and tested (`augment`, `synthesise`, `suggestions`)
 - Mastra helper agents for completeness/synthesis/follow-ups added and exported

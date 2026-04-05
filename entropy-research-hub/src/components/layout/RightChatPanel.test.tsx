@@ -141,7 +141,7 @@ describe("RightChatPanel - Workspace Mode", () => {
       expect(screen.getByText("AMPK")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    fireEvent.click(screen.getByRole("checkbox", { name: /select ampk/i }));
 
     expect(
       screen.getByRole("button", { name: /add selected to graph/i }),
@@ -193,5 +193,112 @@ describe("RightChatPanel - Workspace Mode", () => {
     expect(screen.getByLabelText(/india lens/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/timeline start/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/timeline end/i)).toBeInTheDocument();
+  });
+
+  it("should render notebook chat timeline for each search", async () => {
+    mockSearchWorkspace.mockResolvedValue({
+      results: [
+        {
+          id: "result_1",
+          entityId: "ENSG00001",
+          entityType: "protein",
+          label: "AMPK",
+          source: "STRING",
+          metadata: {},
+          helpfulness: {
+            score: 85,
+            explanation: "Fills gap",
+            gapsFilled: [],
+          },
+        },
+      ],
+      executionTime: 100,
+      searchedSources: ["STRING"],
+    });
+
+    renderInWorkspace();
+
+    fireEvent.change(screen.getByPlaceholderText(/search mcp data sources/i), {
+      target: { value: "AMPK targets" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/you asked/i)).toBeInTheDocument();
+      expect(screen.getByText(/entropy found/i)).toBeInTheDocument();
+    });
+  });
+
+  it("should allow collapsing and expanding the notebook panel", () => {
+    renderInWorkspace();
+
+    fireEvent.click(screen.getByRole("button", { name: /collapse notebook/i }));
+
+    expect(
+      screen.queryByPlaceholderText(/search mcp data sources/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /expand notebook/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /expand notebook/i }));
+    expect(
+      screen.getByPlaceholderText(/search mcp data sources/i),
+    ).toBeInTheDocument();
+  });
+
+  it("uses widened notebook panel width token", () => {
+    const { container } = renderInWorkspace();
+
+    const panel = container.firstChild as HTMLElement;
+    expect(panel.className).toContain("w-[var(--chat-width)]");
+  });
+
+  it("keeps search loading state while request is in flight", async () => {
+    let resolveSearch: ((value: unknown) => void) | undefined;
+    mockSearchWorkspace.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSearch = resolve;
+      }),
+    );
+
+    renderInWorkspace();
+
+    fireEvent.change(screen.getByPlaceholderText(/search mcp data sources/i), {
+      target: { value: "slow query" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    expect(screen.getByText(/notebook search in progress/i)).toBeInTheDocument();
+
+    resolveSearch?.({
+      results: [],
+      executionTime: 10,
+      searchedSources: [],
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/notebook search in progress/i),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("renders in-page entry error and no global error block for failed run", async () => {
+    mockSearchWorkspace.mockRejectedValueOnce(new Error("Source timeout"));
+
+    renderInWorkspace();
+
+    fireEvent.change(screen.getByPlaceholderText(/search mcp data sources/i), {
+      target: { value: "failing query" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/entropy issue/i)).toBeInTheDocument();
+      expect(screen.getByText(/source timeout/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/^Search failed$/i)).not.toBeInTheDocument();
   });
 });
