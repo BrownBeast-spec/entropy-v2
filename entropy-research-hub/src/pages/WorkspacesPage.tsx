@@ -63,16 +63,23 @@ export default function WorkspacesPage() {
 
       return [...workspaces]
         .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-        .map((ws) => ({
-          id: ws.id,
-          name: ws.name,
-          mode: ws.mode,
-          nodes: ws.nodes.length,
-          lastQuery: ws.queries.length
-            ? ws.queries[ws.queries.length - 1].text
-            : "No queries yet",
-          lastUpdated: toRelative(ws.updatedAt),
-        }));
+        .map((ws) => {
+          const activeQuery = ws.queries.find((query) => query.id === ws.activeQueryId);
+          const latestQuery =
+            activeQuery ??
+            ws.queries
+              .slice()
+              .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())[0];
+
+          return {
+            id: ws.id,
+            name: ws.name,
+            mode: latestQuery?.mode ?? ws.mode ?? "Researcher",
+            nodes: ws.nodes.length,
+            lastQuery: latestQuery?.text || "No queries yet",
+            lastUpdated: toRelative(ws.updatedAt),
+          };
+        });
     },
     [workspaces],
   );
@@ -82,11 +89,11 @@ export default function WorkspacesPage() {
   const [newMode, setNewMode] = useState<"Researcher" | "Strategist">("Researcher");
   const [showCreate, setShowCreate] = useState(false);
 
-  const handleCreateWorkspace = () => {
+  const handleCreateWorkspace = async () => {
     const name = newName.trim();
     if (!name) return;
 
-    const created = createWorkspace(name, newDesc.trim(), newMode);
+    const created = await createWorkspace(name, newDesc.trim(), newMode);
     setNewName("");
     setNewDesc("");
     setShowCreate(false);
@@ -192,11 +199,11 @@ export default function WorkspacesPage() {
                   Strategist
                 </button>
               </div>
-              <button
-                onClick={handleCreateWorkspace}
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
-                disabled={!newName.trim()}
-              >
+                <button
+                  onClick={() => void handleCreateWorkspace()}
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
+                  disabled={!newName.trim()}
+                >
                 Create and start researching
               </button>
             </div>

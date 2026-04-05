@@ -14,7 +14,8 @@ import SettingsMembers from "@/pages/settings/SettingsMembers";
 import SettingsIntegrations from "@/pages/settings/SettingsIntegrations";
 import SettingsMcpServers from "@/pages/settings/SettingsMcpServers";
 import NotFound from "@/pages/NotFound";
-import WorkspaceView from "@/pages/WorkspaceView";
+import WorkspaceQueriesPage from "@/pages/WorkspaceQueriesPage";
+import WorkspaceQueryView from "@/pages/WorkspaceQueryView";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 
 const queryClient = new QueryClient();
@@ -33,7 +34,11 @@ const App = () => (
               <Route path="/people" element={<PeoplePage />} />
               <Route path="/companies" element={<CompaniesPage />} />
               <Route path="/workspaces" element={<WorkspacesPage />} />
-              <Route path="/workspaces/:id" element={<WorkspaceView />} />
+              <Route path="/workspaces/:workspaceId" element={<WorkspaceQueriesPage />} />
+              <Route
+                path="/workspaces/:workspaceId/queries/:queryId"
+                element={<WorkspaceQueryView />}
+              />
               <Route path="/automations" element={<AutomationsPage />} />
               <Route path="/settings" element={<SettingsOrganization />} />
               <Route path="/settings/organization" element={<SettingsOrganization />} />

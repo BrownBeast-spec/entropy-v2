@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import WorkspaceView from "./WorkspaceView";
+import WorkspaceQueriesPage from "./WorkspaceQueriesPage";
 
 const mockSetCurrentWorkspace = vi.fn();
 
@@ -77,5 +78,17 @@ describe("WorkspaceView route behavior", () => {
 
     expect(mockSetCurrentWorkspace).toHaveBeenCalled();
     expect(screen.getByText("Workspace Alpha")).toBeInTheDocument();
+  });
+
+  it("routes workspace root to query list page", () => {
+    render(
+      <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
+        <Routes>
+          <Route path="/workspaces/:workspaceId" element={<WorkspaceQueriesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/Choose a query session/i)).toBeInTheDocument();
   });
 });
