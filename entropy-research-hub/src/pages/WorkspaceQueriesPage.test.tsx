@@ -118,8 +118,28 @@ describe("WorkspaceQueriesPage", () => {
     renderPage();
 
     expect(screen.getByText(/query sessions/i)).toBeInTheDocument();
-    expect(screen.getByText("Research")).toBeInTheDocument();
-    expect(screen.getByText("Strategy")).toBeInTheDocument();
+    expect(screen.getAllByText("Research").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Strategy").length).toBeGreaterThan(0);
+  });
+
+  it("supports quick onboarding input for first query", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText(/what are you investigating/i), {
+      target: { value: "AMPK for NASH" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /run first query/i }));
+
+    await waitFor(() => {
+      expect(mockUpdateWorkspace).toHaveBeenCalled();
+    });
+
+    const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
+    const newestQuery = updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
+    expect(newestQuery.text).toBe("AMPK for NASH");
+    expect(mockNavigate).toHaveBeenCalledWith(
+      `/workspaces/ws_1/queries/${updatedWorkspace.activeQueryId}`,
+    );
   });
 
   it("navigates when existing query row is clicked", () => {

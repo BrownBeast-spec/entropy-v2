@@ -83,6 +83,7 @@ export default function RightChatPanel() {
   const [indiaLensFilter, setIndiaLensFilter] = useState(false);
   const [timelineStart, setTimelineStart] = useState("");
   const [timelineEnd, setTimelineEnd] = useState("");
+  const [showGraphAugmentedToast, setShowGraphAugmentedToast] = useState(false);
 
   const isAgent = location.pathname === "/agent";
   const isWorkspaces =
@@ -115,10 +116,17 @@ export default function RightChatPanel() {
     Object.entries(pageNames).find(([path]) => location.pathname.startsWith(path))
       ?.[1] || "Topics";
 
-  const handleSearch = async () => {
-    if (!currentWorkspace || !searchQuery.trim()) return;
+  const querySeed = activeQuery?.text && activeQuery.text !== "New query"
+    ? activeQuery.text
+    : "";
 
-    const query = searchQuery.trim();
+  const hasOnboardingRun = notebookEntries.length > 0;
+
+  const handleSearch = async () => {
+    const incomingQuery = searchQuery.trim() || querySeed;
+    if (!currentWorkspace || !incomingQuery) return;
+
+    const query = incomingQuery;
     const entryId = `entry_${Date.now()}`;
 
     setIsSearching(true);
@@ -171,6 +179,7 @@ export default function RightChatPanel() {
         ),
       );
       setSelectedResultKeys(new Set());
+      setShowGraphAugmentedToast(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Search failed";
       setNotebookEntries((prev) =>
@@ -216,6 +225,9 @@ export default function RightChatPanel() {
       response.addedNodes.forEach((node) => addNode(node));
       response.addedEdges.forEach((edge) => addEdge(edge));
       setSelectedResultKeys(new Set());
+      if (response.addedNodes.length > 0) {
+        setShowGraphAugmentedToast(true);
+      }
     } catch (error) {
       console.error("Failed to add nodes:", error);
     }
@@ -264,6 +276,12 @@ export default function RightChatPanel() {
         </div>
 
         <div className="border-b border-border px-3 py-2 bg-background/70">
+          {!hasOnboardingRun ? (
+            <div className="mb-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-2xs text-emerald-200">
+              <p className="uppercase tracking-[0.12em] mb-1">Quick onboarding</p>
+              <p className="text-muted-foreground">Enter query → Fetch from sources → Add evidence to graph.</p>
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             <label className="text-2xs text-muted-foreground flex items-center gap-2 rounded-md border border-border px-2 py-1 bg-accent/20">
               <input
@@ -299,6 +317,11 @@ export default function RightChatPanel() {
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_55%)]">
+          {showGraphAugmentedToast ? (
+            <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs text-emerald-200">
+              Graph augmented with 1 evidence node.
+            </div>
+          ) : null}
           {notebookEntries.length === 0 ? (
             <div className="rounded-xl border border-border bg-background/80 p-4 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -359,6 +382,7 @@ export default function RightChatPanel() {
                           <>
                             <div className="flex items-center justify-between text-2xs text-muted-foreground">
                               <span>
+                                Fetching from sources complete. {" "}
                                 Sources: {entry.searchedSources.length} successful
                                 {unavailableCount > 0
                                   ? `, ${unavailableCount} unavailable`
@@ -444,7 +468,7 @@ export default function RightChatPanel() {
               />
               <button
                 onClick={() => void handleSearch()}
-                disabled={isSearching || !searchQuery.trim()}
+                disabled={isSearching || (!searchQuery.trim() && !querySeed)}
                 className="px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm font-medium"
                 aria-label="Search"
               >

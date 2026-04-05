@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, MessageSquare } from "lucide-react";
+import { Plus, MessageSquare, ArrowRight } from "lucide-react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 import type { Query, WorkspaceMode } from "@/types/workspace";
 
@@ -19,6 +19,8 @@ export default function WorkspaceQueriesPage() {
   const navigate = useNavigate();
   const { currentWorkspace, setCurrentWorkspace, workspaces } = useWorkspace();
   const { updateWorkspace } = useWorkspaceActions();
+  const [draftQuery, setDraftQuery] = useState("");
+  const [draftMode, setDraftMode] = useState<WorkspaceMode>("Researcher");
 
   const workspace = workspaces.find((ws) => ws.id === workspaceId);
 
@@ -50,13 +52,14 @@ export default function WorkspaceQueriesPage() {
     );
   }
 
-  const createQuery = async (mode: WorkspaceMode) => {
+  const createQuery = async (mode: WorkspaceMode, textOverride?: string) => {
     const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const queryText = (textOverride ?? "New query").trim() || "New query";
 
     const query: Query = {
       id: queryId,
       workspaceId: workspace.id,
-      text: "New query",
+      text: queryText,
       mode,
       indiaLens: false,
       submittedAt: new Date(),
@@ -97,6 +100,50 @@ export default function WorkspaceQueriesPage() {
           </div>
           <div className="text-2xs text-muted-foreground uppercase tracking-[0.12em] pt-1">
             {sortedQueries.length} sessions
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+          <p className="text-2xs uppercase tracking-[0.14em] text-emerald-300/90 mb-2">
+            First Query Fast-Start
+          </p>
+          <div className="flex flex-col gap-2">
+            <input
+              value={draftQuery}
+              onChange={(event) => setDraftQuery(event.target.value)}
+              placeholder="What are you investigating?"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setDraftMode("Researcher")}
+                className={`rounded-full px-2.5 py-1 text-2xs uppercase tracking-[0.14em] border ${
+                  draftMode === "Researcher"
+                    ? "bg-emerald-500 text-emerald-950 border-emerald-500"
+                    : "text-muted-foreground border-border"
+                }`}
+              >
+                Research
+              </button>
+              <button
+                onClick={() => setDraftMode("Strategist")}
+                className={`rounded-full px-2.5 py-1 text-2xs uppercase tracking-[0.14em] border ${
+                  draftMode === "Strategist"
+                    ? "bg-amber-400 text-amber-950 border-amber-400"
+                    : "text-muted-foreground border-border"
+                }`}
+              >
+                Strategy
+              </button>
+              <button
+                onClick={() => void createQuery(draftMode, draftQuery)}
+                disabled={!draftQuery.trim()}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                Run first query
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
 

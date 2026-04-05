@@ -301,4 +301,58 @@ describe("RightChatPanel - Workspace Mode", () => {
 
     expect(screen.queryByText(/^Search failed$/i)).not.toBeInTheDocument();
   });
+
+  it("shows onboarding progress to graph augmentation after add", async () => {
+    mockSearchWorkspace.mockResolvedValue({
+      results: [
+        {
+          id: "result_1",
+          entityId: "ENSG00001",
+          entityType: "protein",
+          label: "AMPK",
+          source: "STRING",
+          metadata: {},
+          helpfulness: {
+            score: 85,
+            explanation: "Fills gap",
+            gapsFilled: [],
+          },
+        },
+      ],
+      executionTime: 120,
+      searchedSources: ["STRING"],
+    });
+    mockAddNodesToWorkspace.mockResolvedValue({
+      addedNodes: [
+        {
+          id: "N1",
+          label: "AMPK",
+          type: "protein",
+          source: "STRING",
+          metadata: {},
+          addedByQuery: "q_1",
+        },
+      ],
+      addedEdges: [],
+      duplicatesSkipped: 0,
+    });
+
+    renderInWorkspace();
+
+    fireEvent.change(screen.getByPlaceholderText(/search mcp data sources/i), {
+      target: { value: "AMPK" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/fetching from sources/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select ampk/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add selected to graph/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/graph augmented with 1 evidence node/i)).toBeInTheDocument();
+    });
+  });
 });
