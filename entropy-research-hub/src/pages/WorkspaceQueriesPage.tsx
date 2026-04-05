@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus, MessageSquare } from "lucide-react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
-import type { WorkspaceMode } from "@/types/workspace";
+import type { Query, WorkspaceMode } from "@/types/workspace";
 
 function toRelative(date: Date): string {
   const diffMs = Math.max(0, Date.now() - date.getTime());
@@ -17,8 +17,8 @@ function toRelative(date: Date): string {
 export default function WorkspaceQueriesPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
-  const { workspaces } = useWorkspace();
-  const { addQuery } = useWorkspaceActions();
+  const { currentWorkspace, setCurrentWorkspace, workspaces } = useWorkspace();
+  const { updateWorkspace } = useWorkspaceActions();
 
   const workspace = workspaces.find((ws) => ws.id === workspaceId);
 
@@ -29,6 +29,19 @@ export default function WorkspaceQueriesPage() {
     );
   }, [workspace]);
 
+  const queryPills: Array<{ mode: WorkspaceMode; label: string; tone: string }> = [
+    {
+      mode: "Researcher",
+      label: "Research",
+      tone: "bg-emerald-500 text-emerald-950",
+    },
+    {
+      mode: "Strategist",
+      label: "Strategy",
+      tone: "bg-amber-400 text-amber-950",
+    },
+  ];
+
   if (!workspace) {
     return (
       <div className="p-6">
@@ -37,9 +50,10 @@ export default function WorkspaceQueriesPage() {
     );
   }
 
-  const createQuery = (mode: WorkspaceMode) => {
+  const createQuery = async (mode: WorkspaceMode) => {
     const queryId = `query_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    addQuery({
+
+    const query: Query = {
       id: queryId,
       workspaceId: workspace.id,
       text: "New query",
@@ -49,36 +63,67 @@ export default function WorkspaceQueriesPage() {
       status: "pending",
       contributedNodes: [],
       contributedEdges: [],
-    });
+    };
+
+    const updatedWorkspace = {
+      ...workspace,
+      queries: [...workspace.queries, query],
+      activeQueryId: queryId,
+      updatedAt: new Date(),
+    };
+
+    await updateWorkspace(updatedWorkspace);
+    if (!currentWorkspace || currentWorkspace.id !== workspace.id) {
+      setCurrentWorkspace(updatedWorkspace);
+    }
+
     navigate(`/workspaces/${workspace.id}/queries/${queryId}`);
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">{workspace.name}</h1>
-          <p className="text-sm text-muted-foreground">Choose a query session or create a new one.</p>
+    <div className="p-6 space-y-6 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_50%),radial-gradient(circle_at_bottom_left,_rgba(245,158,11,0.1),_transparent_45%)]">
+      <div className="rounded-xl border border-border bg-card/80 p-5 shadow-[0_20px_45px_-30px_rgba(16,185,129,0.55)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-2xs uppercase tracking-[0.2em] text-emerald-300/90 mb-2">
+              Query Sessions
+            </p>
+            <h1 className="text-2xl font-semibold text-foreground leading-tight">
+              {workspace.name}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Start a new run by choosing a lens below.
+            </p>
+          </div>
+          <div className="text-2xs text-muted-foreground uppercase tracking-[0.12em] pt-1">
+            {sortedQueries.length} sessions
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => createQuery("Researcher")}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4" />
-            New Researcher Query
-          </button>
-          <button
-            onClick={() => createQuery("Strategist")}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-accent"
-          >
-            <Plus className="w-4 h-4" />
-            New Strategist Query
-          </button>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {queryPills.map((pill) => (
+            <button
+              key={pill.mode}
+              onClick={() => void createQuery(pill.mode)}
+              className="group relative overflow-hidden rounded-lg border border-border bg-background/70 px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-[0_16px_30px_-24px_rgba(0,0,0,0.65)]"
+            >
+              <div
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-2xs font-semibold uppercase tracking-[0.14em] ${pill.tone}`}
+              >
+                {pill.label}
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">
+                  New {pill.mode} Query
+                </span>
+                <Plus className="h-4 w-4 text-muted-foreground transition-transform group-hover:rotate-90 group-hover:text-foreground" />
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="border border-border rounded-lg divide-y divide-border">
+      <div className="border border-border rounded-lg divide-y divide-border bg-card/90 backdrop-blur-sm">
         {sortedQueries.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground">
             No queries yet. Start one to begin research.
@@ -100,7 +145,9 @@ export default function WorkspaceQueriesPage() {
                 <span className="text-2xs text-muted-foreground">{toRelative(query.submittedAt)}</span>
               </div>
               <div className="mt-1 text-2xs text-muted-foreground flex items-center gap-3">
-                <span>{query.mode}</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5">
+                  {query.mode}
+                </span>
                 <span>Status: {query.status}</span>
                 <span>{query.contributedNodes.length} nodes</span>
               </div>

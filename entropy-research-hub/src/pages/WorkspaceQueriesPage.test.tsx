@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import WorkspaceQueriesPage from "./WorkspaceQueriesPage";
 
 const mockNavigate = vi.fn();
-const mockAddQuery = vi.fn();
+const mockUpdateWorkspace = vi.fn();
+const mockSetCurrentWorkspace = vi.fn();
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -16,6 +17,8 @@ vi.mock("react-router-dom", async () => {
 
 vi.mock("@/contexts/WorkspaceContext", () => ({
   useWorkspace: () => ({
+    currentWorkspace: null,
+    setCurrentWorkspace: mockSetCurrentWorkspace,
     workspaces: [
       {
         id: "ws_1",
@@ -43,13 +46,14 @@ vi.mock("@/contexts/WorkspaceContext", () => ({
     ],
   }),
   useWorkspaceActions: () => ({
-    addQuery: mockAddQuery,
+    updateWorkspace: mockUpdateWorkspace,
   }),
 }));
 
 describe("WorkspaceQueriesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUpdateWorkspace.mockResolvedValue(undefined);
   });
 
   const renderPage = () =>
@@ -68,21 +72,54 @@ describe("WorkspaceQueriesPage", () => {
     expect(screen.getByText("First query")).toBeInTheDocument();
   });
 
-  it("creates a researcher query and navigates to query view", () => {
+  it("creates a researcher query and persists workspace before navigating", async () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /new researcher query/i }));
 
-    expect(mockAddQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceId: "ws_1",
-        mode: "Researcher",
-        text: "New query",
-      }),
+    await waitFor(() => {
+      expect(mockUpdateWorkspace).toHaveBeenCalled();
+    });
+
+    const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
+    expect(updatedWorkspace).toMatchObject({
+      id: "ws_1",
+      activeQueryId: expect.stringMatching(/^query_/),
+    });
+    expect(updatedWorkspace.queries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workspaceId: "ws_1",
+          mode: "Researcher",
+        }),
+      ]),
     );
+    expect(mockSetCurrentWorkspace).toHaveBeenCalledWith(updatedWorkspace);
     expect(mockNavigate).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/workspaces\/ws_1\/queries\/query_/),
+      `/workspaces/ws_1/queries/${updatedWorkspace.activeQueryId}`,
     );
+  });
+
+  it("creates a strategist query from query-list page", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: /new strategist query/i }));
+
+    await waitFor(() => {
+      expect(mockUpdateWorkspace).toHaveBeenCalled();
+    });
+
+    const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
+    const newestQuery = updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
+    expect(newestQuery.mode).toBe("Strategist");
+  });
+
+  it("renders bolder query-mode cards", () => {
+    renderPage();
+
+    expect(screen.getByText(/query sessions/i)).toBeInTheDocument();
+    expect(screen.getByText("Research")).toBeInTheDocument();
+    expect(screen.getByText("Strategy")).toBeInTheDocument();
   });
 
   it("navigates when existing query row is clicked", () => {

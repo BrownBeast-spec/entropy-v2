@@ -6,7 +6,6 @@ import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 interface WorkspaceRow {
   id: string;
   name: string;
-  mode: "Researcher" | "Strategist";
   nodes: number;
   lastQuery: string;
   lastUpdated: string;
@@ -27,7 +26,6 @@ const fallbackRows: WorkspaceRow[] = [
   {
     id: "demo-1",
     name: "Metformin NASH Pipeline",
-    mode: "Researcher",
     nodes: 47,
     lastQuery: "NASH drug targets with FDA...",
     lastUpdated: "2h ago",
@@ -35,7 +33,6 @@ const fallbackRows: WorkspaceRow[] = [
   {
     id: "demo-2",
     name: "Competitive Intelligence - Oncology",
-    mode: "Strategist",
     nodes: 123,
     lastQuery: "Top 5 PD-L1 inhibitors...",
     lastUpdated: "1d ago",
@@ -43,7 +40,6 @@ const fallbackRows: WorkspaceRow[] = [
   {
     id: "demo-3",
     name: "India Regulatory Landscape",
-    mode: "Researcher",
     nodes: 31,
     lastQuery: "CDSCO approval timeline...",
     lastUpdated: "3d ago",
@@ -74,7 +70,6 @@ export default function WorkspacesPage() {
           return {
             id: ws.id,
             name: ws.name,
-            mode: latestQuery?.mode ?? ws.mode ?? "Researcher",
             nodes: ws.nodes.length,
             lastQuery: latestQuery?.text || "No queries yet",
             lastUpdated: toRelative(ws.updatedAt),
@@ -86,14 +81,13 @@ export default function WorkspacesPage() {
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newMode, setNewMode] = useState<"Researcher" | "Strategist">("Researcher");
   const [showCreate, setShowCreate] = useState(false);
 
   const handleCreateWorkspace = async () => {
     const name = newName.trim();
     if (!name) return;
 
-    const created = await createWorkspace(name, newDesc.trim(), newMode);
+    const created = await createWorkspace(name, newDesc.trim(), "Researcher");
     setNewName("");
     setNewDesc("");
     setShowCreate(false);
@@ -125,7 +119,6 @@ export default function WorkspacesPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Workspace Name</th>
-                <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Mode</th>
                 <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Nodes</th>
                 <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Last Query</th>
                 <th className="text-left px-4 py-3 text-2xs font-medium text-muted-foreground uppercase">Last Updated</th>
@@ -140,12 +133,6 @@ export default function WorkspacesPage() {
                   className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
                 >
                   <td className="px-4 py-3 text-sm text-foreground font-medium">{ws.name}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1.5 text-2xs px-2 py-0.5 rounded-full ${ws.mode === "Researcher" ? "bg-blue-500/10 text-blue-400" : "bg-amber-500/10 text-amber-400"}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${ws.mode === "Researcher" ? "bg-blue-400" : "bg-amber-400"}`} />
-                      {ws.mode}
-                    </span>
-                  </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{ws.nodes}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground truncate max-w-[200px]">{ws.lastQuery}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{ws.lastUpdated}</td>
@@ -185,19 +172,9 @@ export default function WorkspacesPage() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1 bg-accent border border-border rounded-lg p-0.5">
-                <button
-                  onClick={() => setNewMode("Researcher")}
-                  className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-colors ${newMode === "Researcher" ? "bg-blue-500/20 text-blue-400" : "text-muted-foreground"}`}
-                >
-                  Researcher
-                </button>
-                <button
-                  onClick={() => setNewMode("Strategist")}
-                  className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-colors ${newMode === "Strategist" ? "bg-amber-500/20 text-amber-400" : "text-muted-foreground"}`}
-                >
-                  Strategist
-                </button>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-2xs uppercase tracking-[0.14em] text-emerald-300/90">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                Query mode is selected inside workspace
               </div>
                 <button
                   onClick={() => void handleCreateWorkspace()}

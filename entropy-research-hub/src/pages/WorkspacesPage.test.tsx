@@ -80,7 +80,6 @@ describe("WorkspacesPage", () => {
       target: { value: "Regulatory + target evidence" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Strategist/i }));
     fireEvent.click(
       screen.getByRole("button", { name: /Create and start researching/i }),
     );
@@ -89,7 +88,7 @@ describe("WorkspacesPage", () => {
       expect(mockCreateWorkspace).toHaveBeenCalledWith(
         "Metformin India Lens",
         "Regulatory + target evidence",
-        "Strategist",
+        "Researcher",
       );
       expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_new");
     });
@@ -106,7 +105,7 @@ describe("WorkspacesPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1");
   });
 
-  it("shows mode from latest query session when available", () => {
+  it("shows latest query summary without a mode column", () => {
     mockUseWorkspace.mockReturnValueOnce({
       workspaces: [
         {
@@ -154,7 +153,21 @@ describe("WorkspacesPage", () => {
     );
 
     expect(screen.getByText("Workspace Query Mode")).toBeInTheDocument();
-    expect(screen.getAllByText("Strategist").length).toBeGreaterThan(0);
     expect(screen.getByText("latest")).toBeInTheDocument();
+    expect(screen.queryByText(/^Mode$/i)).not.toBeInTheDocument();
+  });
+
+  it("does not show researcher/strategist switcher in workspace creation", () => {
+    render(
+      <MemoryRouter>
+        <WorkspacesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("button", { name: /^Researcher$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Strategist$/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/query mode is selected inside workspace/i),
+    ).toBeInTheDocument();
   });
 });

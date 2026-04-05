@@ -89,6 +89,6 @@ describe("WorkspaceView route behavior", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/Choose a query session/i)).toBeInTheDocument();
+    expect(screen.getByText(/start a new run by choosing a lens below/i)).toBeInTheDocument();
   });
 });
