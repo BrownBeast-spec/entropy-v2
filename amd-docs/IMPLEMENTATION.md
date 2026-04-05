@@ -46,6 +46,8 @@ Latest execution update (worktree: `amdv2-phase1`):
 - KnowledgeGraphPanel now tears down Cytoscape immediately when view mode leaves Graph (e.g., switching to Timeline/Dendrogram) so hidden-view transitions cannot leave stale RAF/layout work running against a destroyed renderer
 - **Fixed persistent `renderer3 is null` crash**: Disabled Cytoscape layout animation (`animate: false`) to prevent requestAnimationFrame loops from continuing after instance destruction; the animation's RAF callbacks were attempting to call `renderer3.notify()` after the renderer was destroyed during component unmount or view-mode switches, causing runtime crashes despite proper `stop()` + `destroy()` sequencing
 - **Fixed "Load Demo Data" race condition**: Updated `handleLoadDemoData` in WorkspaceView to add all demo nodes and edges in a single atomic workspace update instead of calling `addNode`/`addEdge` in a loop, preventing persistence race conditions where only partial data would be saved
+- Implemented Phase 1 manual search-select backend foundation: added `scoreHelpfulness` agent (duplicate detection, novelty/gap scoring, bootstrap query relevance), new manual-search contract on `POST /api/entropy/search`, and new `POST /api/workspace/add-nodes` conversion endpoint with batch deduplication
+- Added Phase 1 test coverage for new backend contracts and scoring logic: `apps/mastra-app/src/__tests__/helpfulness-agent.test.ts`, `apps/api/src/__tests__/search.test.ts`, and `apps/api/src/__tests__/add-nodes.test.ts`
 
 ## Status legend
 

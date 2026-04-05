@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { errorResponse } from "../middleware/error-handler.js";
+import { scoreHelpfulness } from "@entropy/mastra-app/src/index.js";
 import {
   getBiologyTools,
   getClinicalTrialsTools,
@@ -40,6 +41,37 @@ const SearchInputSchema = z.object({
   q: z.string().trim().min(1),
   types: z.array(SearchTypeSchema).default([...DEFAULT_TYPES]),
   limit: z.number().int().min(1).max(25).default(10),
+});
+
+const ManualGraphSnapshotSchema = z.object({
+  nodeIds: z.array(z.string()).default([]),
+  edgeSummary: z.array(z.record(z.unknown())).default([]),
+});
+
+const ManualSearchRequestSchema = z.object({
+  query: z.string().trim().min(1),
+  graphSnapshot: ManualGraphSnapshotSchema,
+  personaMode: z.enum(["Researcher", "Strategist"]),
+  indiaLens: z.boolean(),
+  workspaceId: z.string().trim().min(1),
+  maxResults: z.number().int().min(1).max(100).optional(),
+});
+
+const AddNodesRequestSchema = z.object({
+  workspaceId: z.string().trim().min(1),
+  queryId: z.string().trim().min(1),
+  selectedResults: z.array(
+    z.object({
+      id: z.string().trim().min(1),
+      entityId: z.string().trim().min(1),
+      entityType: z.string().trim().min(1),
+      label: z.string().trim().min(1),
+      source: z.string().trim().min(1),
+      metadata: z.record(z.unknown()),
+      evidenceScore: z.number().optional(),
+      indiaRelevant: z.boolean().optional(),
+    }),
+  ),
 });
 
 type SearchType = z.infer<typeof SearchTypeSchema>;
@@ -82,6 +114,12 @@ type SearchSummary = {
 };
 
 type ToolMap = Record<string, unknown>;
+type SearchTargetsFn = (
+  input: Record<string, unknown>,
+) => Promise<unknown>;
+type SearchTargetsTool = {
+  execute: (input: Record<string, unknown>, context?: unknown) => Promise<unknown>;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -1031,6 +1069,147 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
   };
 }
 
+type ManualSearchResult = {
+  id: string;
+  entityId: string;
+  entityType: string;
+  label: string;
+  source: string;
+  metadata: Record<string, unknown>;
+  helpfulness: {
+    score: number;
+    explanation: string;
+    gapsFilled: string[];
+  };
+  evidenceScore?: number;
+  indiaRelevant?: boolean;
+};
+
+async function runManualSearch(
+  input: z.infer<typeof ManualSearchRequestSchema>,
+): Promise<{
+  results: ManualSearchResult[];
+  executionTime: number;
+  searchedSources: string[];
+}> {
+  const isBootstrap = input.graphSnapshot.nodeIds.length === 0;
+  const resultLimit = input.maxResults ?? (isBootstrap ? 25 : 10);
+
+  const biologyTools = await getBiologyTools();
+  const rawResults: Array<Record<string, unknown>> = [];
+  const searchedSources: string[] = [];
+
+  const maybeSearchTargets = biologyTools.searchTargets as
+    | SearchTargetsTool
+    | SearchTargetsFn
+    | undefined;
+
+  if (
+    isRecord(maybeSearchTargets) &&
+    typeof maybeSearchTargets.execute === "function"
+  ) {
+    try {
+      const toolResult = await maybeSearchTargets.execute({
+        query: input.query,
+        limit: resultLimit,
+      });
+      const parsed = parseToolPayload(toolResult);
+      const targets = asRecordArray(parsed?.targets ?? parsed?.results ?? parsed?.items);
+      if (targets.length > 0) {
+        rawResults.push(...targets.map((target) => ({ ...target, source: "Open Targets" })));
+        searchedSources.push("Open Targets");
+      }
+    } catch {
+      // Ignore source failure in phase 1 manual search path.
+    }
+  } else if (typeof maybeSearchTargets === "function") {
+    try {
+      const fn = maybeSearchTargets as SearchTargetsFn;
+      const targets = await fn({
+        query: input.query,
+        limit: resultLimit,
+      });
+      if (Array.isArray(targets)) {
+        const records = targets.filter(isRecord);
+        rawResults.push(...records.map((target) => ({ ...target, source: "Open Targets" })));
+        searchedSources.push("Open Targets");
+      }
+    } catch {
+      // Ignore source failure in phase 1 manual search path.
+    }
+  }
+
+  const nodeTypes = input.graphSnapshot.nodeIds.reduce(
+    (acc, nodeId) => {
+      acc[nodeId] = "protein";
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+
+  const scoredResults: ManualSearchResult[] = await Promise.all(
+    rawResults.map(async (raw, index) => {
+      const entityId =
+        asString(raw.id) ??
+        asString(raw.entityId) ??
+        asString(raw.target_id) ??
+        `unknown-${index}`;
+      const entityType = asString(raw.type) ?? asString(raw.entityType) ?? "protein";
+      const label =
+        asString(raw.label) ??
+        asString(raw.name) ??
+        asString(raw.title) ??
+        entityId;
+      const metadata = isRecord(raw.metadata)
+        ? raw.metadata
+        : {
+            ...raw,
+          };
+      const source = asString(raw.source) ?? "Open Targets";
+
+      const helpfulness = await scoreHelpfulness({
+        result: {
+          entityId,
+          entityType,
+          label,
+          source,
+          metadata,
+        },
+        graphSnapshot: {
+          nodeIds: input.graphSnapshot.nodeIds,
+          nodeTypes,
+          edgeSummary: input.graphSnapshot.edgeSummary.map((edge) => ({
+            source: asString(edge.source) ?? "",
+            target: asString(edge.target) ?? "",
+            type: asString(edge.type) ?? "",
+          })),
+        },
+        queryContext: input.query,
+      });
+
+      return {
+        id: `result_${Date.now()}_${index}`,
+        entityId,
+        entityType,
+        label,
+        source,
+        metadata,
+        helpfulness,
+        evidenceScore: asNumber(raw.evidenceScore),
+        indiaRelevant: false,
+      };
+    }),
+  );
+
+  scoredResults.sort((a, b) => b.helpfulness.score - a.helpfulness.score);
+
+  return {
+    results: scoredResults.slice(0, resultLimit),
+    executionTime: 0,
+    searchedSources,
+  };
+}
+
 function parsePostInput(body: unknown): unknown {
   if (!isRecord(body)) {
     return {
@@ -1085,6 +1264,30 @@ entropy.post("/search", async (c) => {
     return errorResponse(c, 400, "BAD_REQUEST", "Invalid JSON body");
   }
 
+  const manualParsed = ManualSearchRequestSchema.safeParse(body);
+  if (manualParsed.success) {
+    const payload = await runManualSearch(manualParsed.data);
+    return c.json(payload);
+  }
+
+  const isLikelyManualRequest =
+    isRecord(body) &&
+    ("query" in body ||
+      "graphSnapshot" in body ||
+      "workspaceId" in body ||
+      "personaMode" in body ||
+      "indiaLens" in body);
+
+  if (isLikelyManualRequest) {
+    return c.json(
+      {
+        error: "Invalid request",
+        details: manualParsed.error.issues,
+      },
+      400,
+    );
+  }
+
   const parsed = SearchInputSchema.safeParse(parsePostInput(body));
   if (!parsed.success) {
     return errorResponse(c, 400, "VALIDATION_ERROR", "Invalid request body", {
@@ -1095,5 +1298,63 @@ entropy.post("/search", async (c) => {
   const payload = await runUnifiedSearch(parsed.data);
   return c.json(payload);
 });
+
+const workspace = new Hono();
+
+workspace.post("/add-nodes", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid request", details: [] }, 400);
+  }
+
+  const parsed = AddNodesRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      {
+        error: "Invalid request",
+        details: parsed.error.issues,
+      },
+      400,
+    );
+  }
+
+  const seen = new Set<string>();
+  const uniqueResults = parsed.data.selectedResults.filter((result) => {
+    if (seen.has(result.entityId)) {
+      return false;
+    }
+    seen.add(result.entityId);
+    return true;
+  });
+
+  const duplicatesSkipped = parsed.data.selectedResults.length - uniqueResults.length;
+
+  const addedNodes = uniqueResults.map((result) => ({
+    id: result.entityId,
+    label: result.label,
+    type: result.entityType,
+    source: result.source,
+    metadata: result.metadata,
+    evidenceScore: result.evidenceScore,
+    addedByQuery: parsed.data.queryId,
+    indiaRelevant: result.indiaRelevant ?? false,
+  }));
+
+  return c.json({
+    addedNodes,
+    addedEdges: [],
+    duplicatesSkipped,
+  });
+});
+
+export function createSearchRoute() {
+  return entropy;
+}
+
+export function createWorkspaceRoute() {
+  return workspace;
+}
 
 export { entropy };

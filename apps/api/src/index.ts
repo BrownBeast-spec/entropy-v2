@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { research } from "./routes/research.js";
 import { health } from "./routes/health.js";
-import { entropy } from "./routes/entropy.js";
+import { createSearchRoute, createWorkspaceRoute } from "./routes/entropy.js";
 import { causaly } from "./routes/causaly.js";
 
 const app = new Hono();
@@ -19,7 +19,8 @@ app.use(
 
 app.route("/api/research", research);
 app.route("/api/health", health);
-app.route("/api/entropy", entropy);
+app.route("/api/entropy", createSearchRoute());
+app.route("/api/workspace", createWorkspaceRoute());
 app.route("/api/causaly", causaly);
 
 // Dynamically import the chat route so a missing @copilotkit/runtime install
