@@ -8,6 +8,23 @@ export { gapAnalystAgent } from "./agents/gap-analyst.js";
 export { verifierAgent } from "./agents/verifier.js";
 export { queryPlannerAgent } from "./agents/query-planner.js";
 export { evidenceSummarizerAgent } from "./agents/evidence-summarizer.js";
+export {
+  evaluateCompleteness,
+  type CompletenessInput,
+  type CompletenessResult,
+} from "./agents/completeness-agent.js";
+export {
+  summariseFromGraph,
+  type SynthesisCitation,
+  type SynthesisSection,
+  type SynthesisResult,
+} from "./agents/synthesis-agent.js";
+export { suggestFollowups, type FollowUpResult } from "./agents/followup-agent.js";
+export {
+  scoreHelpfulness,
+  type HelpfulnessInput,
+  type HelpfulnessOutput,
+} from "./agents/helpfulness-agent.js";
 export { researchPipelineWorkflow } from "./workflows/research-pipeline.js";
 export {
   getAuditStore,
