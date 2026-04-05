@@ -29,6 +29,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Workspace query persistence wiring is now backend-first for query creation: `src/lib/api/workspace.ts` adds typed `createQuery` and `getWorkspaceQueries` clients for `/api/workspace/:id/queries` with wrapped/raw response normalization, and `WorkspaceQueriesPage` now blocks local query creation fallback (shows inline error + keeps user on composer when API create fails); regression coverage updated in `workspace.test.ts` and `WorkspaceQueriesPage.test.tsx`
 - Workspace backend hydration now includes query-session sync in `WorkspaceContext`: selected workspace sync path now fetches `/api/workspace/:id/queries`, normalizes query fields/dates, and updates `activeQueryId` from backend query order while retaining local-query fallback if query-list API fails
 - `WorkspaceQueriesPage` now refreshes query list from backend after successful query creation (via `getWorkspaceQueries`) before persisting/navigating, so query list ordering and active query selection mirror server state; if query-list refresh fails, it falls back to the just-created query instead of local random ID generation
+- Query composer submit UX now differentiates backend phases: button label transitions `Creating...` -> `Syncing...` during post-create query-list refresh, while submit remains disabled until refresh completes
 
 - Backend PRD phase-1 causaly routes implemented and tested (`augment`, `synthesise`, `suggestions`)
 - Mastra helper agents for completeness/synthesis/follow-ups added and exported

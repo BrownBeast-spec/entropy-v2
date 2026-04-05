@@ -383,6 +383,89 @@ describe("WorkspaceQueriesPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_4");
   });
 
+  it("shows syncing state while refreshing query list after create", async () => {
+    renderPage();
+
+    mockCreateQuery.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "query_backend_sync",
+        workspaceId: "ws_1",
+        text: "sync me",
+        mode: "Researcher",
+        indiaLens: false,
+        submittedAt: "2026-04-03T00:00:00.000Z",
+        status: "pending",
+        contributedNodes: [],
+        contributedEdges: [],
+      },
+    });
+
+    let resolveRefresh:
+      | ((value: {
+          success: boolean;
+          data: {
+            queries: Array<{
+              id: string;
+              workspaceId: string;
+              text: string;
+              mode: "Researcher" | "Strategist";
+              indiaLens: boolean;
+              submittedAt: string;
+              status: "pending" | "running" | "complete" | "failed";
+              contributedNodes: string[];
+              contributedEdges: string[];
+            }>;
+          };
+        }) => void)
+      | null = null;
+
+    mockGetWorkspaceQueries.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+      target: { value: "sync me" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /syncing/i })).toBeDisabled();
+    });
+
+    resolveRefresh?.({
+      success: true,
+      data: {
+        queries: [
+          {
+            id: "query_backend_sync",
+            workspaceId: "ws_1",
+            text: "sync me",
+            mode: "Researcher",
+            indiaLens: false,
+            submittedAt: "2026-04-03T00:00:00.000Z",
+            status: "pending",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
+      },
+    });
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_sync");
+    });
+
+    expect(screen.queryByRole("button", { name: /syncing/i })).not.toBeInTheDocument();
+  });
+
   it("navigates when existing query row is clicked", () => {
     renderPage();
 

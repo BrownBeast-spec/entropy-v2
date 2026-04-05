@@ -28,6 +28,7 @@ export default function WorkspaceQueriesPage() {
   const [modeDraft, setModeDraft] = useState<WorkspaceMode>("Researcher");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshingQueries, setIsRefreshingQueries] = useState(false);
 
   const workspace = workspaces.find((ws) => ws.id === workspaceId);
 
@@ -76,6 +77,7 @@ export default function WorkspaceQueriesPage() {
       };
 
       const fallbackQueries = [...workspace.queries, query];
+      setIsRefreshingQueries(true);
 
       const syncedQueries = await getWorkspaceQueriesApi(workspace.id)
         .then((response) =>
@@ -94,6 +96,7 @@ export default function WorkspaceQueriesPage() {
           })),
         )
         .catch(() => fallbackQueries);
+      setIsRefreshingQueries(false);
 
       const activeQueryId =
         syncedQueries.find((item) => item.id === query.id)?.id ?? query.id;
@@ -119,6 +122,7 @@ export default function WorkspaceQueriesPage() {
           : "Failed to create query. Please try again.",
       );
     } finally {
+      setIsRefreshingQueries(false);
       setIsSubmitting(false);
     }
   };
@@ -177,10 +181,14 @@ export default function WorkspaceQueriesPage() {
               </button>
               <button
                 onClick={() => void createQuery()}
-                disabled={!queryDraft.trim() || isSubmitting}
+                disabled={!queryDraft.trim() || isSubmitting || isRefreshingQueries}
                 className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
               >
-                {isSubmitting ? "Creating..." : "Run Query"}
+                {isRefreshingQueries
+                  ? "Syncing..."
+                  : isSubmitting
+                    ? "Creating..."
+                    : "Run Query"}
                 <SendHorizonal className="h-3.5 w-3.5" />
               </button>
             </div>
