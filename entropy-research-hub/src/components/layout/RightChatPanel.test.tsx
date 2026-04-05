@@ -325,18 +325,19 @@ describe("RightChatPanel - Workspace Mode", () => {
       searchedSources: ["STRING"],
     });
     mockAddNodesToWorkspace.mockResolvedValue({
-      addedNodes: [
-        {
-          id: "N1",
-          label: "AMPK",
-          type: "protein",
-          source: "STRING",
-          metadata: {},
-          addedByQuery: "q_1",
-        },
-      ],
-      addedEdges: [],
-      duplicatesSkipped: 0,
+      data: {
+        addedNodes: [
+          {
+            id: "N1",
+            label: "AMPK",
+            type: "protein",
+            source: "STRING",
+            metadata: {},
+            addedByQuery: "q_1",
+          },
+        ],
+        inferredEdges: [],
+      },
     });
 
     renderInWorkspace();
@@ -398,18 +399,19 @@ describe("RightChatPanel - Workspace Mode", () => {
       searchedSources: ["STRING"],
     });
     mockAddNodesToWorkspace.mockResolvedValue({
-      addedNodes: [
-        {
-          id: "N1",
-          label: "AMPK",
-          type: "protein",
-          source: "STRING",
-          metadata: {},
-          addedByQuery: "q_1",
-        },
-      ],
-      addedEdges: [],
-      duplicatesSkipped: 0,
+      data: {
+        addedNodes: [
+          {
+            id: "N1",
+            label: "AMPK",
+            type: "protein",
+            source: "STRING",
+            metadata: {},
+            addedByQuery: "q_1",
+          },
+        ],
+        inferredEdges: [],
+      },
     });
 
     renderInWorkspace();

@@ -277,11 +277,7 @@ export default function RightChatPanel() {
 
       const payload = "data" in response ? response.data : response;
 
-      const returnedEdges = [
-        ...(payload.inferredEdges ?? []),
-        ...(((payload as { addedEdges?: typeof payload.inferredEdges }).addedEdges ??
-          []) as typeof payload.inferredEdges),
-      ];
+      const returnedEdges = payload.inferredEdges ?? [];
 
       payload.addedNodes.forEach((node) => addNode(node));
       returnedEdges.forEach((edge) => addEdge(edge));
