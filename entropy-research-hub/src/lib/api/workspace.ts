@@ -22,6 +22,7 @@ export interface CreateWorkspaceResponse {
     mode: WorkspaceMode;
     indiaLens: boolean;
     createdAt: string;
+    updatedAt?: string;
   };
 }
 
@@ -34,6 +35,7 @@ export interface GetWorkspaceResponse {
     mode: WorkspaceMode;
     indiaLens: boolean;
     createdAt: string;
+    updatedAt?: string;
   };
 }
 

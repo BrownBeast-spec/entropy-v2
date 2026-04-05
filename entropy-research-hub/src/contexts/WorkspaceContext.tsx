@@ -262,7 +262,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         mode: workspaceMeta.data.mode,
         indiaLens: workspaceMeta.data.indiaLens,
         createdAt: workspaceMeta.data.createdAt,
-        updatedAt: workspaceMeta.data.createdAt,
+        updatedAt: workspaceMeta.data.updatedAt ?? workspaceMeta.data.createdAt,
         nodes: workspaceGraph.data.nodes,
         edges: workspaceGraph.data.edges,
         queries: [],
