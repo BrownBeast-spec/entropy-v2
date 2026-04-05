@@ -11,6 +11,13 @@ This document captures what is actually implemented right now, what is scaffolde
 
 Latest execution update (worktree: `amdv2-phase1`):
 
+- Phase 2 manual search-select frontend implemented in `amdv2-phase2`: added search/add-nodes API clients, `SearchResultCard`, workspace search mode in `RightChatPanel`, `MetricCard` + dynamic report metrics, report staleness badge, and a simplified `WorkspaceView` layout with no in-page query sidebar
+- Added/updated Phase 2 frontend tests: `RightChatPanel.test.tsx`, `SearchResultCard.test.tsx`, `search.test.ts`, `addNodes.test.ts`, `reportMetrics.test.ts`, `WorkspaceView.search-layout.test.tsx`, and `WorkspaceView.integration.test.tsx`
+- Replaced obsolete query-lifecycle suite tied to autonomous left-sidebar submission (`WorkspaceView.query-lifecycle.test.tsx`) with layout/search-flow coverage aligned to manual search-and-select behavior
+- Fixed manual search empty-result regression in `POST /api/entropy/search` by supporting `search_targets` tool-name variants and adding a UniProt fallback path (`search_uniprot`) when Open Targets-style target search is unavailable
+- Expanded manual search fanout for `POST /api/entropy/search` to query multiple MCP sources in parallel (Open Targets/UniProt/PubMed/Europe PMC/ClinicalTrials.gov/PatentsView/PubChem) and return `sourceDiagnostics` for unavailable sources instead of silent fallback-only behavior
+- Right sidebar search UX now surfaces source execution summary and per-source unavailability diagnostics in `RightChatPanel`, with test coverage updates
+
 - Backend PRD phase-1 causaly routes implemented and tested (`augment`, `synthesise`, `suggestions`)
 - Mastra helper agents for completeness/synthesis/follow-ups added and exported
 - Frontend scaffold in this worktree synced to `entropy-research-hub/` and converted from gitlink tracking to regular repository files

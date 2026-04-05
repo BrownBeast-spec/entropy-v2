@@ -1,5 +1,7 @@
 # Entropy v2 — Persistent Research Workspace with Living Knowledge Graph
 
+**Status Update (2026-04-05):** The autonomous research loop described in this PRD has been replaced with a manual search-and-select workflow. See `docs/superpowers/specs/2026-04-05-manual-search-select-ux-design.md` for current implementation.
+
 **Type:** Feature Epic  
 **Status:** Build-Ready — Hackathon MVP  
 **Event:** AMD Slingshot Hackathon 2026, Pune (April 7–8, 2026)  
