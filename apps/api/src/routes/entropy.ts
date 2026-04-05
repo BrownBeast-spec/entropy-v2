@@ -1053,7 +1053,6 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
           : String(result.reason);
     }
   });
-
   const deduped = dedupeResults(items);
   await enrichCitationMetrics(deduped);
   const summary = await buildSummary(q, deduped);
@@ -1085,59 +1084,418 @@ type ManualSearchResult = {
   indiaRelevant?: boolean;
 };
 
+function diversifyBySource(
+  results: ManualSearchResult[],
+  limit: number,
+): ManualSearchResult[] {
+  if (results.length <= limit) {
+    return results;
+  }
+
+  const bySource = new Map<string, ManualSearchResult[]>();
+  for (const result of results) {
+    const existing = bySource.get(result.source) ?? [];
+    existing.push(result);
+    bySource.set(result.source, existing);
+  }
+
+  const selected: ManualSearchResult[] = [];
+  for (const [, sourceResults] of bySource) {
+    if (sourceResults.length > 0) {
+      selected.push(sourceResults.shift() as ManualSearchResult);
+      if (selected.length === limit) {
+        return selected;
+      }
+    }
+  }
+
+  if (selected.length === limit) {
+    return selected;
+  }
+
+  const remaining = Array.from(bySource.values()).flat();
+  remaining.sort((a, b) => b.helpfulness.score - a.helpfulness.score);
+
+  for (const result of remaining) {
+    if (selected.length === limit) {
+      break;
+    }
+    selected.push(result);
+  }
+
+  return selected;
+}
+
 async function runManualSearch(
   input: z.infer<typeof ManualSearchRequestSchema>,
 ): Promise<{
   results: ManualSearchResult[];
   executionTime: number;
   searchedSources: string[];
+  queryPlan: QueryPlan;
+  sourceDiagnostics?: Record<string, string>;
 }> {
   const isBootstrap = input.graphSnapshot.nodeIds.length === 0;
   const resultLimit = input.maxResults ?? (isBootstrap ? 25 : 10);
+  const startedAt = Date.now();
+  const queryPlan = await buildQueryPlan(input.query);
 
-  const biologyTools = await getBiologyTools();
   const rawResults: Array<Record<string, unknown>> = [];
   const searchedSources: string[] = [];
+  const sourceDiagnostics: Record<string, string> = {};
 
-  const maybeSearchTargets = biologyTools.searchTargets as
-    | SearchTargetsTool
-    | SearchTargetsFn
-    | undefined;
-
-  if (
-    isRecord(maybeSearchTargets) &&
-    typeof maybeSearchTargets.execute === "function"
+  function addSourceResults(
+    source: string,
+    results: Array<Record<string, unknown>>,
   ) {
-    try {
-      const toolResult = await maybeSearchTargets.execute({
-        query: input.query,
-        limit: resultLimit,
-      });
-      const parsed = parseToolPayload(toolResult);
-      const targets = asRecordArray(parsed?.targets ?? parsed?.results ?? parsed?.items);
-      if (targets.length > 0) {
-        rawResults.push(...targets.map((target) => ({ ...target, source: "Open Targets" })));
-        searchedSources.push("Open Targets");
-      }
-    } catch {
-      // Ignore source failure in phase 1 manual search path.
+    if (results.length === 0) {
+      return;
     }
-  } else if (typeof maybeSearchTargets === "function") {
-    try {
-      const fn = maybeSearchTargets as SearchTargetsFn;
-      const targets = await fn({
-        query: input.query,
-        limit: resultLimit,
-      });
-      if (Array.isArray(targets)) {
-        const records = targets.filter(isRecord);
-        rawResults.push(...records.map((target) => ({ ...target, source: "Open Targets" })));
-        searchedSources.push("Open Targets");
-      }
-    } catch {
-      // Ignore source failure in phase 1 manual search path.
+
+    rawResults.push(...results);
+    if (!searchedSources.includes(source)) {
+      searchedSources.push(source);
     }
   }
+
+  function addSourceDiagnostic(source: string, message: string) {
+    if (!sourceDiagnostics[source]) {
+      sourceDiagnostics[source] = message;
+    }
+  }
+
+  const tasks: Array<Promise<void>> = [];
+
+  tasks.push(
+    (async () => {
+      const biologyTools = await getBiologyTools();
+      const maybeSearchTargets = (biologyTools.searchTargets ??
+        biologyTools.search_targets) as
+        | SearchTargetsTool
+        | SearchTargetsFn
+        | undefined;
+
+      const fallbackToValidateTarget = async () => {
+        const { payload, error } = await callTool(
+          biologyTools,
+          "validate_target",
+          {
+            geneSymbol: queryPlan.targetGeneSymbol,
+          },
+        );
+
+        if (error) {
+          addSourceDiagnostic(
+            "Open Targets",
+            `Tool 'searchTargets/search_targets' not available; validate_target failed: ${error}`,
+          );
+          return;
+        }
+
+        const targetId = asString(payload?.target_id);
+        const symbol = asString(payload?.gene_symbol) ?? targetId;
+
+        if (!targetId || !symbol) {
+          addSourceDiagnostic(
+            "Open Targets",
+            "validate_target returned no target_id/gene_symbol",
+          );
+          return;
+        }
+
+        addSourceResults("Open Targets", [
+          {
+            id: targetId,
+            type: "gene",
+            label: symbol,
+            metadata: {
+              ...payload,
+              query: input.query,
+            },
+            source: "Open Targets",
+          },
+        ]);
+      };
+
+      let targets: Record<string, unknown>[] = [];
+
+      if (
+        isRecord(maybeSearchTargets) &&
+        typeof maybeSearchTargets.execute === "function"
+      ) {
+        try {
+          const toolResult = await maybeSearchTargets.execute({
+            query: queryPlan.targetGeneSymbol,
+            limit: resultLimit,
+          });
+          const parsed = parseToolPayload(toolResult);
+          targets = asRecordArray(
+            parsed?.targets ?? parsed?.results ?? parsed?.items,
+          );
+        } catch (error) {
+          addSourceDiagnostic(
+            "Open Targets",
+            error instanceof Error ? error.message : String(error),
+          );
+          return;
+        }
+      } else if (typeof maybeSearchTargets === "function") {
+        try {
+          const fn = maybeSearchTargets as SearchTargetsFn;
+          const fnResults = await fn({
+            query: queryPlan.targetGeneSymbol,
+            limit: resultLimit,
+          });
+          if (Array.isArray(fnResults)) {
+            targets = fnResults.filter(isRecord);
+          }
+        } catch (error) {
+          addSourceDiagnostic(
+            "Open Targets",
+            error instanceof Error ? error.message : String(error),
+          );
+          return;
+        }
+      } else {
+        await fallbackToValidateTarget();
+        return;
+      }
+
+      const mappedTargets = targets
+        .map((target, index) => {
+          const entityId =
+            asString(target.id) ??
+            asString(target.entityId) ??
+            asString(target.target_id) ??
+            `open-target-${index}`;
+
+          return {
+            id: entityId,
+            type:
+              asString(target.type) ?? asString(target.entityType) ?? "protein",
+            label:
+              asString(target.label) ??
+              asString(target.name) ??
+              asString(target.title) ??
+              entityId,
+            metadata: isRecord(target.metadata)
+              ? target.metadata
+              : { ...target },
+            source: "Open Targets",
+          };
+        })
+        .filter(isRecord);
+
+      if (mappedTargets.length > 0) {
+        addSourceResults("Open Targets", mappedTargets);
+      } else {
+        await fallbackToValidateTarget();
+      }
+    })(),
+  );
+
+  tasks.push(
+    (async () => {
+      const biologyTools = await getBiologyTools();
+      const maybeSearchUniProt = biologyTools.search_uniprot as
+        | SearchTargetsTool
+        | undefined;
+
+      if (
+        !isRecord(maybeSearchUniProt) ||
+        typeof maybeSearchUniProt.execute !== "function"
+      ) {
+        addSourceDiagnostic("UniProt", "Tool 'search_uniprot' not available");
+        return;
+      }
+
+      try {
+        const toolResult = await maybeSearchUniProt.execute({
+          query: queryPlan.uniprotQuery,
+        });
+        const parsed = parseToolPayload(toolResult);
+        const proteins = asRecordArray(parsed?.results ?? parsed?.items)
+          .map((protein, index) => {
+            const accession =
+              asString(protein.accession) ??
+              asString(protein.primaryAccession) ??
+              asString(protein.id) ??
+              `uniprot-${index}`;
+
+            return {
+              id: accession,
+              type: "protein",
+              label:
+                asString(protein.protein_name) ??
+                asString(protein.label) ??
+                accession,
+              metadata: { ...protein },
+              source: "UniProt",
+            };
+          })
+          .filter(isRecord);
+
+        addSourceResults("UniProt", proteins);
+      } catch (error) {
+        addSourceDiagnostic(
+          "UniProt",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    })(),
+  );
+
+  tasks.push(
+    (async () => {
+      const pubMedTools = await getPubMedTools();
+      const { payload, error } = await callTool(pubMedTools, "search_literature", {
+        disease: queryPlan.pubmedDisease,
+        year: new Date().getUTCFullYear(),
+        limit: resultLimit,
+      });
+
+      if (error) {
+        addSourceDiagnostic("PubMed", error);
+        return;
+      }
+
+      const papers = asRecordArray(payload?.top_papers)
+        .slice(0, resultLimit)
+        .map((paper, index) => {
+          const pmid =
+            asString(paper.pmid) ?? asString(paper.id) ?? `pubmed-${index}`;
+          const title = asString(paper.title) ?? pmid;
+
+          return {
+            id: pmid,
+            type: "paper",
+            label: title,
+            metadata: { ...paper },
+            source: "PubMed",
+          };
+        })
+        .filter(isRecord);
+
+      addSourceResults("PubMed", papers);
+    })(),
+  );
+
+  tasks.push(
+    (async () => {
+      const europeTools = await getEuropePMCTools();
+      const { payload, error } = await callTool(europeTools, "search_europepmc", {
+        query: queryPlan.europepmcQuery,
+        limit: resultLimit,
+        includePreprints: true,
+      });
+
+      if (error) {
+        addSourceDiagnostic("Europe PMC", error);
+        return;
+      }
+
+      const papers = asRecordArray(payload?.papers)
+        .slice(0, resultLimit)
+        .map((paper, index) => {
+          const paperId = asString(paper.id) ?? `europepmc-${index}`;
+          const title = asString(paper.title) ?? paperId;
+
+          return {
+            id: paperId,
+            type: "paper",
+            label: title,
+            metadata: { ...paper },
+            source: "Europe PMC",
+          };
+        })
+        .filter(isRecord);
+
+      addSourceResults("Europe PMC", papers);
+    })(),
+  );
+
+  tasks.push(
+    (async () => {
+      const trialTools = await getClinicalTrialsTools();
+      const { payload, error } = await callTool(trialTools, "search_studies", {
+        term: queryPlan.trialTerm,
+        limit: resultLimit,
+      });
+
+      if (error) {
+        addSourceDiagnostic("ClinicalTrials.gov", error);
+        return;
+      }
+
+      const trials = asRecordArray(payload?.studies)
+        .slice(0, resultLimit)
+        .map((trial, index) => {
+          const nctId =
+            asString(trial.nct_id) ?? asString(trial.id) ?? `trial-${index}`;
+          const title = asString(trial.title) ?? nctId;
+
+          return {
+            id: nctId,
+            type: "trial",
+            label: title,
+            metadata: { ...trial },
+            source: "ClinicalTrials.gov",
+          };
+        })
+        .filter(isRecord);
+
+      addSourceResults("ClinicalTrials.gov", trials);
+    })(),
+  );
+
+  tasks.push(
+    (async () => {
+      // PatentsView endpoint currently returns 410 Gone during USPTO ODP migration.
+      // Keep diagnostics visible in manual/query search and avoid blocking other sources.
+      addSourceDiagnostic(
+        "PatentsView",
+        "Temporarily disabled during USPTO ODP migration",
+      );
+    })(),
+  );
+
+  tasks.push(
+    (async () => {
+      const pubChemTools = await getPubChemTools();
+      const { payload, error } = await callTool(pubChemTools, "search_compounds", {
+        compoundName: queryPlan.compoundName,
+        limit: resultLimit,
+      });
+
+      if (error) {
+        addSourceDiagnostic("PubChem", error);
+        return;
+      }
+
+      const compounds = asRecordArray(payload?.compounds)
+        .slice(0, resultLimit)
+        .map((compound, index) => {
+          const cid =
+            asString(compound.cid) ??
+            asString(compound.id) ??
+            `compound-${index}`;
+          const title = asString(compound.iupac_name) ?? `CID ${cid}`;
+
+          return {
+            id: cid,
+            type: "compound",
+            label: title,
+            metadata: { ...compound },
+            source: "PubChem",
+          };
+        })
+        .filter(isRecord);
+
+      addSourceResults("PubChem", compounds);
+    })(),
+  );
+
+  await Promise.all(tasks);
 
   const nodeTypes = input.graphSnapshot.nodeIds.reduce(
     (acc, nodeId) => {
@@ -1202,11 +1560,15 @@ async function runManualSearch(
   );
 
   scoredResults.sort((a, b) => b.helpfulness.score - a.helpfulness.score);
+  const diversifiedResults = diversifyBySource(scoredResults, resultLimit);
 
   return {
-    results: scoredResults.slice(0, resultLimit),
-    executionTime: 0,
+    results: diversifiedResults,
+    executionTime: Date.now() - startedAt,
     searchedSources,
+    queryPlan,
+    sourceDiagnostics:
+      Object.keys(sourceDiagnostics).length > 0 ? sourceDiagnostics : undefined,
   };
 }
 
