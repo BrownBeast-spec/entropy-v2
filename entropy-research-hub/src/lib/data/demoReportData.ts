@@ -4,6 +4,7 @@ export const demoReport: Report = {
   workspaceId: "demo",
   generatedAt: new Date(),
   wordCount: 347,
+  graphNodeCountAtGeneration: 0,
   sections: [
     {
       title: "Overview",
@@ -140,6 +141,7 @@ export const strategistModeReport: Report = {
   workspaceId: "demo",
   generatedAt: new Date(),
   wordCount: 289,
+  graphNodeCountAtGeneration: 0,
   sections: [
     {
       title: "Competitive Landscape Overview",

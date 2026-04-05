@@ -45,24 +45,68 @@ function clone<T>(value: T): T {
 }
 
 function reviveWorkspaceDates(ws: WorkspaceV2): WorkspaceV2 {
+  const revivedReport = ws.report
+    ? {
+        ...ws.report,
+        generatedAt: new Date(ws.report.generatedAt),
+      }
+    : undefined;
+
+  const revivedQueries = (ws.queries ?? []).map((q) => ({
+    ...q,
+    submittedAt: new Date(q.submittedAt),
+    timelineStart: q.timelineStart ? new Date(q.timelineStart) : undefined,
+    timelineEnd: q.timelineEnd ? new Date(q.timelineEnd) : undefined,
+    report: q.report
+      ? {
+          ...q.report,
+          generatedAt: new Date(q.report.generatedAt),
+        }
+      : undefined,
+  }));
+
+  const hasQueries = revivedQueries.length > 0;
+  const activeQueryId = ws.activeQueryId ?? revivedQueries[0]?.id;
+
+  const migratedQueries = hasQueries
+    ? revivedQueries.map((query, idx) => {
+        if (idx !== 0 || query.report || !revivedReport) {
+          return query;
+        }
+
+        return {
+          ...query,
+          report: revivedReport,
+        };
+      })
+    : revivedReport
+      ? [
+          {
+            id: makeId("query"),
+            workspaceId: ws.id,
+            text: "Migrated query session",
+            mode: ws.mode ?? "Researcher",
+            indiaLens: ws.indiaLens ?? false,
+            submittedAt: new Date(ws.updatedAt),
+            status: "complete" as const,
+            contributedNodes: [],
+            contributedEdges: [],
+            report: revivedReport,
+          },
+        ]
+      : revivedQueries;
+
   return {
     ...ws,
     createdAt: new Date(ws.createdAt),
     updatedAt: new Date(ws.updatedAt),
-    queries: (ws.queries ?? []).map((q) => ({
-      ...q,
-      submittedAt: new Date(q.submittedAt),
-    })),
+    queries: migratedQueries,
+    activeQueryId: activeQueryId ?? migratedQueries[0]?.id,
     savedItems: (ws.savedItems ?? []).map((item) => ({
       ...item,
       savedAt: new Date(item.savedAt),
     })),
-    report: ws.report
-      ? {
-          ...ws.report,
-          generatedAt: new Date(ws.report.generatedAt),
-        }
-      : undefined,
+    report: revivedReport,
   };
 }
 

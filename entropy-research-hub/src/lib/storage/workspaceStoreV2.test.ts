@@ -130,4 +130,35 @@ describe("workspaceStoreV2", () => {
     expect(exported).toBeNull();
     expect(snapshot).toEqual({ nodeIds: [], edgeSummary: [] });
   });
+
+  it("migrates legacy workspace-level report into an active query session", async () => {
+    const now = new Date("2026-04-01T00:00:00.000Z");
+
+    await workspaceStoreV2.saveWorkspace({
+      id: "ws_legacy",
+      name: "Legacy Workspace",
+      description: "old shape",
+      mode: "Researcher",
+      indiaLens: true,
+      createdAt: now,
+      updatedAt: now,
+      nodes: [],
+      edges: [],
+      queries: [],
+      savedItems: [],
+      report: {
+        workspaceId: "ws_legacy",
+        sections: [{ title: "Overview", content: "Legacy", citations: [] }],
+        generatedAt: now,
+        wordCount: 1,
+      },
+    } as any);
+
+    const loaded = await workspaceStoreV2.getById("ws_legacy");
+
+    expect(loaded).not.toBeNull();
+    expect(loaded!.queries.length).toBeGreaterThan(0);
+    expect(loaded!.activeQueryId).toBeTruthy();
+    expect(loaded!.queries[0].report).toBeDefined();
+  });
 });

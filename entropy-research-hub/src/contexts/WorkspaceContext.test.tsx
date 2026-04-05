@@ -292,4 +292,56 @@ describe("WorkspaceContext", () => {
       expect(latestCtx?.state.currentWorkspace?.id).toBe("ws_demo_metformin_nash");
     });
   });
+
+  it("normalizes activeQueryId and query-level report from legacy workspace shape", async () => {
+    const now = new Date("2026-04-01T00:00:00.000Z");
+    mockStoreV2.getAll.mockResolvedValueOnce([
+      {
+        id: "ws_legacy",
+        name: "Legacy WS",
+        description: "legacy",
+        mode: "Strategist",
+        indiaLens: true,
+        createdAt: now,
+        updatedAt: now,
+        nodes: [],
+        edges: [],
+        queries: [
+          {
+            id: "q_legacy",
+            workspaceId: "ws_legacy",
+            text: "legacy query",
+            mode: "Strategist",
+            indiaLens: true,
+            submittedAt: now,
+            status: "complete",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
+        savedItems: [],
+        report: {
+          workspaceId: "ws_legacy",
+          sections: [{ title: "Overview", content: "legacy report", citations: [] }],
+          generatedAt: now,
+          wordCount: 2,
+        },
+      },
+    ]);
+
+    let latestState: ReturnType<typeof useWorkspace> | null = null;
+
+    renderWithProvider(
+      <Harness
+        onReady={({ state }) => {
+          latestState = state;
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(latestState?.workspaces[0]?.activeQueryId).toBe("q_legacy");
+      expect(latestState?.workspaces[0]?.queries[0]?.report).toBeDefined();
+    });
+  });
 });

@@ -38,9 +38,57 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
 
-  const normalizeWorkspace = (ws: any): Workspace => ({
-    ...ws,
-    nodes: (ws.nodes ?? []).map((n: any) => ({
+  const normalizeWorkspace = (ws: any): Workspace => {
+    const normalizedQueries = (() => {
+      const queries = (ws.queries ?? []).map((q: any) => ({
+        ...q,
+        submittedAt: q.submittedAt ? new Date(q.submittedAt) : new Date(),
+        timelineStart: q.timelineStart ? new Date(q.timelineStart) : undefined,
+        timelineEnd: q.timelineEnd ? new Date(q.timelineEnd) : undefined,
+        report: q.report
+          ? {
+              ...q.report,
+              generatedAt: new Date(q.report.generatedAt),
+            }
+          : undefined,
+      }));
+
+      if (queries.length === 0 && ws.report) {
+        return [
+          {
+            id: `query_${Date.now()}`,
+            workspaceId: ws.id,
+            text: "Migrated query session",
+            mode: ws.mode ?? "Researcher",
+            indiaLens: ws.indiaLens ?? false,
+            submittedAt: ws.updatedAt ? new Date(ws.updatedAt) : new Date(),
+            status: "complete" as const,
+            contributedNodes: [],
+            contributedEdges: [],
+            report: {
+              ...ws.report,
+              generatedAt: new Date(ws.report.generatedAt),
+            },
+          },
+        ];
+      }
+
+      if (queries.length > 0 && ws.report && !queries[0].report) {
+        queries[0] = {
+          ...queries[0],
+          report: {
+            ...ws.report,
+            generatedAt: new Date(ws.report.generatedAt),
+          },
+        };
+      }
+
+      return queries;
+    })();
+
+    return {
+      ...ws,
+      nodes: (ws.nodes ?? []).map((n: any) => ({
       id: n.id,
       label: n.label,
       type: n.type,
@@ -65,9 +113,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       confidence: e.confidence,
       metadata: e.metadata ?? {},
     })),
-    queries: ws.queries ?? [],
-    savedItems: ws.savedItems ?? [],
-  });
+    queries: normalizedQueries,
+    activeQueryId: ws.activeQueryId ?? normalizedQueries[0]?.id,
+    savedItems: (ws.savedItems ?? []).map((item: any) => ({
+      ...item,
+      savedAt: item.savedAt ? new Date(item.savedAt) : new Date(),
+    })),
+  };
+  };
 
   const denormalizeNode = (node: GraphNode) => ({
     id: node.id,
@@ -137,7 +190,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setWorkspaces(loaded);
+      setWorkspaces(loaded.map(normalizeWorkspace));
     }
   };
 
@@ -159,8 +212,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         const fresh = workspaceStorage.getById(currentWorkspace.id);
-        if (fresh && JSON.stringify(fresh) !== JSON.stringify(currentWorkspace)) {
-          setCurrentWorkspace(fresh);
+        if (fresh) {
+          const normalized = normalizeWorkspace(fresh);
+          if (JSON.stringify(normalized) !== JSON.stringify(currentWorkspace)) {
+            setCurrentWorkspace(normalized);
+          }
         }
       }
     };
@@ -193,9 +249,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         updatedAt: new Date(),
         nodes: [],
         edges: [],
-        queries: [],
+        queries: [
+          {
+            id: `query_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            workspaceId: `ws_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            text: "Initial query",
+            mode,
+            indiaLens: false,
+            submittedAt: new Date(),
+            status: "pending",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
+        activeQueryId: undefined,
         savedItems: [],
       };
+
+      workspace.activeQueryId = workspace.queries[0].id;
+      workspace.queries[0].workspaceId = workspace.id;
       workspaceStorage.save(workspace);
       await refreshWorkspaces();
       return workspace;
@@ -274,6 +346,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const updated = {
       ...currentWorkspace,
       queries: [...currentWorkspace.queries, query],
+      activeQueryId: query.id,
     };
     void updateWorkspace(updated);
   };

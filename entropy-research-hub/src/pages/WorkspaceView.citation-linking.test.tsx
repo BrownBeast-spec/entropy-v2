@@ -31,6 +31,7 @@ const baseWorkspace = {
     workspaceId: "ws_1",
     generatedAt: new Date("2026-04-01T00:00:00Z"),
     wordCount: 10,
+    graphNodeCountAtGeneration: 1,
     sections: [
       {
         title: "Overview",

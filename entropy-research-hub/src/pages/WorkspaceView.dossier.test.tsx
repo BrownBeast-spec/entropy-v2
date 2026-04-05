@@ -60,6 +60,7 @@ const workspace = {
     ],
     generatedAt: new Date("2026-04-01T00:00:00Z"),
     wordCount: 4,
+    graphNodeCountAtGeneration: 1,
   },
 };
 

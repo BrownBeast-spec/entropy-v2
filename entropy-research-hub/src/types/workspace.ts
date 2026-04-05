@@ -57,12 +57,15 @@ export interface Query {
   text: string;
   mode: WorkspaceMode;
   indiaLens: boolean;
+  timelineStart?: Date;
+  timelineEnd?: Date;
   submittedAt: Date;
   status: QueryStatus;
   contributedNodes: string[]; // Node IDs added by this query
   contributedEdges: string[]; // Edge IDs added by this query
   completenessScore?: number;
   iterations?: number;
+  report?: Report;
 }
 
 export interface SavedItem {
@@ -90,19 +93,21 @@ export interface Report {
   sections: ReportSection[];
   generatedAt: Date;
   wordCount: number;
+  graphNodeCountAtGeneration?: number;
 }
 
 export interface Workspace {
   id: string;
   name: string;
   description?: string;
-  mode: WorkspaceMode;
-  indiaLens: boolean;
+  mode?: WorkspaceMode;
+  indiaLens?: boolean;
   createdAt: Date;
   updatedAt: Date;
   nodes: GraphNode[];
   edges: GraphEdge[];
   queries: Query[];
+  activeQueryId?: string;
   savedItems: SavedItem[];
   report?: Report;
 }

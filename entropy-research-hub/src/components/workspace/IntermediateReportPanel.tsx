@@ -2,10 +2,14 @@ import { useState } from "react";
 import { FileText, Download, RotateCw } from "lucide-react";
 import { Report } from "@/types/workspace";
 import { demoReport, strategistModeReport } from "@/lib/data/demoReportData";
+import MetricCard from "./MetricCard";
+import { selectMetricsForReport } from "@/lib/utils/reportMetrics";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 interface IntermediateReportPanelProps {
   report?: Report;
   mode?: "Researcher" | "Strategist";
+  queryText?: string;
   onRegenerateSynthesis?: () => void;
   onGenerateFullDossier?: () => void;
   onCitationClick?: (nodeId: string) => void;
@@ -15,15 +19,26 @@ interface IntermediateReportPanelProps {
 export default function IntermediateReportPanel({
   report,
   mode = "Researcher",
+  queryText = "",
   onRegenerateSynthesis,
   onGenerateFullDossier,
   onCitationClick,
   onExport,
 }: IntermediateReportPanelProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const { currentWorkspace } = useWorkspace();
 
   // Use demo report if no report provided
   const displayReport = report || (mode === "Researcher" ? demoReport : strategistModeReport);
+
+  const latestQuery = queryText || currentWorkspace?.queries[currentWorkspace.queries.length - 1]?.text || "";
+  const metrics = currentWorkspace
+    ? selectMetricsForReport(currentWorkspace, latestQuery)
+    : [];
+  const currentNodeCount = currentWorkspace?.nodes.length || 0;
+  const reportNodeCount = displayReport.graphNodeCountAtGeneration || 0;
+  const newNodesSinceReport = currentNodeCount - reportNodeCount;
+  const isStale = newNodesSinceReport > 0;
 
   const handleCitationClick = (nodeId: string) => {
     if (onCitationClick) {
@@ -67,6 +82,11 @@ export default function IntermediateReportPanel({
         </div>
         
         <div className="flex items-center gap-2">
+          {isStale ? (
+            <span className="rounded bg-yellow-500/10 px-2 py-1 text-2xs text-yellow-700">
+              {newNodesSinceReport} new nodes since last report
+            </span>
+          ) : null}
           <button
             onClick={onRegenerateSynthesis}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:bg-accent transition-colors"
@@ -118,6 +138,15 @@ export default function IntermediateReportPanel({
           </button>
         </div>
       </div>
+
+      {/* Metric cards */}
+      {metrics.length > 0 ? (
+        <div className="grid grid-cols-4 gap-3 border-b border-border p-4">
+          {metrics.map((metric, idx) => (
+            <MetricCard key={`${metric.label}-${idx}`} metric={metric} />
+          ))}
+        </div>
+      ) : null}
 
       {/* Report Content */}
       <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
