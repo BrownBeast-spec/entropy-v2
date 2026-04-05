@@ -3,6 +3,11 @@ import { Workspace, WorkspaceMode, GraphNode, GraphEdge, Query, SavedItem } from
 import { workspaceStorage } from "@/lib/storage/workspaceStorage";
 import { workspaceStoreV2 } from "@/lib/storage/workspaceStoreV2";
 import { createDemoWorkspaceSeed } from "@/lib/data/demoWorkspaceSeed";
+import {
+  createWorkspace as createWorkspaceApi,
+  getWorkspace as getWorkspaceApi,
+  getWorkspaceGraph as getWorkspaceGraphApi,
+} from "@/lib/api/workspace";
 
 export interface WorkspaceGraphSnapshot {
   nodeIds: string[];
@@ -234,8 +239,42 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     mode: WorkspaceMode,
   ): Promise<Workspace> => {
     try {
-      const created = await workspaceStoreV2.createWorkspace(name, description, mode);
-      const normalized = normalizeWorkspace(created);
+      const created = await createWorkspaceApi({
+        name,
+        description,
+        mode,
+      });
+
+      const workspaceId = created.data.id;
+      if (!workspaceId) {
+        throw new Error("Backend workspace creation did not return an id");
+      }
+
+      const [workspaceMeta, workspaceGraph] = await Promise.all([
+        getWorkspaceApi(workspaceId),
+        getWorkspaceGraphApi(workspaceId),
+      ]);
+
+      const normalized = normalizeWorkspace({
+        id: workspaceMeta.data.id,
+        name: workspaceMeta.data.name,
+        description: workspaceMeta.data.description,
+        mode: workspaceMeta.data.mode,
+        indiaLens: workspaceMeta.data.indiaLens,
+        createdAt: workspaceMeta.data.createdAt,
+        updatedAt: workspaceMeta.data.createdAt,
+        nodes: workspaceGraph.data.nodes,
+        edges: workspaceGraph.data.edges,
+        queries: [],
+        savedItems: [],
+      });
+
+      await workspaceStoreV2.saveWorkspace({
+        ...normalized,
+        nodes: normalized.nodes.map(denormalizeNode as any),
+        edges: normalized.edges.map(denormalizeEdge as any),
+      } as any);
+
       await refreshWorkspaces();
       return normalized;
     } catch {

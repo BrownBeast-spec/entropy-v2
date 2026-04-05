@@ -24,8 +24,15 @@ vi.mock("@/lib/storage/workspaceStorage", () => ({
   },
 }));
 
+vi.mock("@/lib/api/workspace", () => ({
+  createWorkspace: vi.fn(),
+  getWorkspace: vi.fn(),
+  getWorkspaceGraph: vi.fn(),
+}));
+
 import { workspaceStoreV2 } from "@/lib/storage/workspaceStoreV2";
 import { workspaceStorage } from "@/lib/storage/workspaceStorage";
+import * as workspaceApi from "@/lib/api/workspace";
 const mockStoreV2 = workspaceStoreV2 as unknown as {
   getAll: ReturnType<typeof vi.fn>;
   getById: ReturnType<typeof vi.fn>;
@@ -41,6 +48,12 @@ const mockLegacyStorage = workspaceStorage as unknown as {
   save: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
   clear: ReturnType<typeof vi.fn>;
+};
+
+const mockWorkspaceApi = workspaceApi as unknown as {
+  createWorkspace: ReturnType<typeof vi.fn>;
+  getWorkspace: ReturnType<typeof vi.fn>;
+  getWorkspaceGraph: ReturnType<typeof vi.fn>;
 };
 
 function Harness({
@@ -93,6 +106,33 @@ describe("WorkspaceContext", () => {
     mockLegacyStorage.save.mockReturnValue(undefined);
     mockLegacyStorage.delete.mockReturnValue(undefined);
     mockLegacyStorage.clear.mockReturnValue(undefined);
+
+    mockWorkspaceApi.createWorkspace.mockResolvedValue({
+      success: true,
+      data: {
+        id: "ws_backend_1",
+        name: "WS",
+        description: "desc",
+        mode: "Strategist",
+        indiaLens: false,
+        createdAt: "2026-04-01T00:00:00.000Z",
+      },
+    });
+    mockWorkspaceApi.getWorkspace.mockResolvedValue({
+      success: true,
+      data: {
+        id: "ws_backend_1",
+        name: "WS",
+        description: "desc",
+        mode: "Strategist",
+        indiaLens: false,
+        createdAt: "2026-04-01T00:00:00.000Z",
+      },
+    });
+    mockWorkspaceApi.getWorkspaceGraph.mockResolvedValue({
+      success: true,
+      data: { nodes: [], edges: [] },
+    });
   });
 
   it("loads workspaces from workspaceStoreV2 on mount", async () => {
@@ -127,7 +167,7 @@ describe("WorkspaceContext", () => {
     });
   });
 
-  it("createWorkspace delegates to workspaceStoreV2 and returns created value", async () => {
+  it("createWorkspace uses backend API and persists workspace", async () => {
     const onReady = vi.fn();
     renderWithProvider(<Harness onReady={onReady} />);
 
@@ -140,12 +180,15 @@ describe("WorkspaceContext", () => {
       latest.actions.createWorkspace("WS", "desc", "Strategist"),
     );
 
-    expect(mockStoreV2.createWorkspace).toHaveBeenCalledWith(
-      "WS",
-      "desc",
-      "Strategist",
+    expect(mockWorkspaceApi.createWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "WS",
+        description: "desc",
+        mode: "Strategist",
+      }),
     );
-    expect(created.id).toBe("ws_1");
+    expect(mockStoreV2.saveWorkspace).toHaveBeenCalled();
+    expect(created.id).toBe("ws_backend_1");
   });
 
   it("seeds demo workspace when storage is empty", async () => {
