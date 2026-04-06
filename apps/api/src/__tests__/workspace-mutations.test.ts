@@ -161,4 +161,91 @@ describe("Workspace mutation routes", () => {
       expect(graphAfter.nodes.some((n) => n.id === target.id)).toBe(true); // target should still exist
     });
   });
+
+  describe("PATCH /api/workspace/:id/nodes/:nodeId", () => {
+    it("updates node metadata", async () => {
+      // Create a test node
+      const repo = getGraphRepository();
+      const [node] = await repo.addNodesToWorkspace(workspaceId, [
+        {
+          label: "Original Label",
+          type: "compound",
+          source: "PubMed",
+          metadata: { id: "update-test-1", description: "original" },
+          evidenceScore: 0.5,
+          indiaRelevant: false,
+        },
+      ]);
+
+      const response = await app.request(
+        `http://localhost/api/workspace/${workspaceId}/nodes/${node.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: "Updated Label",
+            evidenceScore: 0.9,
+            metadata: { id: "update-test-1", description: "updated" },
+          }),
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.label).toBe("Updated Label");
+      expect(data.evidenceScore).toBe(0.9);
+      expect(data.metadata.description).toBe("updated");
+
+      // Verify in database
+      const graph = await repo.getWorkspaceGraph(workspaceId);
+      const updatedNode = graph.nodes.find((n) => n.id === node.id);
+      expect(updatedNode?.label).toBe("Updated Label");
+      expect(updatedNode?.evidenceScore).toBe(0.9);
+    });
+
+    it("returns 404 for non-existent node", async () => {
+      const response = await app.request(
+        `http://localhost/api/workspace/${workspaceId}/nodes/non-existent`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: "New Label" }),
+        },
+      );
+
+      expect(response.status).toBe(404);
+    });
+
+    it("validates partial updates", async () => {
+      const repo = getGraphRepository();
+      const [node] = await repo.addNodesToWorkspace(workspaceId, [
+        {
+          label: "Partial Update Test",
+          type: "gene",
+          source: "Open Targets",
+          metadata: { id: "partial-1" },
+          evidenceScore: 0.6,
+          indiaRelevant: false,
+        },
+      ]);
+
+      // Only update label
+      const response = await app.request(
+        `http://localhost/api/workspace/${workspaceId}/nodes/${node.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: "Only Label Changed",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.label).toBe("Only Label Changed");
+      expect(data.type).toBe("gene"); // unchanged
+      expect(data.evidenceScore).toBe(0.6); // unchanged
+    });
+  });
 });

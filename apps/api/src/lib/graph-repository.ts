@@ -271,6 +271,89 @@ export class GraphRepository {
     }
   }
 
+  // Update node (partial update)
+  async updateNode(
+    workspaceId: string,
+    nodeId: string,
+    updates: Partial<
+      Pick<
+        GraphNode,
+        "label" | "type" | "source" | "metadata" | "evidenceScore" | "indiaRelevant"
+      >
+    >,
+  ): Promise<GraphNode | null> {
+    const session = getNeo4jSession();
+
+    try {
+      // Check if node exists in workspace
+      const checkResult = await session.run(
+        `
+        MATCH (w:Workspace {id: $workspaceId})-[:CONTAINS]->(n:GraphNode {id: $nodeId})
+        RETURN n
+        `,
+        { workspaceId, nodeId },
+      );
+
+      if (checkResult.records.length === 0) {
+        return null;
+      }
+
+      // Build SET clause dynamically for provided fields
+      const setFields: string[] = [];
+      const params: Record<string, any> = { workspaceId, nodeId };
+
+      if (updates.label !== undefined) {
+        setFields.push("n.label = $label");
+        params.label = updates.label;
+      }
+      if (updates.type !== undefined) {
+        setFields.push("n.type = $type");
+        params.type = updates.type;
+      }
+      if (updates.source !== undefined) {
+        setFields.push("n.source = $source");
+        params.source = updates.source;
+      }
+      if (updates.metadata !== undefined) {
+        setFields.push("n.metadata = $metadata");
+        params.metadata = JSON.stringify(updates.metadata);
+      }
+      if (updates.evidenceScore !== undefined) {
+        setFields.push("n.evidenceScore = $evidenceScore");
+        params.evidenceScore = updates.evidenceScore;
+      }
+      if (updates.indiaRelevant !== undefined) {
+        setFields.push("n.indiaRelevant = $indiaRelevant");
+        params.indiaRelevant = updates.indiaRelevant;
+      }
+
+      // Always update updatedAt
+      setFields.push("n.updatedAt = datetime()");
+
+      if (setFields.length === 1) {
+        // Only updatedAt - no actual updates
+        return null;
+      }
+
+      const result = await session.run(
+        `
+        MATCH (w:Workspace {id: $workspaceId})-[:CONTAINS]->(n:GraphNode {id: $nodeId})
+        SET ${setFields.join(", ")}
+        RETURN n
+        `,
+        params,
+      );
+
+      const node = result.records[0].get("n").properties;
+      return {
+        ...node,
+        metadata: JSON.parse(node.metadata || "{}"),
+      };
+    } finally {
+      await session.close();
+    }
+  }
+
   // Query operations
   async createQuery(data: Omit<Query, "id" | "submittedAt">): Promise<Query> {
     const session = getNeo4jSession();

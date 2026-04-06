@@ -31,6 +31,38 @@ const CreateQuerySchema = z.object({
   iterations: z.number().optional(),
 });
 
+const UpdateNodeSchema = z
+  .object({
+    label: z.string().optional(),
+    type: z.enum([
+      "disease",
+      "gene",
+      "protein",
+      "drug",
+      "compound",
+      "patent",
+      "trial",
+      "company",
+      "paper",
+    ]).optional(),
+    source: z.enum([
+      "Open Targets",
+      "STRING",
+      "PubMed",
+      "PatentsView",
+      "OpenFDA",
+      "ClinicalTrials.gov",
+      "Europe PMC",
+    ]).optional(),
+    metadata: z.record(z.unknown()).optional(),
+    evidenceScore: z.number().optional(),
+    indiaRelevant: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided for update",
+  });
+
+
 /**
  * POST /api/workspace/create
  * Create a new workspace
@@ -246,6 +278,45 @@ workspace.delete("/:id/nodes/:nodeId", async (c) => {
   }
 
   return c.json({ success: true });
+});
+
+/**
+ * PATCH /api/workspace/:id/nodes/:nodeId
+ * Update node properties (partial update)
+ */
+workspace.patch("/:id/nodes/:nodeId", async (c) => {
+  const workspaceId = c.req.param("id");
+  const nodeId = c.req.param("nodeId");
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return errorResponse(c, 400, "BAD_REQUEST", "Invalid JSON body");
+  }
+
+  const parsed = UpdateNodeSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse(c, 400, "VALIDATION_ERROR", "Invalid request", {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const repo = getGraphRepository();
+  
+  // Check if workspace exists
+  const workspace = await repo.getWorkspace(workspaceId);
+  if (!workspace) {
+    return errorResponse(c, 404, "NOT_FOUND", "Workspace not found");
+  }
+
+  const updatedNode = await repo.updateNode(workspaceId, nodeId, parsed.data);
+
+  if (!updatedNode) {
+    return errorResponse(c, 404, "NOT_FOUND", "Node not found in workspace");
+  }
+
+  return c.json(updatedNode);
 });
 
 export default workspace;
