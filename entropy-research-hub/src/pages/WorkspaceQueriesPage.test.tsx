@@ -728,5 +728,36 @@ describe("WorkspaceQueriesPage", () => {
         );
       });
     });
+
+    it("updates query with report after workflow completes", async () => {
+      renderPage();
+
+      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+        target: { value: "test query" },
+      });
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      });
+      fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+      await waitFor(() => {
+        expect(mockExecuteWorkflow).toHaveBeenCalled();
+      });
+
+      // Should update workspace with query that has a report
+      await waitFor(() => {
+        expect(mockUpdateWorkspace).toHaveBeenCalled();
+      });
+
+      const updateCalls = mockUpdateWorkspace.mock.calls;
+      const lastUpdate = updateCalls[updateCalls.length - 1][0];
+      const updatedQuery = lastUpdate.queries.find((q: { id: string }) => q.id === "query_backend_1");
+
+      expect(updatedQuery).toBeDefined();
+      expect(updatedQuery.report).toBeDefined();
+      expect(updatedQuery.report.sections).toHaveLength(1);
+      expect(updatedQuery.report.sections[0].title).toBe("Background");
+      expect(updatedQuery.report.sections[0].content).toBe("AMPK research overview");
+    });
   });
 });

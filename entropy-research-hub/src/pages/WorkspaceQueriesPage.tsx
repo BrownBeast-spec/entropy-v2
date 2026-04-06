@@ -138,7 +138,7 @@ export default function WorkspaceQueriesPage() {
           },
         });
 
-        await executeWorkflow({
+        const workflowResult = await executeWorkflow({
           workspaceId: workspace.id,
           queryText: trimmed,
           mode: modeDraft,
@@ -146,6 +146,28 @@ export default function WorkspaceQueriesPage() {
           searchTypes: ["Publication", "ClinicalTrial", "Company"],
           reportSections: ["Background", "Key Findings", "Evidence Quality"],
           searchResults: searchResults.results,
+        });
+
+        // Update query with generated report
+        const report = {
+          workspaceId: workspace.id,
+          sections: workflowResult.synthesis.sections,
+          generatedAt: new Date(),
+          wordCount: workflowResult.synthesis.sections
+            .map((section) => section.content)
+            .join(" ")
+            .split(/\s+/)
+            .filter(Boolean).length,
+          graphNodeCountAtGeneration: workflowResult.addedNodesCount,
+        };
+
+        const updatedQueriesWithReport = updatedWorkspace.queries.map((q) =>
+          q.id === query.id ? { ...q, report } : q,
+        );
+
+        await updateWorkspace({
+          ...updatedWorkspace,
+          queries: updatedQueriesWithReport,
         });
       } catch (workflowError) {
         // Log workflow errors but don't block navigation
