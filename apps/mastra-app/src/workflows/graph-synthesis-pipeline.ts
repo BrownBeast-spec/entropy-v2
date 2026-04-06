@@ -10,6 +10,12 @@ import { scoreHelpfulness } from "../agents/helpfulness-agent.js";
 import { findEdgeCandidates } from "../lib/edge-heuristics.js";
 import { inferEdgesFromCandidates } from "../agents/edge-constructor-agent.js";
 import { summariseFromGraph } from "../agents/synthesis-agent.js";
+import {
+  getNormalizedResultId,
+  getNormalizedResultLabel,
+  getNormalizedResultSource,
+  getNormalizedResultType,
+} from "../lib/search-result-normalizer.js";
 import { randomUUID } from "crypto";
 
 // Define SynthesisResultSchema here since it's not exported from synthesis-agent
@@ -88,12 +94,14 @@ const helpfulnessStep = createStep({
     // Score each result using the correct HelpfulnessInput interface
     const scoredResults = await Promise.all(
       inputData.searchResults.map(async (result: any) => {
+        const normalizedResult = result as Record<string, unknown>;
+
         const helpfulnessOutput = await scoreHelpfulness({
           result: {
-            entityId: result.id || `temp-${Math.random()}`,
-            entityType: result.type || "paper",
-            label: result.title || result.name || "Unnamed",
-            source: result.source || "Unknown",
+            entityId: getNormalizedResultId(normalizedResult),
+            entityType: getNormalizedResultType(normalizedResult),
+            label: getNormalizedResultLabel(normalizedResult),
+            source: getNormalizedResultSource(normalizedResult),
             metadata: result,
           },
           graphSnapshot: {
@@ -164,9 +172,9 @@ const addNodesToGraphStep = createStep({
       .filter((r: any) => (r.helpfulnessScore || 0) > 0.5) // Filter by score
       .slice(0, 10) // Limit to top 10
       .map((r: any) => ({
-        label: r.title || r.name || "Unnamed",
-        type: r.type || "paper",
-        source: r.source || "PubMed",
+        label: getNormalizedResultLabel(r),
+        type: getNormalizedResultType(r),
+        source: getNormalizedResultSource(r),
         metadata: r,
         evidenceScore: r.helpfulnessScore,
         indiaRelevant: inputData.indiaLens

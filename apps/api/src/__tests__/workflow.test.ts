@@ -208,6 +208,72 @@ describe("POST /workflow/synthesize", () => {
     expect(body.addedNodesCount).toBeGreaterThanOrEqual(2);
   }, 180000);
 
+  it("should preserve label and entityType when search results use entropy shape", async () => {
+    const repo = getGraphRepository();
+    const shapeWorkspace = await repo.createWorkspace({
+      name: "Workflow Shape Mapping Test Workspace",
+      mode: "Researcher",
+    });
+
+    const searchResults = [
+      {
+        id: "result_1",
+        entityId: "NCT01864096",
+        entityType: "trial",
+        label: "Metformin Trial MAST",
+        source: "ClinicalTrials.gov",
+        metadata: {
+          nct_id: "NCT01864096",
+          title: "Metformin Trial MAST",
+        },
+      },
+      {
+        id: "result_2",
+        entityId: "O15244",
+        entityType: "protein",
+        label: "Metformin transporter SLC22A2 protein",
+        source: "UniProt",
+        metadata: {
+          accession: "O15244",
+          protein_name: "Metformin transporter SLC22A2 protein",
+          organism: "Homo sapiens",
+        },
+      },
+    ];
+
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId: shapeWorkspace.id,
+        queryText: "metformin trial protein",
+        mode: "Researcher",
+        indiaLens: false,
+        searchTypes: ["trial", "protein"],
+        reportSections: ["Overview"],
+        performSearch: false,
+        searchResults,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const { nodes } = await repo.getWorkspaceGraph(shapeWorkspace.id);
+    expect(nodes.length).toBeGreaterThanOrEqual(2);
+
+    expect(
+      nodes.some((n) => n.label === "Metformin Trial MAST" && n.type === "trial"),
+    ).toBe(true);
+    expect(
+      nodes.some(
+        (n) =>
+          n.label === "Metformin transporter SLC22A2 protein" &&
+          n.type === "protein",
+      ),
+    ).toBe(true);
+    expect(nodes.every((n) => n.label !== "Unnamed")).toBe(true);
+  }, 180000);
+
   it("should handle workflow execution errors gracefully", async () => {
     // Use invalid workspaceId to trigger error
     const response = await app.request("http://localhost/api/workflow/synthesize", {

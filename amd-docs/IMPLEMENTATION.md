@@ -30,6 +30,7 @@ Latest execution update (worktree: `amdv2-phase1`):
 - Workspace backend hydration now includes query-session sync in `WorkspaceContext`: selected workspace sync path now fetches `/api/workspace/:id/queries`, normalizes query fields/dates, and updates `activeQueryId` from backend query order while retaining local-query fallback if query-list API fails
 - `WorkspaceQueriesPage` now refreshes query list from backend after successful query creation (via `getWorkspaceQueries`) before persisting/navigating, so query list ordering and active query selection mirror server state; if query-list refresh fails, it falls back to the just-created query instead of local random ID generation
 - Query composer submit UX now differentiates backend phases: button label transitions `Creating...` -> `Syncing...` during post-create query-list refresh, while submit remains disabled until refresh completes
+- Workflow graph ingestion now normalizes mixed search-result shapes before scoring/persisting nodes (`apps/mastra-app/src/lib/search-result-normalizer.ts` used by `graph-synthesis-pipeline`), fixing `label: "Unnamed"` and incorrect default `type: "paper"` for entropy search results that provide `entityType` + `label`; added regression coverage in `apps/mastra-app/src/__tests__/search-result-normalizer.test.ts` and workflow integration assertion in `apps/api/src/__tests__/workflow.test.ts`
 
 - Backend PRD phase-1 causaly routes implemented and tested (`augment`, `synthesise`, `suggestions`)
 - Mastra helper agents for completeness/synthesis/follow-ups added and exported
