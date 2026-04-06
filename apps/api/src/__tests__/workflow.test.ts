@@ -1,0 +1,181 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { config } from "dotenv";
+import { app } from "../index.js";
+import { getGraphRepository } from "../lib/graph-repository.js";
+import { getNeo4jDriver } from "../lib/neo4j-client.js";
+
+// Load .env file from repository root
+config({ path: "../../.env" });
+
+describe("POST /workflow/synthesize", () => {
+  let workspaceId: string;
+
+  beforeAll(async () => {
+    // Create test workspace
+    const repo = getGraphRepository();
+    const workspace = await repo.createWorkspace({
+      name: "Workflow Test Workspace",
+      mode: "Researcher",
+    });
+    workspaceId = workspace.id;
+  });
+
+  afterAll(async () => {
+    const driver = getNeo4jDriver();
+    const session = driver.session();
+    try {
+      await session.run("MATCH (n) DETACH DELETE n");
+    } finally {
+      await session.close();
+      await driver.close();
+    }
+  });
+
+  it("should reject requests with invalid JSON body", async () => {
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "invalid json",
+    });
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("BAD_REQUEST");
+  });
+
+  it("should reject requests with missing required fields", async () => {
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId,
+        // Missing queryText, mode, searchResults
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(body.error.details.issues).toBeDefined();
+  });
+
+  it("should reject requests with invalid mode", async () => {
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId,
+        queryText: "Test query",
+        mode: "InvalidMode",
+        searchResults: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("should reject requests with empty searchResults when performSearch is false", async () => {
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId,
+        queryText: "Test query",
+        mode: "Researcher",
+        performSearch: false,
+        searchResults: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    // The error message comes from the Zod refine function
+    expect(body.error.details.issues[0].message).toContain("searchResults");
+  });
+
+  it("should execute workflow successfully with provided search results", async () => {
+    const searchResults = [
+      {
+        id: "test-paper-1",
+        title: "Metformin mechanism in diabetes",
+        snippet: "Metformin activates AMPK pathway",
+        type: "paper",
+        source: "PubMed",
+      },
+      {
+        id: "test-paper-2",
+        title: "AMPK pathway regulation",
+        snippet: "AMPK regulates glucose metabolism",
+        type: "paper",
+        source: "PubMed",
+      },
+    ];
+
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId,
+        queryText: "What is the mechanism of metformin?",
+        mode: "Researcher",
+        indiaLens: false,
+        searchTypes: [],
+        reportSections: [],
+        performSearch: false,
+        searchResults,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      queryId: expect.any(String),
+      addedNodesCount: expect.any(Number),
+      addedEdgesCount: expect.any(Number),
+      synthesis: {
+        sections: expect.any(Array),
+      },
+    });
+
+    // Verify synthesis structure
+    expect(body.synthesis.sections.length).toBeGreaterThan(0);
+    body.synthesis.sections.forEach((section: any) => {
+      expect(section).toHaveProperty("title");
+      expect(section).toHaveProperty("content");
+      expect(section).toHaveProperty("citations");
+      expect(typeof section.title).toBe("string");
+      expect(typeof section.content).toBe("string");
+      expect(Array.isArray(section.citations)).toBe(true);
+    });
+  }, 180000); // 3 minutes timeout for LLM calls
+
+  it("should handle workflow execution errors gracefully", async () => {
+    // Use invalid workspaceId to trigger error
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId: "non-existent-workspace",
+        queryText: "Test query",
+        mode: "Researcher",
+        performSearch: false,
+        searchResults: [
+          {
+            id: "test",
+            title: "Test",
+            type: "paper",
+            source: "Test",
+          },
+        ],
+      }),
+    });
+
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body.error.code).toBe("WORKFLOW_ERROR");
+    expect(body.error.message).toBeDefined();
+  }, 180000);
+});
