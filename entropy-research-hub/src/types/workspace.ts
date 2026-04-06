@@ -25,7 +25,8 @@ export type EdgeType =
   | "interaction" 
   | "binding" 
   | "ownership" 
-  | "sponsorship";
+  | "sponsorship"
+  | "inferred_relationship"; // NEW for LLM-inferred edges
 
 export interface GraphNode {
   id: string;
@@ -45,6 +46,8 @@ export interface GraphEdge {
   type: EdgeType;
   confidence?: number;
   metadata: Record<string, any>;
+  inferredBy?: "LLM" | "heuristic" | "manual"; // NEW: How edge was created
+  reasoning?: string; // NEW: LLM reasoning trace for inferred edges
 }
 
 export type WorkspaceMode = "Researcher" | "Strategist";

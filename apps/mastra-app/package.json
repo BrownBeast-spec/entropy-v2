@@ -20,6 +20,7 @@
     "@ai-sdk/openai": "latest",
     "@ai-sdk/provider": "latest",
     "@copilotkit/runtime": "^1.52.0",
+    "@entropy/api": "workspace:*",
     "@entropy/audit": "workspace:*",
     "@entropy/mcp-biology": "workspace:*",
     "@entropy/mcp-clinical": "workspace:*",
@@ -31,6 +32,7 @@
     "@mastra/client-js": "^1.7.1",
     "@mastra/core": "latest",
     "@mastra/mcp": "^1.0.2",
+    "ai": "^6.0.146",
     "dotenv": "latest",
     "puppeteer": "^24.22.0",
     "zod": "^3.23.8"

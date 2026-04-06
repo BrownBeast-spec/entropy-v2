@@ -21,6 +21,7 @@
     "@copilotkit/runtime": "latest",
     "@mastra/core": "latest",
     "dotenv": "latest",
+    "neo4j-driver": "^5.15.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -9,6 +9,7 @@ export interface HelpfulnessInput {
   graphSnapshot: {
     nodeIds: string[];
     nodeTypes: Record<string, string>;
+    existingConcepts?: string[];
     edgeSummary: Array<{
       source: string;
       target: string;
@@ -70,11 +71,16 @@ export async function scoreHelpfulness(
   }
 
   const concepts = extractConcepts(result.metadata);
-  const existingConcepts = new Set<string>();
+  const existingConcepts = new Set(
+    (graphSnapshot.existingConcepts ?? []).map((concept) =>
+      concept.toLowerCase(),
+    ),
+  );
 
   let gapPoints = 0;
   concepts.forEach((concept) => {
-    if (!existingConcepts.has(concept)) {
+    const normalized = concept.toLowerCase();
+    if (!existingConcepts.has(normalized)) {
       gapsFilled.push(concept);
       gapPoints += 10;
     }
@@ -111,7 +117,9 @@ function calculateQueryRelevance(
     relevance += 60;
   }
 
-  const queryTokens = queryLower.split(/\s+/).filter((token) => token.length > 0);
+  const queryTokens = queryLower
+    .split(/\s+/)
+    .filter((token) => token.length > 0);
   const matchCount = queryTokens.filter(
     (token) => labelLower.includes(token) || metadataString.includes(token),
   ).length;

@@ -11,6 +11,7 @@ import { verifierAgent } from "../agents/verifier.js";
 import { queryPlannerAgent } from "../agents/query-planner.js";
 import { evidenceSummarizerAgent } from "../agents/evidence-summarizer.js";
 import { researchPipelineWorkflow } from "../workflows/research-pipeline.js";
+import { graphSynthesisPipeline } from "../workflows/graph-synthesis-pipeline.js";
 import { getAuditStore, isAuditEnabled } from "../lib/audit.js";
 
 export const mastra = new Mastra({
@@ -27,6 +28,7 @@ export const mastra = new Mastra({
   },
   workflows: {
     researchPipelineWorkflow,
+    graphSynthesisPipeline,
   },
   storage: new InMemoryStore({ id: "entropy-storage" }),
 });

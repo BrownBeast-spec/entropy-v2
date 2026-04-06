@@ -218,6 +218,59 @@ describe("POST /api/entropy/search", () => {
     expect(data.searchedSources).toContain("PubMed");
   });
 
+  it("should pass graph node types and existing concepts into helpfulness scoring", async () => {
+    mockGetBiologyTools.mockResolvedValue({
+      searchTargets: vi.fn().mockResolvedValue([
+        {
+          id: "ENSG00001",
+          type: "protein",
+          label: "AMPK",
+          metadata: { pathway: "AMPK signaling" },
+        },
+      ]),
+    });
+
+    mockScoreHelpfulness.mockResolvedValue({
+      score: 40,
+      explanation: "Novel entity",
+      gapsFilled: [],
+    });
+
+    const response = await app.request("/api/entropy/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: "metformin",
+        graphSnapshot: {
+          nodeIds: ["N1", "N2"],
+          nodeTypes: {
+            N1: "protein",
+            N2: "trial",
+          },
+          existingConcepts: ["pathway:ampk signaling"],
+          edgeSummary: [],
+        },
+        personaMode: "Researcher",
+        indiaLens: false,
+        workspaceId: "test-workspace",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+
+    expect(mockScoreHelpfulness).toHaveBeenCalledWith(
+      expect.objectContaining({
+        graphSnapshot: expect.objectContaining({
+          nodeTypes: {
+            N1: "protein",
+            N2: "trial",
+          },
+          existingConcepts: ["pathway:ampk signaling"],
+        }),
+      }),
+    );
+  });
+
   it("should include per-source diagnostics when manual search fanout has unavailable sources", async () => {
     mockGetBiologyTools.mockResolvedValue({
       search_uniprot: {
@@ -323,9 +376,7 @@ describe("POST /api/entropy/search", () => {
 
     expect(data.results).toHaveLength(1);
     expect(data.sourceDiagnostics).toBeDefined();
-    expect(data.sourceDiagnostics.PatentsView).toContain(
-      "USPTO ODP migration",
-    );
+    expect(data.sourceDiagnostics.PatentsView).toContain("USPTO ODP migration");
   });
 
   it("should preserve source diversity in top manual search results", async () => {

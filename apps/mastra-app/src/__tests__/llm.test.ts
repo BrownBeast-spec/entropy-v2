@@ -12,6 +12,13 @@ describe("getModel", () => {
     );
   });
 
+  it("supports nvidia-nim provider ids", () => {
+    process.env.NVIDIA_NIM_API_KEY = "test-key";
+    const model = getModel("nvidia-nim:openai/gpt-oss-120b");
+    expect(model.provider).toContain("nvidia-nim");
+    expect(model.modelId).toBe("openai/gpt-oss-120b");
+  });
+
   it("is a function", () => {
     expect(typeof getModel).toBe("function");
   });
@@ -52,7 +59,10 @@ describe("getModelForAgent", () => {
   it("falls back to default when no env vars set", () => {
     delete process.env.PLANNER_MODEL;
     delete process.env.LLM_MODEL;
+    process.env.NVIDIA_NIM_API_KEY = "test-key";
     const model = getModelForAgent("planner");
+    expect(model.provider).toContain("nvidia-nim");
+    expect(model.modelId).toBe("openai/gpt-oss-120b");
     expect(model).toBeDefined();
   });
 });

@@ -90,6 +90,35 @@ describe("helpfulness-agent", () => {
       expect(response.gapsFilled.length).toBeGreaterThan(0);
       expect(response.gapsFilled).toContain("pathway:glucose uptake");
     });
+
+    it("should not award gap points for concepts already present in graph", async () => {
+      const result = {
+        entityId: "ENSG00006",
+        entityType: "protein",
+        label: "Insulin receptor substrate",
+        source: "STRING",
+        metadata: {
+          pathways: ["insulin signaling"],
+        },
+      };
+
+      const graphSnapshot = {
+        nodeIds: ["ENSG00001", "ENSG00002"],
+        nodeTypes: { ENSG00001: "protein", ENSG00002: "protein" },
+        edgeSummary: [],
+        existingConcepts: ["pathway:insulin signaling"],
+      };
+
+      const response = await scoreHelpfulness({
+        result,
+        graphSnapshot,
+        queryContext: "insulin signaling pathway",
+      });
+
+      expect(response.gapsFilled).toEqual([]);
+      expect(response.explanation).not.toContain("Fills gaps");
+      expect(response.score).toBeLessThan(30);
+    });
   });
 
   describe("bootstrap mode", () => {

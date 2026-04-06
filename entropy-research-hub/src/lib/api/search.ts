@@ -5,6 +5,8 @@ export interface SearchRequest {
   queryId?: string;
   graphSnapshot: {
     nodeIds: string[];
+    nodeTypes?: Record<string, string>;
+    existingConcepts?: string[];
     edgeSummary: Array<{
       source: string;
       target: string;

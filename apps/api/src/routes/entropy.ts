@@ -45,6 +45,8 @@ const SearchInputSchema = z.object({
 
 const ManualGraphSnapshotSchema = z.object({
   nodeIds: z.array(z.string()).default([]),
+  nodeTypes: z.record(z.string()).default({}),
+  existingConcepts: z.array(z.string()).default([]),
   edgeSummary: z.array(z.record(z.unknown())).default([]),
 });
 
@@ -110,15 +112,16 @@ type SearchSummary = {
   overview: string;
   findings: SummaryFinding[];
   limitations?: string;
-  generated_by: "gemini" | "fallback";
+  generated_by: "llm" | "fallback";
 };
 
 type ToolMap = Record<string, unknown>;
-type SearchTargetsFn = (
-  input: Record<string, unknown>,
-) => Promise<unknown>;
+type SearchTargetsFn = (input: Record<string, unknown>) => Promise<unknown>;
 type SearchTargetsTool = {
-  execute: (input: Record<string, unknown>, context?: unknown) => Promise<unknown>;
+  execute: (
+    input: Record<string, unknown>,
+    context?: unknown,
+  ) => Promise<unknown>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -142,6 +145,38 @@ function asNumber(value: unknown): number | undefined {
 
 function asBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function conceptTokensFromMetadata(
+  metadata: Record<string, unknown>,
+): string[] {
+  const concepts: string[] = [];
+
+  if (Array.isArray(metadata.pathways)) {
+    metadata.pathways.forEach((pathway) => {
+      if (typeof pathway === "string") {
+        concepts.push(`pathway:${pathway}`);
+      }
+    });
+  }
+
+  if (Array.isArray(metadata.mechanisms)) {
+    metadata.mechanisms.forEach((mechanism) => {
+      if (typeof mechanism === "string") {
+        concepts.push(`mechanism:${mechanism}`);
+      }
+    });
+  }
+
+  if (Array.isArray(metadata.indications)) {
+    metadata.indications.forEach((indication) => {
+      if (typeof indication === "string") {
+        concepts.push(`indication:${indication}`);
+      }
+    });
+  }
+
+  return concepts;
 }
 
 function parseTypesInput(rawTypes: unknown): unknown {
@@ -249,6 +284,8 @@ function hasApiKeyForProvider(provider: string): boolean {
       return Boolean(process.env.HUGGINGFACE_API_KEY);
     case "openrouter":
       return Boolean(process.env.OPENROUTER_API_KEY);
+    case "nvidia-nim":
+      return Boolean(process.env.NVIDIA_NIM_API_KEY);
     default:
       return false;
   }
@@ -267,7 +304,7 @@ function canUseQueryPlannerLlm(): boolean {
   const modelId =
     process.env.QUERY_PLANNER_MODEL ??
     process.env.LLM_MODEL ??
-    "google:gemini-2.5-pro-preview-05-06";
+    "nvidia-nim:openai/gpt-oss-120b";
   return hasApiKeyForProvider(modelProviderFromId(modelId));
 }
 
@@ -279,7 +316,7 @@ function canUseSummaryLlm(): boolean {
   const modelId =
     process.env.EVIDENCE_SUMMARIZER_MODEL ??
     process.env.LLM_MODEL ??
-    "google:gemini-2.5-pro-preview-05-06";
+    "nvidia-nim:openai/gpt-oss-120b";
   return hasApiKeyForProvider(modelProviderFromId(modelId));
 }
 
@@ -470,7 +507,7 @@ async function buildSummary(
       overview: generated.overview,
       findings,
       limitations: generated.limitations,
-      generated_by: "gemini",
+      generated_by: "llm",
     };
   } catch {
     return fallback;
@@ -1348,11 +1385,15 @@ async function runManualSearch(
   tasks.push(
     (async () => {
       const pubMedTools = await getPubMedTools();
-      const { payload, error } = await callTool(pubMedTools, "search_literature", {
-        disease: queryPlan.pubmedDisease,
-        year: new Date().getUTCFullYear(),
-        limit: resultLimit,
-      });
+      const { payload, error } = await callTool(
+        pubMedTools,
+        "search_literature",
+        {
+          disease: queryPlan.pubmedDisease,
+          year: new Date().getUTCFullYear(),
+          limit: resultLimit,
+        },
+      );
 
       if (error) {
         addSourceDiagnostic("PubMed", error);
@@ -1383,11 +1424,15 @@ async function runManualSearch(
   tasks.push(
     (async () => {
       const europeTools = await getEuropePMCTools();
-      const { payload, error } = await callTool(europeTools, "search_europepmc", {
-        query: queryPlan.europepmcQuery,
-        limit: resultLimit,
-        includePreprints: true,
-      });
+      const { payload, error } = await callTool(
+        europeTools,
+        "search_europepmc",
+        {
+          query: queryPlan.europepmcQuery,
+          limit: resultLimit,
+          includePreprints: true,
+        },
+      );
 
       if (error) {
         addSourceDiagnostic("Europe PMC", error);
@@ -1462,10 +1507,14 @@ async function runManualSearch(
   tasks.push(
     (async () => {
       const pubChemTools = await getPubChemTools();
-      const { payload, error } = await callTool(pubChemTools, "search_compounds", {
-        compoundName: queryPlan.compoundName,
-        limit: resultLimit,
-      });
+      const { payload, error } = await callTool(
+        pubChemTools,
+        "search_compounds",
+        {
+          compoundName: queryPlan.compoundName,
+          limit: resultLimit,
+        },
+      );
 
       if (error) {
         addSourceDiagnostic("PubChem", error);
@@ -1499,11 +1548,33 @@ async function runManualSearch(
 
   const nodeTypes = input.graphSnapshot.nodeIds.reduce(
     (acc, nodeId) => {
-      acc[nodeId] = "protein";
+      const knownType = input.graphSnapshot.nodeTypes[nodeId];
+      acc[nodeId] = knownType || "unknown";
       return acc;
     },
     {} as Record<string, string>,
   );
+
+  const existingConcepts = new Set<string>(
+    input.graphSnapshot.existingConcepts.map((concept) =>
+      concept.toLowerCase(),
+    ),
+  );
+  for (const edge of input.graphSnapshot.edgeSummary) {
+    const sourceConcepts = isRecord(edge.sourceMetadata)
+      ? conceptTokensFromMetadata(edge.sourceMetadata)
+      : [];
+    const targetConcepts = isRecord(edge.targetMetadata)
+      ? conceptTokensFromMetadata(edge.targetMetadata)
+      : [];
+
+    sourceConcepts.forEach((concept) =>
+      existingConcepts.add(concept.toLowerCase()),
+    );
+    targetConcepts.forEach((concept) =>
+      existingConcepts.add(concept.toLowerCase()),
+    );
+  }
 
   const scoredResults: ManualSearchResult[] = await Promise.all(
     rawResults.map(async (raw, index) => {
@@ -1512,7 +1583,8 @@ async function runManualSearch(
         asString(raw.entityId) ??
         asString(raw.target_id) ??
         `unknown-${index}`;
-      const entityType = asString(raw.type) ?? asString(raw.entityType) ?? "protein";
+      const entityType =
+        asString(raw.type) ?? asString(raw.entityType) ?? "protein";
       const label =
         asString(raw.label) ??
         asString(raw.name) ??
@@ -1536,6 +1608,7 @@ async function runManualSearch(
         graphSnapshot: {
           nodeIds: input.graphSnapshot.nodeIds,
           nodeTypes,
+          existingConcepts: Array.from(existingConcepts),
           edgeSummary: input.graphSnapshot.edgeSummary.map((edge) => ({
             source: asString(edge.source) ?? "",
             target: asString(edge.target) ?? "",
@@ -1691,7 +1764,8 @@ workspace.post("/add-nodes", async (c) => {
     return true;
   });
 
-  const duplicatesSkipped = parsed.data.selectedResults.length - uniqueResults.length;
+  const duplicatesSkipped =
+    parsed.data.selectedResults.length - uniqueResults.length;
 
   const addedNodes = uniqueResults.map((result) => ({
     id: result.entityId,

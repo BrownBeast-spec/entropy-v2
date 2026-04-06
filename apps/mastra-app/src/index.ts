@@ -19,13 +19,17 @@ export {
   type SynthesisSection,
   type SynthesisResult,
 } from "./agents/synthesis-agent.js";
-export { suggestFollowups, type FollowUpResult } from "./agents/followup-agent.js";
+export {
+  suggestFollowups,
+  type FollowUpResult,
+} from "./agents/followup-agent.js";
 export {
   scoreHelpfulness,
   type HelpfulnessInput,
   type HelpfulnessOutput,
 } from "./agents/helpfulness-agent.js";
 export { researchPipelineWorkflow } from "./workflows/research-pipeline.js";
+export { graphSynthesisPipeline } from "./workflows/graph-synthesis-pipeline.js";
 export {
   getAuditStore,
   getCacheStore,
