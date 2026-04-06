@@ -152,6 +152,62 @@ describe("POST /workflow/synthesize", () => {
     });
   }, 180000); // 3 minutes timeout for LLM calls
 
+  it("should accept search results with UniProt and PubChem sources", async () => {
+    const searchResults = [
+      {
+        id: "uniprot-p31749",
+        title: "AKT1 - RAC-alpha serine/threonine-protein kinase",
+        snippet: "Protein kinase involved in glucose metabolism",
+        type: "protein",
+        source: "UniProt",
+      },
+      {
+        id: "pubchem-4091",
+        title: "Metformin",
+        snippet: "Antidiabetic drug compound",
+        type: "compound",
+        source: "PubChem",
+      },
+      {
+        id: "test-paper-1",
+        title: "Metformin and AKT1 interaction",
+        snippet: "Study of metformin effects on AKT1 pathway",
+        type: "paper",
+        source: "PubMed",
+      },
+    ];
+
+    const response = await app.request("http://localhost/api/workflow/synthesize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId,
+        queryText: "How does metformin affect AKT1?",
+        mode: "Researcher",
+        indiaLens: false,
+        searchTypes: ["protein", "compound", "paper"],
+        reportSections: [],
+        performSearch: false,
+        searchResults,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      queryId: expect.any(String),
+      addedNodesCount: expect.any(Number),
+      addedEdgesCount: expect.any(Number),
+      synthesis: {
+        sections: expect.any(Array),
+      },
+    });
+    
+    // Verify nodes were created for UniProt and PubChem sources
+    // Note: helpfulness scoring may filter out some low-score nodes
+    expect(body.addedNodesCount).toBeGreaterThanOrEqual(2);
+  }, 180000);
+
   it("should handle workflow execution errors gracefully", async () => {
     // Use invalid workspaceId to trigger error
     const response = await app.request("http://localhost/api/workflow/synthesize", {
