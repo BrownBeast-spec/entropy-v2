@@ -561,7 +561,7 @@ describe("WorkspaceQueriesPage", () => {
           queryText: "AMPK for NASH",
           mode: "Researcher",
           indiaLens: false,
-          searchTypes: ["Publication", "ClinicalTrial", "Company"],
+          searchTypes: ["paper", "trial", "company"],
           reportSections: ["Background", "Key Findings", "Evidence Quality"],
           searchResults: [
             {

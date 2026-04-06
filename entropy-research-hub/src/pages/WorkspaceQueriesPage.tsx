@@ -143,7 +143,7 @@ export default function WorkspaceQueriesPage() {
           queryText: trimmed,
           mode: modeDraft,
           indiaLens: false,
-          searchTypes: ["Publication", "ClinicalTrial", "Company"],
+          searchTypes: ["paper", "trial", "company"],
           reportSections: ["Background", "Key Findings", "Evidence Quality"],
           searchResults: searchResults.results,
           queryId: activeQueryId, // Pass the frontend-created queryId
