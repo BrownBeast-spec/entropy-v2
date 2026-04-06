@@ -8,6 +8,8 @@ import {
   getWorkspace as getWorkspaceApi,
   getWorkspaceGraph as getWorkspaceGraphApi,
   getWorkspaceQueries as getWorkspaceQueriesApi,
+  deleteNode as deleteNodeApi,
+  deleteEdge as deleteEdgeApi,
 } from "@/lib/api/workspace";
 
 export interface WorkspaceGraphSnapshot {
@@ -27,9 +29,9 @@ interface WorkspaceActionsContextValue {
   updateWorkspace: (workspace: Workspace) => Promise<void>;
   deleteWorkspace: (id: string) => Promise<void>;
   addNode: (node: GraphNode) => void;
-  removeNode: (nodeId: string) => void;
+  removeNode: (nodeId: string) => Promise<void>;
   addEdge: (edge: GraphEdge) => void;
-  removeEdge: (edgeId: string) => void;
+  removeEdge: (edgeId: string) => Promise<void>;
   addQuery: (query: Query) => void;
   updateQuery: (query: Query) => void;
   toggleSavedItem: (nodeId: string) => void;
@@ -431,14 +433,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void updateWorkspace(updated);
   };
 
-  const removeNode = (nodeId: string) => {
+  const removeNode = async (nodeId: string) => {
     if (!currentWorkspace) return;
+
+    // Optimistic update
     const updated = {
       ...currentWorkspace,
       nodes: currentWorkspace.nodes.filter((n) => n.id !== nodeId),
-      edges: currentWorkspace.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+      edges: currentWorkspace.edges.filter(
+        (e) => e.source !== nodeId && e.target !== nodeId
+      ),
     };
-    void updateWorkspace(updated);
+    setCurrentWorkspace(updated);
+
+    // Persist to backend
+    try {
+      await deleteNodeApi(currentWorkspace.id, nodeId);
+    } catch (error) {
+      console.error("[removeNode] Backend delete failed:", error);
+      // Revert optimistic update on failure
+      setCurrentWorkspace(currentWorkspace);
+      throw error;
+    }
   };
 
   const addEdge = (edge: GraphEdge) => {
@@ -450,13 +466,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void updateWorkspace(updated);
   };
 
-  const removeEdge = (edgeId: string) => {
+  const removeEdge = async (edgeId: string) => {
     if (!currentWorkspace) return;
+
+    // Optimistic update
     const updated = {
       ...currentWorkspace,
       edges: currentWorkspace.edges.filter((e) => e.id !== edgeId),
     };
-    void updateWorkspace(updated);
+    setCurrentWorkspace(updated);
+
+    // Persist to backend
+    try {
+      await deleteEdgeApi(currentWorkspace.id, edgeId);
+    } catch (error) {
+      console.error("[removeEdge] Backend delete failed:", error);
+      // Revert optimistic update on failure
+      setCurrentWorkspace(currentWorkspace);
+      throw error;
+    }
   };
 
   const addQuery = (query: Query) => {

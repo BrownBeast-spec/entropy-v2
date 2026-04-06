@@ -6,6 +6,9 @@ import {
   addNodesToWorkspace,
   createQuery,
   getWorkspaceQueries,
+  deleteNode,
+  updateNode,
+  deleteEdge,
 } from "./workspace";
 
 // Mock fetch globally
@@ -476,6 +479,116 @@ describe("Workspace API Client", () => {
       );
       expect(result.data.queries).toHaveLength(1);
       expect(result.data.queries[0].id).toBe("query-123");
+    });
+  });
+
+  describe("deleteNode", () => {
+    it("should delete a node successfully", async () => {
+      const mockResponse = { success: true };
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await deleteNode("ws-123", "node-456");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/workspace/ws-123/nodes/node-456",
+        expect.objectContaining({ method: "DELETE" }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("should throw error when delete fails", async () => {
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: { message: "Node not found" } }),
+      });
+
+      await expect(deleteNode("ws-123", "bad-node")).rejects.toThrow(
+        "Node not found"
+      );
+    });
+  });
+
+  describe("updateNode", () => {
+    it("should update node properties", async () => {
+      const mockResponse = {
+        id: "node-456",
+        label: "Updated Label",
+        type: "compound",
+        source: "PubMed",
+        metadata: { description: "updated" },
+        evidenceScore: 0.9,
+      };
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await updateNode("ws-123", "node-456", {
+        label: "Updated Label",
+        evidenceScore: 0.9,
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/workspace/ws-123/nodes/node-456",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            label: "Updated Label",
+            evidenceScore: 0.9,
+          }),
+        }),
+      );
+      expect(result.label).toBe("Updated Label");
+      expect(result.evidenceScore).toBe(0.9);
+    });
+
+    it("should throw error when update fails", async () => {
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: { message: "Node not found" } }),
+      });
+
+      await expect(
+        updateNode("ws-123", "bad-node", { label: "Test" })
+      ).rejects.toThrow("Node not found");
+    });
+  });
+
+  describe("deleteEdge", () => {
+    it("should delete an edge successfully", async () => {
+      const mockResponse = { success: true };
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await deleteEdge("ws-123", "edge-789");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/workspace/ws-123/edges/edge-789",
+        expect.objectContaining({ method: "DELETE" }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("should throw error when delete fails", async () => {
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: { message: "Edge not found" } }),
+      });
+
+      await expect(deleteEdge("ws-123", "bad-edge")).rejects.toThrow(
+        "Edge not found"
+      );
     });
   });
 });

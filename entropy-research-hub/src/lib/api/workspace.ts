@@ -331,3 +331,92 @@ export async function getWorkspaceQueries(
     },
   };
 }
+
+/**
+ * Deletes a node from workspace (and its connected edges)
+ */
+export async function deleteNode(
+  workspaceId: string,
+  nodeId: string
+): Promise<{ success: boolean }> {
+  const response = await fetch(
+    buildApiUrl(`/api/workspace/${workspaceId}/nodes/${nodeId}`),
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response
+      .json()
+      .catch(() => ({ error: { message: "Unknown error" } }));
+    const message =
+      errorBody?.error?.message ??
+      `Failed to delete node: HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Updates node properties (partial update)
+ */
+export async function updateNode(
+  workspaceId: string,
+  nodeId: string,
+  updates: Partial<
+    Pick<
+      GraphNode,
+      "label" | "type" | "source" | "metadata" | "evidenceScore" | "indiaRelevant"
+    >
+  >
+): Promise<GraphNode> {
+  const response = await fetch(
+    buildApiUrl(`/api/workspace/${workspaceId}/nodes/${nodeId}`),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response
+      .json()
+      .catch(() => ({ error: { message: "Unknown error" } }));
+    const message =
+      errorBody?.error?.message ??
+      `Failed to update node: HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Deletes an edge from workspace (keeping nodes intact)
+ */
+export async function deleteEdge(
+  workspaceId: string,
+  edgeId: string
+): Promise<{ success: boolean }> {
+  const response = await fetch(
+    buildApiUrl(`/api/workspace/${workspaceId}/edges/${edgeId}`),
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorBody = await response
+      .json()
+      .catch(() => ({ error: { message: "Unknown error" } }));
+    const message =
+      errorBody?.error?.message ??
+      `Failed to delete edge: HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return await response.json();
+}

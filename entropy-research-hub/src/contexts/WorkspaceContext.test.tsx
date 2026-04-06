@@ -29,6 +29,8 @@ vi.mock("@/lib/api/workspace", () => ({
   getWorkspace: vi.fn(),
   getWorkspaceGraph: vi.fn(),
   getWorkspaceQueries: vi.fn(),
+  deleteNode: vi.fn(),
+  deleteEdge: vi.fn(),
 }));
 
 import { workspaceStoreV2 } from "@/lib/storage/workspaceStoreV2";
@@ -56,6 +58,8 @@ const mockWorkspaceApi = workspaceApi as unknown as {
   getWorkspace: ReturnType<typeof vi.fn>;
   getWorkspaceGraph: ReturnType<typeof vi.fn>;
   getWorkspaceQueries: ReturnType<typeof vi.fn>;
+  deleteNode: ReturnType<typeof vi.fn>;
+  deleteEdge: ReturnType<typeof vi.fn>;
 };
 
 function Harness({
@@ -584,5 +588,119 @@ describe("WorkspaceContext", () => {
     expect(mockWorkspaceApi.getWorkspace).toHaveBeenCalledWith("ws_backend_3");
     expect(mockWorkspaceApi.getWorkspaceGraph).toHaveBeenCalledWith("ws_backend_3");
     expect(mockWorkspaceApi.getWorkspaceQueries).toHaveBeenCalledWith("ws_backend_3");
+  });
+
+  it("calls backend when removing a node", async () => {
+    mockStoreV2.getAll.mockResolvedValueOnce([
+      {
+        id: "ws_test",
+        name: "Test Workspace",
+        nodes: [{ id: "node-1", label: "Node 1", type: "compound" }],
+        edges: [],
+        queries: [],
+        savedItems: [],
+        createdAt: new Date("2026-04-01"),
+        updatedAt: new Date("2026-04-01"),
+      },
+    ]);
+    mockWorkspaceApi.deleteNode.mockResolvedValueOnce({ success: true });
+
+    let latestCtx:
+      | {
+          actions: ReturnType<typeof useWorkspaceActions>;
+          state: ReturnType<typeof useWorkspace>;
+        }
+      | null = null;
+
+    renderWithProvider(
+      <Harness
+        onReady={(ctx) => {
+          latestCtx = ctx;
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(latestCtx?.state.workspaces[0]?.id).toBe("ws_test");
+    });
+
+    act(() => {
+      latestCtx?.state.setCurrentWorkspace(latestCtx.state.workspaces[0]);
+    });
+
+    await waitFor(() => {
+      expect(latestCtx?.state.currentWorkspace?.nodes).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await latestCtx?.actions.removeNode("node-1");
+    });
+
+    await waitFor(() => {
+      expect(latestCtx?.state.currentWorkspace?.nodes).toHaveLength(0);
+    });
+
+    expect(mockWorkspaceApi.deleteNode).toHaveBeenCalledWith("ws_test", "node-1");
+  });
+
+  it("calls backend when removing an edge", async () => {
+    mockStoreV2.getAll.mockResolvedValueOnce([
+      {
+        id: "ws_test",
+        name: "Test Workspace",
+        nodes: [],
+        edges: [
+          {
+            id: "edge-1",
+            source: "n1",
+            target: "n2",
+            type: "binding",
+            metadata: {},
+          },
+        ],
+        queries: [],
+        savedItems: [],
+        createdAt: new Date("2026-04-01"),
+        updatedAt: new Date("2026-04-01"),
+      },
+    ]);
+    mockWorkspaceApi.deleteEdge.mockResolvedValueOnce({ success: true });
+
+    let latestCtx:
+      | {
+          actions: ReturnType<typeof useWorkspaceActions>;
+          state: ReturnType<typeof useWorkspace>;
+        }
+      | null = null;
+
+    renderWithProvider(
+      <Harness
+        onReady={(ctx) => {
+          latestCtx = ctx;
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(latestCtx?.state.workspaces[0]?.id).toBe("ws_test");
+    });
+
+    act(() => {
+      latestCtx?.state.setCurrentWorkspace(latestCtx.state.workspaces[0]);
+    });
+
+    await waitFor(() => {
+      expect(latestCtx?.state.currentWorkspace?.edges).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await latestCtx?.actions.removeEdge("edge-1");
+    });
+
+    await waitFor(() => {
+      expect(latestCtx?.state.currentWorkspace?.edges).toHaveLength(0);
+    });
+
+    expect(mockWorkspaceApi.deleteEdge).toHaveBeenCalledWith("ws_test", "edge-1");
   });
 });
