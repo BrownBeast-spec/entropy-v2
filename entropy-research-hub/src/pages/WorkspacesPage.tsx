@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -9,6 +9,7 @@ import {
   Radar,
   Sparkles,
   MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 
@@ -76,7 +77,22 @@ const sourceTone: Record<string, string> = {
 export default function WorkspacesPage() {
   const navigate = useNavigate();
   const { workspaces } = useWorkspace();
-  const { createWorkspace } = useWorkspaceActions();
+  const { createWorkspace, deleteWorkspace } = useWorkspaceActions();
+  
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const workspaceCards: WorkspaceCardData[] = useMemo(() => {
     if (!workspaces.length) {
@@ -132,6 +148,13 @@ export default function WorkspacesPage() {
     setWorkspaceName("");
     setWorkspaceFocus("");
     navigate(`/workspaces/${created.id}`);
+  };
+
+  const handleDeleteWorkspace = async (workspaceId: string) => {
+    if (confirm("Are you sure you want to delete this workspace? This action cannot be undone.")) {
+      await deleteWorkspace(workspaceId);
+      setOpenMenuId(null);
+    }
   };
 
   return (
@@ -190,12 +213,33 @@ export default function WorkspacesPage() {
                         {workspace.lastQuery}
                       </p>
                     </div>
-                    <button
-                      aria-label="Workspace actions"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity rounded-md p-1 hover:bg-accent"
-                    >
-                      <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                    </button>
+                    <div className="relative" ref={openMenuId === workspace.id ? menuRef : null}>
+                      <button
+                        aria-label="Workspace actions"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === workspace.id ? null : workspace.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity rounded-md p-1 hover:bg-accent"
+                      >
+                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      
+                      {openMenuId === workspace.id && (
+                        <div className="absolute right-0 mt-1 w-48 rounded-md border border-border bg-card shadow-lg z-10">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteWorkspace(workspace.id);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete workspace
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
