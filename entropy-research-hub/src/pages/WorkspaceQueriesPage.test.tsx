@@ -578,6 +578,7 @@ describe("WorkspaceQueriesPage", () => {
               },
             },
           ],
+          queryId: "query_backend_1", // Frontend passes the query ID it created
         });
       });
 

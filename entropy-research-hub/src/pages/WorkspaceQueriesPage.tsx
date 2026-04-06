@@ -146,6 +146,7 @@ export default function WorkspaceQueriesPage() {
           searchTypes: ["Publication", "ClinicalTrial", "Company"],
           reportSections: ["Background", "Key Findings", "Evidence Quality"],
           searchResults: searchResults.results,
+          queryId: activeQueryId, // Pass the frontend-created queryId
         });
 
         // Update query with generated report

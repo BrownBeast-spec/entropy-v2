@@ -39,6 +39,7 @@ const GraphSynthesisPipelineInputSchema = z.object({
   searchTypes: z.array(NodeTypeSchema).default([]),
   reportSections: z.array(z.string()).default([]),
   searchResults: z.array(z.unknown()).optional(), // Pre-fetched results
+  queryId: z.string().optional(), // Optional: if provided, use existing query instead of creating new one
 });
 
 // Output schema
@@ -61,6 +62,7 @@ const helpfulnessStep = createStep({
     mode: z.enum(["Researcher", "Strategist"]),
     indiaLens: z.boolean(),
     reportSections: z.array(z.string()),
+    queryId: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
     if (!inputData.searchResults || inputData.searchResults.length === 0) {
@@ -118,6 +120,7 @@ const helpfulnessStep = createStep({
       mode: inputData.mode,
       indiaLens: inputData.indiaLens,
       reportSections: inputData.reportSections,
+      queryId: inputData.queryId,
     };
   },
 });
@@ -132,6 +135,7 @@ const addNodesToGraphStep = createStep({
     mode: z.enum(["Researcher", "Strategist"]),
     indiaLens: z.boolean(),
     reportSections: z.array(z.string()),
+    queryId: z.string().optional(),
   }),
   outputSchema: z.object({
     queryId: z.string(),
@@ -141,15 +145,19 @@ const addNodesToGraphStep = createStep({
   execute: async ({ inputData }) => {
     const repo = getGraphRepository();
 
-    // Create query record
-    const queryId = randomUUID();
-    await repo.createQuery({
-      workspaceId: inputData.workspaceId,
-      text: inputData.queryText,
-      mode: inputData.mode,
-      indiaLens: inputData.indiaLens,
-      status: "running",
-    });
+    // Use provided queryId or create a new one
+    const queryId = inputData.queryId || randomUUID();
+    
+    // Only create query if queryId was not provided (not already created by frontend)
+    if (!inputData.queryId) {
+      await repo.createQuery({
+        workspaceId: inputData.workspaceId,
+        text: inputData.queryText,
+        mode: inputData.mode,
+        indiaLens: inputData.indiaLens,
+        status: "running",
+      });
+    }
 
     // Transform search results to GraphNode format
     const nodes = inputData.scoredResults

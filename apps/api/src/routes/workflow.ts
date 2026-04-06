@@ -16,6 +16,7 @@ const SynthesizeWorkflowRequestSchema = z
     reportSections: z.array(z.string()).default([]),
     performSearch: z.boolean().default(false),
     searchResults: z.array(z.unknown()).optional(),
+    queryId: z.string().optional(), // Optional: if provided, use existing query
   })
   .refine(
     (data) => {
@@ -64,6 +65,7 @@ workflow.post("/synthesize", async (c) => {
         searchTypes: input.searchTypes,
         reportSections: input.reportSections,
         searchResults: input.searchResults || [],
+        queryId: input.queryId,
       },
     });
 
