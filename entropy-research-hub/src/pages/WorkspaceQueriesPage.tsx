@@ -7,6 +7,8 @@ import {
   createQuery as createQueryApi,
   getWorkspaceQueries as getWorkspaceQueriesApi,
 } from "@/lib/api/workspace";
+import { searchWorkspace } from "@/lib/api/search";
+import { executeWorkflow } from "@/lib/api/workflow";
 
 function toRelative(date: Date): string {
   const diffMs = Math.max(0, Date.now() - date.getTime());
@@ -29,6 +31,7 @@ export default function WorkspaceQueriesPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshingQueries, setIsRefreshingQueries] = useState(false);
+  const [isExecutingWorkflow, setIsExecutingWorkflow] = useState(false);
 
   const workspace = workspaces.find((ws) => ws.id === workspaceId);
 
@@ -113,6 +116,45 @@ export default function WorkspaceQueriesPage() {
         setCurrentWorkspace(updatedWorkspace);
       }
 
+      // Clear submission states before starting workflow
+      setIsSubmitting(false);
+      setIsRefreshingQueries(false);
+
+      // Execute automated workflow
+      setIsExecutingWorkflow(true);
+      try {
+        const searchResults = await searchWorkspace({
+          query: trimmed,
+          workspaceId: workspace.id,
+          personaMode: modeDraft,
+          indiaLens: false,
+          graphSnapshot: {
+            nodeIds: workspace.nodes.map((n) => n.id),
+            edgeSummary: workspace.edges.map((e) => ({
+              source: e.source,
+              target: e.target,
+              type: e.type,
+            })),
+          },
+        });
+
+        await executeWorkflow({
+          workspaceId: workspace.id,
+          queryText: trimmed,
+          mode: modeDraft,
+          indiaLens: false,
+          searchTypes: ["Publication", "ClinicalTrial", "Company"],
+          reportSections: ["Background", "Key Findings", "Evidence Quality"],
+          searchResults: searchResults.results,
+        });
+      } catch (workflowError) {
+        // Log workflow errors but don't block navigation
+        // User can still manually augment via Lab Notebook
+        console.error("Workflow execution failed:", workflowError);
+      } finally {
+        setIsExecutingWorkflow(false);
+      }
+
       setQueryDraft("");
       navigate(`/workspaces/${workspace.id}/queries/${activeQueryId}`);
     } catch (error) {
@@ -124,6 +166,7 @@ export default function WorkspaceQueriesPage() {
     } finally {
       setIsRefreshingQueries(false);
       setIsSubmitting(false);
+      setIsExecutingWorkflow(false);
     }
   };
 
@@ -181,14 +224,16 @@ export default function WorkspaceQueriesPage() {
               </button>
               <button
                 onClick={() => void createQuery()}
-                disabled={!queryDraft.trim() || isSubmitting || isRefreshingQueries}
+                disabled={!queryDraft.trim() || isSubmitting || isRefreshingQueries || isExecutingWorkflow}
                 className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
               >
-                {isRefreshingQueries
-                  ? "Syncing..."
-                  : isSubmitting
-                    ? "Creating..."
-                    : "Run Query"}
+                {isExecutingWorkflow
+                  ? "Researching..."
+                  : isRefreshingQueries
+                    ? "Syncing..."
+                    : isSubmitting
+                      ? "Creating..."
+                      : "Run Query"}
                 <SendHorizonal className="h-3.5 w-3.5" />
               </button>
             </div>

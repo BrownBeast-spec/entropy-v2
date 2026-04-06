@@ -9,12 +9,16 @@ const {
   mockSetCurrentWorkspace,
   mockCreateQuery,
   mockGetWorkspaceQueries,
+  mockSearchWorkspace,
+  mockExecuteWorkflow,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockUpdateWorkspace: vi.fn(),
   mockSetCurrentWorkspace: vi.fn(),
   mockCreateQuery: vi.fn(),
   mockGetWorkspaceQueries: vi.fn(),
+  mockSearchWorkspace: vi.fn(),
+  mockExecuteWorkflow: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -63,6 +67,14 @@ vi.mock("@/contexts/WorkspaceContext", () => ({
 vi.mock("@/lib/api/workspace", () => ({
   createQuery: mockCreateQuery,
   getWorkspaceQueries: mockGetWorkspaceQueries,
+}));
+
+vi.mock("@/lib/api/search", () => ({
+  searchWorkspace: mockSearchWorkspace,
+}));
+
+vi.mock("@/lib/api/workflow", () => ({
+  executeWorkflow: mockExecuteWorkflow,
 }));
 
 describe("WorkspaceQueriesPage", () => {
@@ -472,5 +484,249 @@ describe("WorkspaceQueriesPage", () => {
     fireEvent.click(screen.getByText("First query"));
 
     expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/q_1");
+  });
+
+  describe("automatic workflow execution", () => {
+    beforeEach(() => {
+      mockSearchWorkspace.mockResolvedValue({
+        results: [
+          {
+            id: "sr_1",
+            entityId: "ent_1",
+            entityType: "Publication",
+            label: "AMPK in NASH",
+            source: "pubmed",
+            metadata: { pmid: "12345" },
+            helpfulness: {
+              score: 0.9,
+              explanation: "Highly relevant",
+              gapsFilled: ["mechanism"],
+            },
+          },
+        ],
+        executionTime: 1200,
+        searchedSources: ["pubmed"],
+      });
+
+      mockExecuteWorkflow.mockResolvedValue({
+        queryId: "query_backend_1",
+        addedNodesCount: 5,
+        addedEdgesCount: 3,
+        synthesis: {
+          sections: [
+            {
+              title: "Background",
+              content: "AMPK research overview",
+              citations: [],
+            },
+          ],
+        },
+      });
+    });
+
+    it("triggers workflow after successful query creation", async () => {
+      renderPage();
+
+      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+        target: { value: "AMPK for NASH" },
+      });
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      });
+      fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+      // Wait for query creation
+      await waitFor(() => {
+        expect(mockCreateQuery).toHaveBeenCalled();
+      });
+
+      // Should call search with correct parameters
+      await waitFor(() => {
+        expect(mockSearchWorkspace).toHaveBeenCalledWith({
+          query: "AMPK for NASH",
+          workspaceId: "ws_1",
+          personaMode: "Researcher",
+          indiaLens: false,
+          graphSnapshot: {
+            nodeIds: [],
+            edgeSummary: [],
+          },
+        });
+      });
+
+      // Should execute workflow with search results
+      await waitFor(() => {
+        expect(mockExecuteWorkflow).toHaveBeenCalledWith({
+          workspaceId: "ws_1",
+          queryText: "AMPK for NASH",
+          mode: "Researcher",
+          indiaLens: false,
+          searchTypes: ["Publication", "ClinicalTrial", "Company"],
+          reportSections: ["Background", "Key Findings", "Evidence Quality"],
+          searchResults: [
+            {
+              id: "sr_1",
+              entityId: "ent_1",
+              entityType: "Publication",
+              label: "AMPK in NASH",
+              source: "pubmed",
+              metadata: { pmid: "12345" },
+              helpfulness: {
+                score: 0.9,
+                explanation: "Highly relevant",
+                gapsFilled: ["mechanism"],
+              },
+            },
+          ],
+        });
+      });
+
+      // Should navigate to query view
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_1");
+      });
+    });
+
+    it("shows researching state during workflow execution", async () => {
+      renderPage();
+
+      // Delay workflow execution to observe state
+      let resolveWorkflow:
+        | ((value: {
+            queryId: string;
+            addedNodesCount: number;
+            addedEdgesCount: number;
+            synthesis: { sections: Array<{ title: string; content: string; citations: unknown[] }> };
+          }) => void)
+        | null = null;
+
+      mockExecuteWorkflow.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveWorkflow = resolve;
+          }),
+      );
+
+      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+        target: { value: "test query" },
+      });
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      });
+      fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+      // Should show "Researching..." while workflow runs
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /researching/i })).toBeDisabled();
+      });
+
+      // Resolve workflow
+      resolveWorkflow?.({
+        queryId: "query_backend_1",
+        addedNodesCount: 2,
+        addedEdgesCount: 1,
+        synthesis: {
+          sections: [{ title: "Test", content: "Test content", citations: [] }],
+        },
+      });
+
+      // Button state should return to normal after navigation
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalled();
+      });
+    });
+
+    it("handles workflow execution failure gracefully and still navigates", async () => {
+      renderPage();
+
+      mockExecuteWorkflow.mockRejectedValueOnce(
+        new Error("Workflow execution failed: Neo4j connection timeout"),
+      );
+
+      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+        target: { value: "error case" },
+      });
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      });
+      fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+      // Workflow should be attempted
+      await waitFor(() => {
+        expect(mockExecuteWorkflow).toHaveBeenCalled();
+      });
+
+      // Should still navigate even if workflow fails
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_1");
+      });
+
+      // Error should be logged but not block navigation
+      // (In real implementation, we might show a toast notification)
+    });
+
+    it("handles search failure and continues without workflow", async () => {
+      renderPage();
+
+      mockSearchWorkspace.mockRejectedValueOnce(new Error("Search service unavailable"));
+
+      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+        target: { value: "search fails" },
+      });
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      });
+      fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+      // Search should be attempted
+      await waitFor(() => {
+        expect(mockSearchWorkspace).toHaveBeenCalled();
+      });
+
+      // Workflow should NOT be called if search fails
+      expect(mockExecuteWorkflow).not.toHaveBeenCalled();
+
+      // Should still navigate to query view
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_1");
+      });
+    });
+
+    it("passes strategist mode to workflow correctly", async () => {
+      renderPage();
+
+      mockCreateQuery.mockResolvedValueOnce({
+        success: true,
+        data: {
+          id: "query_backend_strat",
+          workspaceId: "ws_1",
+          text: "strategic query",
+          mode: "Strategist",
+          indiaLens: false,
+          submittedAt: new Date("2026-04-03T00:00:00Z"),
+          status: "pending",
+          contributedNodes: [],
+          contributedEdges: [],
+        },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /strategist/i }));
+      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
+        target: { value: "strategic query" },
+      });
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      });
+      fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+
+      await waitFor(() => {
+        expect(mockExecuteWorkflow).toHaveBeenCalledWith(
+          expect.objectContaining({
+            mode: "Strategist",
+            queryText: "strategic query",
+          }),
+        );
+      });
+    });
   });
 });
