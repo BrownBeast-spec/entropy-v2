@@ -1,3 +1,5 @@
+import { buildApiUrl } from "./baseUrl";
+
 export interface SynthesizeWorkflowRequest {
   workspaceId: string;
   queryText: string;
@@ -33,7 +35,7 @@ export interface SynthesisResult {
 export async function executeWorkflow(
   request: SynthesizeWorkflowRequest
 ): Promise<SynthesisResult> {
-  const response = await fetch('/api/workflow/synthesize', {
+  const response = await fetch(buildApiUrl('/api/workflow/synthesize'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
