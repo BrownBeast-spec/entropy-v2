@@ -354,6 +354,46 @@ export class GraphRepository {
     }
   }
 
+  // Delete edge (keeping nodes intact)
+  async deleteEdge(
+    workspaceId: string,
+    edgeId: string,
+  ): Promise<{ success: boolean }> {
+    const session = getNeo4jSession();
+
+    try {
+      // Check if workspace exists and edge exists within workspace scope
+      const checkResult = await session.run(
+        `
+        MATCH (w:Workspace {id: $workspaceId})-[:CONTAINS]->(source:GraphNode)
+        MATCH (source)-[r:RELATES_TO {id: $edgeId}]->(target:GraphNode)
+        MATCH (w)-[:CONTAINS]->(target)
+        RETURN r
+        `,
+        { workspaceId, edgeId },
+      );
+
+      if (checkResult.records.length === 0) {
+        return { success: false };
+      }
+
+      // Delete only the edge relationship
+      await session.run(
+        `
+        MATCH (w:Workspace {id: $workspaceId})-[:CONTAINS]->(source:GraphNode)
+        MATCH (source)-[r:RELATES_TO {id: $edgeId}]->(target:GraphNode)
+        MATCH (w)-[:CONTAINS]->(target)
+        DELETE r
+        `,
+        { workspaceId, edgeId },
+      );
+
+      return { success: true };
+    } finally {
+      await session.close();
+    }
+  }
+
   // Query operations
   async createQuery(data: Omit<Query, "id" | "submittedAt">): Promise<Query> {
     const session = getNeo4jSession();

@@ -9,6 +9,7 @@ config({ path: "../../.env" });
 describe("Workspace mutation routes", () => {
   let workspaceId: string;
   let nodeId: string;
+  let edgeId: string;
 
   beforeAll(async () => {
     const repo = getGraphRepository();
@@ -32,6 +33,39 @@ describe("Workspace mutation routes", () => {
       },
     ]);
     nodeId = nodes[0].id;
+
+    // Add test edge for edge deletion tests
+    const [source, target] = await repo.addNodesToWorkspace(workspaceId, [
+      {
+        label: "Edge Source",
+        type: "compound",
+        source: "PubMed",
+        metadata: { id: "edge-source" },
+        evidenceScore: 0.7,
+        indiaRelevant: false,
+      },
+      {
+        label: "Edge Target",
+        type: "protein",
+        source: "STRING",
+        metadata: { id: "edge-target" },
+        evidenceScore: 0.8,
+        indiaRelevant: false,
+      },
+    ]);
+
+    const edges = await repo.addEdges(workspaceId, [
+      {
+        source: source.id,
+        target: target.id,
+        type: "binding",
+        confidence: 0.9,
+        metadata: {},
+        inferredBy: "LLM",
+        reasoning: "test edge for deletion",
+      },
+    ]);
+    edgeId = edges[0].id;
   });
 
   afterAll(async () => {
@@ -246,6 +280,109 @@ describe("Workspace mutation routes", () => {
       expect(data.label).toBe("Only Label Changed");
       expect(data.type).toBe("gene"); // unchanged
       expect(data.evidenceScore).toBe(0.6); // unchanged
+    });
+  });
+
+  describe("DELETE /api/workspace/:id/edges/:edgeId", () => {
+    it("removes edge from workspace graph", async () => {
+      // Verify edge exists first
+      const graphBefore = await getGraphRepository().getWorkspaceGraph(
+        workspaceId,
+      );
+      expect(graphBefore.edges.some((e) => e.id === edgeId)).toBe(true);
+
+      const response = await app.request(
+        `http://localhost/api/workspace/${workspaceId}/edges/${edgeId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+
+      // Verify edge removed
+      const graphAfter = await getGraphRepository().getWorkspaceGraph(
+        workspaceId,
+      );
+      expect(graphAfter.edges.some((e) => e.id === edgeId)).toBe(false);
+    });
+
+    it("returns 404 for non-existent edge", async () => {
+      const response = await app.request(
+        `http://localhost/api/workspace/${workspaceId}/edges/non-existent-edge`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      expect(response.status).toBe(404);
+      const data = await response.json();
+      expect(data.error.code).toBe("NOT_FOUND");
+    });
+
+    it("returns 404 for non-existent workspace", async () => {
+      const response = await app.request(
+        `http://localhost/api/workspace/non-existent-workspace/edges/${edgeId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      expect(response.status).toBe(404);
+    });
+
+    it("keeps nodes intact when edge is deleted", async () => {
+      const repo = getGraphRepository();
+      
+      // Create new nodes and edge
+      const [src, tgt] = await repo.addNodesToWorkspace(workspaceId, [
+        {
+          label: "Keep Source",
+          type: "gene",
+          source: "Open Targets",
+          metadata: { id: "keep-src" },
+          evidenceScore: 0.7,
+          indiaRelevant: false,
+        },
+        {
+          label: "Keep Target",
+          type: "disease",
+          source: "Open Targets",
+          metadata: { id: "keep-tgt" },
+          evidenceScore: 0.8,
+          indiaRelevant: false,
+        },
+      ]);
+
+      const [edge] = await repo.addEdges(workspaceId, [
+        {
+          source: src.id,
+          target: tgt.id,
+          type: "association",
+          confidence: 0.75,
+          metadata: {},
+          inferredBy: "heuristic",
+          reasoning: "edge to be removed",
+        },
+      ]);
+
+      // Delete edge
+      const response = await app.request(
+        `http://localhost/api/workspace/${workspaceId}/edges/${edge.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      expect(response.status).toBe(200);
+
+      // Verify nodes still exist
+      const graph = await repo.getWorkspaceGraph(workspaceId);
+      expect(graph.nodes.some((n) => n.id === src.id)).toBe(true);
+      expect(graph.nodes.some((n) => n.id === tgt.id)).toBe(true);
+      expect(graph.edges.some((e) => e.id === edge.id)).toBe(false);
     });
   });
 });

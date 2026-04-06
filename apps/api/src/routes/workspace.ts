@@ -319,4 +319,29 @@ workspace.patch("/:id/nodes/:nodeId", async (c) => {
   return c.json(updatedNode);
 });
 
+/**
+ * DELETE /api/workspace/:id/edges/:edgeId
+ * Remove an edge from workspace (keeping nodes intact)
+ */
+workspace.delete("/:id/edges/:edgeId", async (c) => {
+  const workspaceId = c.req.param("id");
+  const edgeId = c.req.param("edgeId");
+
+  const repo = getGraphRepository();
+  
+  // Check if workspace exists
+  const workspace = await repo.getWorkspace(workspaceId);
+  if (!workspace) {
+    return errorResponse(c, 404, "NOT_FOUND", "Workspace not found");
+  }
+
+  const result = await repo.deleteEdge(workspaceId, edgeId);
+
+  if (!result.success) {
+    return errorResponse(c, 404, "NOT_FOUND", "Edge not found in workspace");
+  }
+
+  return c.json({ success: true });
+});
+
 export default workspace;
