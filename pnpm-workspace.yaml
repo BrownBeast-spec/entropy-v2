@@ -1,10 +1,12 @@
 packages:
+  - "packages/mcp-shared"
   - "packages/mcp-biology"
   - "packages/mcp-clinical"
   - "packages/mcp-safety"
   - "packages/mcp-commercial"
   - "packages/mcp-europepmc"
   - "packages/mcp-patents"
+  - "packages/mcp-patent-strategy"
   - "packages/mcp-string"
   - "packages/mcp-pubchem"
   - "packages/audit"

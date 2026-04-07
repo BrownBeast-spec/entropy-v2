@@ -1,0 +1,28 @@
+{
+  "name": "@entropy/mcp-shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./utils/*": "./dist/utils/*.js",
+    "./parsers/*": "./dist/parsers/*.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "prettier --check src/"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.6",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vitest": "^1.0.0"
+  }
+}

@@ -1,6 +1,6 @@
 # Entropy v2 Implementation Status Audit
 
-Date: 2026-04-04 (Updated)
+Date: 2026-04-07 (Updated)
 Scope reviewed:
 
 - `amd-docs/PRD.md`
@@ -9,7 +9,30 @@ Scope reviewed:
 
 This document captures what is actually implemented right now, what is scaffolded, and what is still missing against the PRD for the AMD Slingshot Hackathon 2026.
 
-Latest execution update (worktree: `amdv2-phase1`):
+Latest execution update (strategist-pipeline phase):
+
+- **Week 1 Progress (Apr 6-7)**:
+  - `packages/mcp-shared`: Implemented shared utilities for Strategist system
+    - DataCacheManager for CSV downloading + TTL-based caching
+    - CitationBuilder with government source tracking (CitedFact, buildCitation, mergeMultiSource)
+    - Orange Book parser (products.txt, patents.txt, exclusivity.txt)
+    - NADAC pricing parser (CMS Medicare pricing data)
+    - Medicare Part D spending parser
+  - `packages/mcp-patent-strategy`: First Strategist MCP package created (Day 3-4 of Week 1)
+    - Orange Book loader using DataCacheManager for FDA drug product indexing
+    - USPTO PatentsView API client (searchPatentsByKeyword, getPatentDetails, getPatentsByAssignee)
+    - 4 MCP tools implemented:
+      1. `search_orange_book` - Search approved drug products
+      2. `get_patent_details` - Retrieve USPTO patent details
+      3. `analyze_patent_landscape` - Combined Orange Book + USPTO analysis
+      4. `get_company_patent_timeline` - Patent filing trends by company
+    - All tools use CitedFact citations with live government source URLs (FDA Orange Book, USPTO PatentsView)
+    - Complete test coverage: 14 passing tests covering happy path, negative cases, boundary cases, and API error handling
+    - Build successful with TypeScript compilation to dist/
+  - `amd-docs/TEST_FAILURES.md`: Created entry for external test infrastructure issues (FDA CSV 404s) - external URLs may need verification
+- Previous execution summary (Phase 2 and earlier): See original IMPLEMENTATION.md below
+
+---
 
 - Phase 2 manual search-select frontend implemented in `amdv2-phase2`: added search/add-nodes API clients, `SearchResultCard`, workspace search mode in `RightChatPanel`, `MetricCard` + dynamic report metrics, report staleness badge, and a simplified `WorkspaceView` layout with no in-page query sidebar
 - Added/updated Phase 2 frontend tests: `RightChatPanel.test.tsx`, `SearchResultCard.test.tsx`, `search.test.ts`, `addNodes.test.ts`, `reportMetrics.test.ts`, `WorkspaceView.search-layout.test.tsx`, and `WorkspaceView.integration.test.tsx`
@@ -402,7 +425,7 @@ Intermediate report generation now has a real API-backed path in `WorkspaceView`
 | Intermediate report behavior        | Scaffolding (demo data)                                                                  | Partial: 74-78       |
 | Detail drawers                      | Scaffolding                                                                              | Partial: 85-93       |
 | Strategist full report view         | Not implemented                                                                          | None: 94-109         |
-| Full dossier generation             | Partial (backend SSE route + frontend trigger wired; final UX/PDF flow still pending)   | Partial: 110-117     |
+| Full dossier generation             | Partial (backend SSE route + frontend trigger wired; final UX/PDF flow still pending)    | Partial: 110-117     |
 | Standalone Protein Profile          | Not implemented                                                                          | None: 118-123        |
 | Settings + data source status model | Partial (mostly static pages)                                                            | Partial: 124-129     |
 | Testing against PRD decisions       | Partial (backend tests exist; frontend tests minimal)                                    | N/A                  |
