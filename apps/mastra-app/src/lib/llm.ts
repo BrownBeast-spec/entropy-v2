@@ -17,8 +17,7 @@ const RATE_LIMIT_PATTERNS = [
 ];
 
 const DEFAULT_MAX_RETRIES = 6;
-const DEFAULT_BASE_DELAY_MS = 15_000;
-const DEFAULT_LLM_MODEL = "nvidia-nim:openai/gpt-oss-120b";
+const DEFAULT_BASE_DELAY_MS = 15_000; // 15s — Gemini free-tier resets per minute
 
 function isRateLimitError(err: unknown): boolean {
   const msg =
@@ -176,7 +175,8 @@ function withToolInterception(
 }
 
 export function getModel(modelId?: string): LanguageModelV3 {
-  const id = modelId ?? process.env.LLM_MODEL ?? DEFAULT_LLM_MODEL;
+  const id =
+    modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-pro-preview-05-06";
   const [provider, ...rest] = id.split(":");
   const model = rest.join(":");
 
@@ -196,11 +196,10 @@ export function getModel(modelId?: string): LanguageModelV3 {
     apiKey: process.env.OPENROUTER_API_KEY,
   });
 
-  const nvidiaNim = createOpenAI({
-    name: "nvidia-nim",
-    baseURL:
-      process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
+  const nvidia = createOpenAI({
+    name: "nvidia",
+    baseURL: "https://integrate.api.nvidia.com/v1",
+    apiKey: process.env.NVIDIA_API_KEY,
   });
 
   let base: LanguageModelV3;
@@ -224,12 +223,12 @@ export function getModel(modelId?: string): LanguageModelV3 {
     case "openrouter":
       base = openrouter.chat(model);
       break;
-    case "nvidia-nim":
-      base = nvidiaNim.chat(model);
+    case "nvidia":
+      base = nvidia.chat(model);
       break;
     default:
       throw new Error(
-        `Unknown LLM provider: ${provider}. Use google:, openai:, anthropic:, perplexity:, huggingface:, openrouter:, or nvidia-nim:`,
+        `Unknown LLM provider: ${provider}. Use google:, openai:, anthropic:, perplexity:, huggingface:, openrouter:, or nvidia:`,
       );
   }
 
@@ -240,7 +239,7 @@ export function getModel(modelId?: string): LanguageModelV3 {
  * Get model for a specific agent. Resolution order:
  * 1. Agent-specific env var: e.g., PLANNER_MODEL, BIOLOGIST_MODEL, GAP_ANALYST_MODEL
  * 2. Global default: LLM_MODEL env var
- * 3. Hardcoded fallback: "nvidia-nim:openai/gpt-oss-120b"
+ * 3. Hardcoded fallback: "openrouter:meta-llama/llama-3.1-8b-instruct"
  *
  * Agent ID conversion: "gap-analyst" → "GAP_ANALYST_MODEL", "hawk-safety" → "HAWK_SAFETY_MODEL"
  */
@@ -250,7 +249,7 @@ export function getModelForAgent(agentId: string): LanguageModelV3 {
   const [provider, ...rest] = (
     agentModelId ??
     process.env.LLM_MODEL ??
-    DEFAULT_LLM_MODEL
+    "google:gemini-2.5-pro-preview-05-06"
   ).split(":");
   const model = rest.join(":");
 
@@ -270,11 +269,10 @@ export function getModelForAgent(agentId: string): LanguageModelV3 {
     apiKey: process.env.OPENROUTER_API_KEY,
   });
 
-  const nvidiaNim = createOpenAI({
-    name: "nvidia-nim",
-    baseURL:
-      process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
+  const nvidia = createOpenAI({
+    name: "nvidia",
+    baseURL: "https://integrate.api.nvidia.com/v1",
+    apiKey: process.env.NVIDIA_API_KEY,
   });
 
   let base: LanguageModelV3;
@@ -298,12 +296,12 @@ export function getModelForAgent(agentId: string): LanguageModelV3 {
     case "openrouter":
       base = openrouter.chat(model);
       break;
-    case "nvidia-nim":
-      base = nvidiaNim.chat(model);
+    case "nvidia":
+      base = nvidia.chat(model);
       break;
     default:
       throw new Error(
-        `Unknown LLM provider: ${provider}. Use google:, openai:, anthropic:, perplexity:, huggingface:, openrouter:, or nvidia-nim:`,
+        `Unknown LLM provider: ${provider}. Use google:, openai:, anthropic:, perplexity:, huggingface:, openrouter:, or nvidia:`,
       );
   }
 

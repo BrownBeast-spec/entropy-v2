@@ -14,6 +14,7 @@ export interface PatentsViewQuery {
     _and?: unknown[];
     _or?: unknown[];
     assignee_organization?: string;
+    patent_number?: string;
   };
   f?: string[];
   o?: { per_page?: number; page?: number };

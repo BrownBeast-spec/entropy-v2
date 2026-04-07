@@ -84,4 +84,78 @@ describe("searchWorkspace", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("normalizes entropy search response shape for notebook consumers", async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: "metformin",
+        total_results: 1,
+        results: [
+          {
+            id: "NCT00000009",
+            type: "trials",
+            title: "Metformin trial",
+            description: "Clinical evidence from trial enrollment",
+            source: "ClinicalTrials.gov",
+            metadata: { nct_id: "NCT00000009" },
+          },
+        ],
+        errors: {
+          patents: "Tool unavailable",
+        },
+      }),
+    } as Response);
+
+    const result = await searchWorkspace({
+      query: "metformin",
+      graphSnapshot: { nodeIds: [], edgeSummary: [] },
+      personaMode: "Researcher",
+      indiaLens: false,
+      workspaceId: "test-workspace",
+    });
+
+    expect(result.searchedSources).toEqual(["ClinicalTrials.gov"]);
+    expect(result.sourceDiagnostics).toEqual({ patents: "Tool unavailable" });
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]).toMatchObject({
+      id: "NCT00000009",
+      entityId: "NCT00000009",
+      entityType: "trial",
+      label: "Metformin trial",
+      source: "ClinicalTrials.gov",
+    });
+    expect(result.results[0].helpfulness.score).toBe(50);
+  });
+
+  it("normalizes target entity type to backend-compatible gene", async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: "metformin",
+        total_results: 1,
+        results: [
+          {
+            id: "ENSG000001",
+            type: "targets",
+            title: "PRKAA1",
+            source: "Open Targets",
+            metadata: {},
+            description: "AMPK alpha subunit",
+          },
+        ],
+      }),
+    } as Response);
+
+    const result = await searchWorkspace({
+      query: "metformin",
+      graphSnapshot: { nodeIds: [], edgeSummary: [] },
+      personaMode: "Researcher",
+      indiaLens: false,
+      workspaceId: "test-workspace",
+    });
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].entityType).toBe("gene");
+  });
 });

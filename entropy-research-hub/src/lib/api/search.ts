@@ -44,6 +44,100 @@ export interface SearchResponse {
   sourceDiagnostics?: Record<string, string>;
 }
 
+type EntropyApiResult = {
+  id?: string;
+  type?: string;
+  title?: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
+  description?: string;
+};
+
+type EntropyApiResponse = {
+  results?: EntropyApiResult[];
+  errors?: Record<string, string>;
+  searchedSources?: string[];
+  executionTime?: number;
+  sourceDiagnostics?: Record<string, string>;
+};
+
+function isFrontendSearchResult(value: unknown): value is SearchResult {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<SearchResult>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.entityId === "string" &&
+    typeof candidate.entityType === "string" &&
+    typeof candidate.label === "string" &&
+    typeof candidate.source === "string" &&
+    candidate.helpfulness !== undefined
+  );
+}
+
+function normalizeEntityType(type: string | undefined): string {
+  switch (type) {
+    case "targets":
+      return "gene";
+    case "trials":
+      return "trial";
+    case "proteins":
+      return "protein";
+    case "compounds":
+      return "compound";
+    case "patents":
+      return "patent";
+    case "literature":
+    case "preprints":
+      return "paper";
+    default:
+      return type ?? "paper";
+  }
+}
+
+function normalizeSearchResponse(raw: unknown): SearchResponse {
+  const payload = (raw ?? {}) as EntropyApiResponse;
+  const results = Array.isArray(payload.results)
+    ? payload.results.every(isFrontendSearchResult)
+      ? (payload.results as SearchResult[])
+      : payload.results.map((result, idx): SearchResult => {
+          const id = result.id ?? `result_${idx}`;
+          const type = normalizeEntityType(result.type);
+          const metadata = result.metadata ?? {};
+
+          return {
+            id,
+            entityId: id,
+            entityType: type,
+            label: result.title ?? id,
+            source: result.source ?? "Unknown",
+            metadata,
+            helpfulness: {
+              score: 50,
+              explanation: result.description ?? "Relevant evidence",
+              gapsFilled: [],
+            },
+          };
+        })
+    : [];
+
+  const searchedSources = Array.from(
+    new Set(
+      (Array.isArray(payload.searchedSources)
+        ? payload.searchedSources
+        : results.map((result) => result.source)
+      ).filter(Boolean),
+    ),
+  );
+
+  return {
+    results,
+    executionTime:
+      typeof payload.executionTime === "number" ? payload.executionTime : 0,
+    searchedSources,
+    sourceDiagnostics: payload.sourceDiagnostics ?? payload.errors,
+  };
+}
+
 export async function searchWorkspace(
   request: SearchRequest,
 ): Promise<SearchResponse> {
@@ -60,5 +154,6 @@ export async function searchWorkspace(
     throw new Error(error.message || "Search failed");
   }
 
-  return response.json();
+  const payload = await response.json();
+  return normalizeSearchResponse(payload);
 }

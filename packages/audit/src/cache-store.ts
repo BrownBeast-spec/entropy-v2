@@ -35,6 +35,8 @@ export const DEFAULT_TTL: Record<string, number> = {
   search_drug_interactions: 43200,
   get_interaction_details: 43200,
   check_interaction_pair: 43200,
+  // Entity enrichment - AI-generated synopses + full details
+  entity_enrichment: 86400, // 24h
 };
 
 export interface CacheEntry {

@@ -162,6 +162,15 @@ export default function WorkspaceView() {
     }
   };
 
+  const handleCitationClick = (nodeId: string) => {
+    setHighlightedNodes([nodeId]);
+    const node = currentWorkspace?.nodes.find((n) => n.id === nodeId);
+    if (node) {
+      setSelectedNode(node);
+      setDrawerOpen(true);
+    }
+  };
+
   // Handle pin node
   const handlePinNode = (nodeId: string) => {
     toggleSavedItem(nodeId);
@@ -290,7 +299,7 @@ export default function WorkspaceView() {
                 queryText={activeQuery?.text ?? ""}
                 onRegenerateSynthesis={() => void handleRegenerateSynthesis()}
                 onGenerateFullDossier={() => void handleGenerateFullDossier()}
-                onCitationClick={(nodeId) => setHighlightedNodes([nodeId])}
+                onCitationClick={handleCitationClick}
                 onExport={(format) => console.log("Export as:", format)}
               />
             </div>

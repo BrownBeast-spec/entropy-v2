@@ -239,7 +239,167 @@ export function registerPatentsTools(server: McpServer): void {
     },
   );
 
-  // ─── 3. Get Top Patent Assignees ──────────────────────────────────
+  // ─── 3. Get Patent Details ────────────────────────────────────────
+  server.tool(
+    "get_patent_details",
+    "Get detailed information for a specific patent by patent number.",
+    {
+      patentNumber: z
+        .string()
+        .describe("Patent number (e.g. '10123456' or 'US10123456')"),
+    },
+    async ({ patentNumber }) => {
+      try {
+        // Clean patent number (remove US prefix if present)
+        const cleanNumber = patentNumber.replace(/^US/, "");
+
+        const query = {
+          q: { patent_number: cleanNumber },
+          f: [
+            "patent_number",
+            "patent_title",
+            "patent_abstract",
+            "patent_date",
+            "patent_type",
+            "assignee_organization",
+            "assignee_city",
+            "assignee_country",
+            "inventor_first_name",
+            "inventor_last_name",
+            "inventor_city",
+            "inventor_country",
+            "cpc_section_id",
+            "cpc_subsection_id",
+            "cpc_group_id",
+            "cpc_subgroup_id",
+            "cited_patent_number",
+            "citedby_patent_number",
+          ],
+          o: { per_page: 1 },
+        };
+
+        const response = await patentsViewFetch("patent", query);
+        const data = (await response.json()) as {
+          patents?: Array<{
+            patent_number: string;
+            patent_title: string;
+            patent_abstract: string;
+            patent_date: string;
+            patent_type?: string;
+            assignees?: Array<{
+              assignee_organization?: string;
+              assignee_city?: string;
+              assignee_country?: string;
+            }>;
+            inventors?: Array<{
+              inventor_first_name?: string;
+              inventor_last_name?: string;
+              inventor_city?: string;
+              inventor_country?: string;
+            }>;
+            cpcs?: Array<{
+              cpc_section_id?: string;
+              cpc_subsection_id?: string;
+              cpc_group_id?: string;
+              cpc_subgroup_id?: string;
+            }>;
+            cited_patents?: Array<{ cited_patent_number?: string }>;
+            citedby_patents?: Array<{ citedby_patent_number?: string }>;
+          }>;
+        };
+
+        const patent = data.patents?.[0];
+        if (!patent) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: `Patent not found: ${patentNumber}`,
+                }),
+              },
+            ],
+          };
+        }
+
+        const assignees =
+          patent.assignees?.map((a) => ({
+            organization: a.assignee_organization ?? "Unknown",
+            location: [a.assignee_city, a.assignee_country]
+              .filter(Boolean)
+              .join(", "),
+          })) ?? [];
+
+        const inventors =
+          patent.inventors?.map((i) => ({
+            name: `${i.inventor_first_name ?? ""} ${i.inventor_last_name ?? ""}`.trim(),
+            location: [i.inventor_city, i.inventor_country]
+              .filter(Boolean)
+              .join(", "),
+          })) ?? [];
+
+        const classifications =
+          patent.cpcs
+            ?.map((c) =>
+              [
+                c.cpc_section_id,
+                c.cpc_subsection_id,
+                c.cpc_group_id,
+                c.cpc_subgroup_id,
+              ]
+                .filter(Boolean)
+                .join(""),
+            )
+            .filter((c, i, arr) => arr.indexOf(c) === i) // unique
+            .slice(0, 5) ?? [];
+
+        const citedPatents =
+          patent.cited_patents
+            ?.map((c) => c.cited_patent_number)
+            .filter(Boolean)
+            .slice(0, 10) ?? [];
+
+        const citedByCount = patent.citedby_patents?.length ?? 0;
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                patent_number: `US${patent.patent_number}`,
+                title: patent.patent_title,
+                abstract: patent.patent_abstract,
+                filing_date: patent.patent_date,
+                patent_type: patent.patent_type ?? "Utility",
+                assignees,
+                inventors: inventors.slice(0, 10),
+                classifications,
+                cited_patents: citedPatents,
+                cited_by_count: citedByCount,
+                url: `https://patents.google.com/patent/US${patent.patent_number}`,
+              }),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Error fetching patent details",
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // ─── 4. Get Top Patent Assignees ──────────────────────────────────
   server.tool(
     "get_top_assignees",
     "Find companies with most patents for a drug/technology.",

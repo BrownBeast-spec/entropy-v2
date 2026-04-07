@@ -109,6 +109,40 @@ describe("RightChatPanel - Workspace Mode", () => {
     expect(screen.getByText(/sources: 1 successful/i)).toBeInTheDocument();
   });
 
+  it("does not crash when backend omits searchedSources", async () => {
+    mockSearchWorkspace.mockResolvedValue({
+      results: [
+        {
+          id: "result_1",
+          entityId: "NCT00000009",
+          entityType: "trial",
+          label: "Metformin Trial",
+          source: "ClinicalTrials.gov",
+          metadata: {},
+          helpfulness: {
+            score: 50,
+            explanation: "Relevant evidence",
+            gapsFilled: [],
+          },
+        },
+      ],
+      executionTime: 50,
+      sourceDiagnostics: { patents: "Tool unavailable" },
+    });
+
+    renderInWorkspace();
+
+    fireEvent.change(screen.getByPlaceholderText(/search mcp data sources/i), {
+      target: { value: "metformin" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /search/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Metformin Trial")).toBeInTheDocument();
+      expect(screen.getByText(/sources:\s+1 successful, 1 unavailable/i)).toBeInTheDocument();
+    });
+  });
+
   it("should enable Add Selected button when results checked", async () => {
     mockSearchWorkspace.mockResolvedValue({
       results: [
@@ -444,5 +478,73 @@ describe("RightChatPanel - Workspace Mode", () => {
         ]),
       }),
     );
+  });
+
+  it("maps target search results to backend-compatible node type when adding to graph", async () => {
+    mockSearchWorkspace.mockResolvedValue({
+      results: [
+        {
+          id: "result_1",
+          entityId: "ENSG000001",
+          entityType: "gene",
+          label: "PRKAA1",
+          source: "Open Targets",
+          metadata: {},
+          helpfulness: {
+            score: 78,
+            explanation: "Target relevance",
+            gapsFilled: [],
+          },
+        },
+      ],
+      executionTime: 120,
+      searchedSources: ["Open Targets"],
+    });
+    mockAddNodesToWorkspace.mockResolvedValue({
+      data: {
+        addedNodes: [
+          {
+            id: "ENSG000001",
+            label: "PRKAA1",
+            type: "gene",
+            source: "Open Targets",
+            metadata: {},
+            addedByQuery: "q_1",
+          },
+        ],
+        inferredEdges: [],
+      },
+    });
+
+    renderInWorkspace();
+
+    fireEvent.change(screen.getByPlaceholderText(/search mcp data sources/i), {
+      target: { value: "ampk targets" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("PRKAA1")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select prkaa1/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /add selected to graph/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockAddNodesToWorkspace).toHaveBeenCalledWith(
+        "test-workspace",
+        expect.objectContaining({
+          nodes: expect.arrayContaining([
+            expect.objectContaining({
+              label: "PRKAA1",
+              type: "gene",
+              source: "Open Targets",
+            }),
+          ]),
+        }),
+      );
+    });
   });
 });

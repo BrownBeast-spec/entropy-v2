@@ -222,8 +222,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
       let hydratedQueries: Query[] = workspace.queries;
       try {
+        const existingQueriesById = new Map(
+          (workspace.queries ?? []).map((query) => [query.id, query]),
+        );
+
         const workspaceQueries = await getWorkspaceQueriesApi(workspace.id);
         hydratedQueries = workspaceQueries.data.queries.map((query) => ({
+          ...existingQueriesById.get(query.id),
           id: query.id,
           workspaceId: query.workspaceId,
           text: query.text,

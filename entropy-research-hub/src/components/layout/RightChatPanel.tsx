@@ -210,14 +210,25 @@ export default function RightChatPanel() {
         timelineEnd: timelineEnd || undefined,
       });
 
+      const safeResults = Array.isArray(response.results) ? response.results : [];
+      const safeSearchedSources = Array.isArray(response.searchedSources)
+        ? response.searchedSources
+        : Array.from(
+            new Set(
+              safeResults
+                .map((result) => result.source)
+                .filter((source): source is string => Boolean(source)),
+            ),
+          );
+
       setNotebookEntries((prev) =>
         prev.map((entry) =>
           entry.id === entryId
             ? {
                 ...entry,
                 status: "complete",
-                results: response.results,
-                searchedSources: response.searchedSources,
+                results: safeResults,
+                searchedSources: safeSearchedSources,
                 sourceDiagnostics: response.sourceDiagnostics ?? {},
                 executionTime: response.executionTime,
               }
@@ -424,6 +435,9 @@ export default function RightChatPanel() {
           ) : (
             <div className="space-y-4">
               {notebookEntries.map((entry) => {
+                const successfulSourceCount = Array.isArray(entry.searchedSources)
+                  ? entry.searchedSources.length
+                  : 0;
                 const unavailableCount = Object.keys(
                   entry.sourceDiagnostics,
                 ).length;
@@ -475,7 +489,7 @@ export default function RightChatPanel() {
                             <div className="flex items-center justify-between text-2xs text-muted-foreground">
                               <span>
                                 Fetching from sources complete. Sources:{" "}
-                                {entry.searchedSources.length} successful
+                                {successfulSourceCount} successful
                                 {unavailableCount > 0
                                   ? `, ${unavailableCount} unavailable`
                                   : ""}

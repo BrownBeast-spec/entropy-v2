@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { errorResponse } from "../middleware/error-handler.js";
-import { scoreHelpfulness } from "@entropy/mastra-app/src/index.js";
 import {
   getBiologyTools,
   getClinicalTrialsTools,
@@ -43,39 +42,6 @@ const SearchInputSchema = z.object({
   limit: z.number().int().min(1).max(25).default(10),
 });
 
-const ManualGraphSnapshotSchema = z.object({
-  nodeIds: z.array(z.string()).default([]),
-  nodeTypes: z.record(z.string()).default({}),
-  existingConcepts: z.array(z.string()).default([]),
-  edgeSummary: z.array(z.record(z.unknown())).default([]),
-});
-
-const ManualSearchRequestSchema = z.object({
-  query: z.string().trim().min(1),
-  graphSnapshot: ManualGraphSnapshotSchema,
-  personaMode: z.enum(["Researcher", "Strategist"]),
-  indiaLens: z.boolean(),
-  workspaceId: z.string().trim().min(1),
-  maxResults: z.number().int().min(1).max(100).optional(),
-});
-
-const AddNodesRequestSchema = z.object({
-  workspaceId: z.string().trim().min(1),
-  queryId: z.string().trim().min(1),
-  selectedResults: z.array(
-    z.object({
-      id: z.string().trim().min(1),
-      entityId: z.string().trim().min(1),
-      entityType: z.string().trim().min(1),
-      label: z.string().trim().min(1),
-      source: z.string().trim().min(1),
-      metadata: z.record(z.unknown()),
-      evidenceScore: z.number().optional(),
-      indiaRelevant: z.boolean().optional(),
-    }),
-  ),
-});
-
 type SearchType = z.infer<typeof SearchTypeSchema>;
 
 type Citation = {
@@ -112,17 +78,10 @@ type SearchSummary = {
   overview: string;
   findings: SummaryFinding[];
   limitations?: string;
-  generated_by: "llm" | "fallback";
+  generated_by: "gemini" | "fallback";
 };
 
 type ToolMap = Record<string, unknown>;
-type SearchTargetsFn = (input: Record<string, unknown>) => Promise<unknown>;
-type SearchTargetsTool = {
-  execute: (
-    input: Record<string, unknown>,
-    context?: unknown,
-  ) => Promise<unknown>;
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -145,38 +104,6 @@ function asNumber(value: unknown): number | undefined {
 
 function asBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
-}
-
-function conceptTokensFromMetadata(
-  metadata: Record<string, unknown>,
-): string[] {
-  const concepts: string[] = [];
-
-  if (Array.isArray(metadata.pathways)) {
-    metadata.pathways.forEach((pathway) => {
-      if (typeof pathway === "string") {
-        concepts.push(`pathway:${pathway}`);
-      }
-    });
-  }
-
-  if (Array.isArray(metadata.mechanisms)) {
-    metadata.mechanisms.forEach((mechanism) => {
-      if (typeof mechanism === "string") {
-        concepts.push(`mechanism:${mechanism}`);
-      }
-    });
-  }
-
-  if (Array.isArray(metadata.indications)) {
-    metadata.indications.forEach((indication) => {
-      if (typeof indication === "string") {
-        concepts.push(`indication:${indication}`);
-      }
-    });
-  }
-
-  return concepts;
 }
 
 function parseTypesInput(rawTypes: unknown): unknown {
@@ -284,8 +211,6 @@ function hasApiKeyForProvider(provider: string): boolean {
       return Boolean(process.env.HUGGINGFACE_API_KEY);
     case "openrouter":
       return Boolean(process.env.OPENROUTER_API_KEY);
-    case "nvidia-nim":
-      return Boolean(process.env.NVIDIA_NIM_API_KEY);
     default:
       return false;
   }
@@ -304,7 +229,7 @@ function canUseQueryPlannerLlm(): boolean {
   const modelId =
     process.env.QUERY_PLANNER_MODEL ??
     process.env.LLM_MODEL ??
-    "nvidia-nim:openai/gpt-oss-120b";
+    "google:gemini-2.5-pro-preview-05-06";
   return hasApiKeyForProvider(modelProviderFromId(modelId));
 }
 
@@ -316,7 +241,7 @@ function canUseSummaryLlm(): boolean {
   const modelId =
     process.env.EVIDENCE_SUMMARIZER_MODEL ??
     process.env.LLM_MODEL ??
-    "nvidia-nim:openai/gpt-oss-120b";
+    "google:gemini-2.5-pro-preview-05-06";
   return hasApiKeyForProvider(modelProviderFromId(modelId));
 }
 
@@ -507,7 +432,7 @@ async function buildSummary(
       overview: generated.overview,
       findings,
       limitations: generated.limitations,
-      generated_by: "llm",
+      generated_by: "gemini",
     };
   } catch {
     return fallback;
@@ -654,7 +579,53 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
         }
 
         const papers = asRecordArray(payload?.top_papers).slice(0, limit);
-        for (const paper of papers) {
+
+        // Enrich papers with detailed metadata in parallel
+        const enrichedPapers = await Promise.all(
+          papers.map(async (paper) => {
+            const id = asString(paper.pmid) ?? asString(paper.id);
+            if (!id) return null;
+
+            // Retry logic: try twice on failure
+            let detailsPayload: Record<string, unknown> | null = null;
+            let fetchError: string | null = null;
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const { payload: details, error: detailError } = await callTool(
+                tools,
+                "get_paper_metadata",
+                { pmid: id },
+              );
+
+              if (!detailError && details) {
+                detailsPayload = details;
+                break;
+              }
+
+              fetchError = detailError || null;
+              if (attempt === 0) {
+                console.warn(`[papers] Fetch failed for ${id}, retrying...`);
+                await new Promise((resolve) => setTimeout(resolve, 500));
+              }
+            }
+
+            // Merge search result with detailed info
+            const merged: Record<string, unknown> = {
+              ...paper,
+              ...(detailsPayload || {}),
+            };
+
+            if (fetchError) {
+              merged._enrichment_error = fetchError;
+            }
+
+            return merged;
+          }),
+        );
+
+        for (const paper of enrichedPapers) {
+          if (!paper) continue;
+
           const id = asString(paper.pmid) ?? asString(paper.id);
           const title = asString(paper.title);
           if (!id || !title) continue;
@@ -698,13 +669,16 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
             url: resultUrl,
             citations,
             metadata: {
+              pmid: id,
               authors: paper.authors,
               journal: paper.journal,
               year: paper.year,
               doi,
-              pmid: id,
               abstract: abstractText,
               pub_date: asString(paper.pub_date),
+              mesh_terms: paper.mesh_terms,
+              keywords: paper.keywords,
+              _enrichment_error: paper._enrichment_error,
             },
           });
         }
@@ -815,7 +789,55 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
         }
 
         const proteins = asRecordArray(payload?.results).slice(0, limit);
-        for (const protein of proteins) {
+
+        // Enrich proteins with functional data in parallel
+        const enrichedProteins = await Promise.all(
+          proteins.map(async (protein) => {
+            const accession = asString(protein.accession);
+            if (!accession) return null;
+
+            // Retry logic: try twice on failure
+            let detailsPayload: Record<string, unknown> | null = null;
+            let fetchError: string | null = null;
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const { payload: details, error: detailError } = await callTool(
+                tools,
+                "get_protein_function",
+                { accession },
+              );
+
+              if (!detailError && details) {
+                detailsPayload = details;
+                break;
+              }
+
+              fetchError = detailError || null;
+              if (attempt === 0) {
+                console.warn(
+                  `[proteins] Fetch failed for ${accession}, retrying...`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, 500));
+              }
+            }
+
+            // Merge search result with detailed info
+            const merged: Record<string, unknown> = {
+              ...protein,
+              ...(detailsPayload || {}),
+            };
+
+            if (fetchError) {
+              merged._enrichment_error = fetchError;
+            }
+
+            return merged;
+          }),
+        );
+
+        for (const protein of enrichedProteins) {
+          if (!protein) continue;
+
           const accession = asString(protein.accession);
           const proteinName = asString(protein.protein_name);
           if (!accession || !proteinName) continue;
@@ -836,6 +858,10 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
             metadata: {
               accession,
               organism: protein.organism,
+              functions: protein.functions,
+              catalytic_activities: protein.catalytic_activities,
+              subcellular_locations: protein.subcellular_locations,
+              _enrichment_error: protein._enrichment_error,
             },
           });
         }
@@ -857,7 +883,55 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
         }
 
         const compounds = asRecordArray(payload?.compounds).slice(0, limit);
-        for (const compound of compounds) {
+
+        // Enrich compounds with detailed properties in parallel
+        const enrichedCompounds = await Promise.all(
+          compounds.map(async (compound) => {
+            const cid = asNumber(compound.cid);
+            if (!cid) return null;
+
+            // Retry logic: try twice on failure
+            let detailsPayload: Record<string, unknown> | null = null;
+            let fetchError: string | null = null;
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const { payload: details, error: detailError } = await callTool(
+                tools,
+                "get_compound_details",
+                { identifier: String(cid), identifierType: "cid" },
+              );
+
+              if (!detailError && details) {
+                detailsPayload = details;
+                break;
+              }
+
+              fetchError = detailError || null;
+              if (attempt === 0) {
+                console.warn(
+                  `[compounds] Fetch failed for CID ${cid}, retrying...`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, 500));
+              }
+            }
+
+            // Merge search result with detailed info
+            const merged: Record<string, unknown> = {
+              ...compound,
+              ...(detailsPayload || {}),
+            };
+
+            if (fetchError) {
+              merged._enrichment_error = fetchError;
+            }
+
+            return merged;
+          }),
+        );
+
+        for (const compound of enrichedCompounds) {
+          if (!compound) continue;
+
           const cid = asNumber(compound.cid);
           if (!cid) continue;
           const formula = asString(compound.molecular_formula) ?? "Unknown";
@@ -882,7 +956,12 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
               cid,
               molecular_formula: formula,
               molecular_weight: weight,
+              iupac_name: compound.iupac_name,
               smiles: compound.smiles,
+              inchi: compound.inchi,
+              inchi_key: compound.inchi_key,
+              properties: compound.properties,
+              _enrichment_error: compound._enrichment_error,
             },
           });
         }
@@ -904,7 +983,53 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
         }
 
         const trials = asRecordArray(payload?.studies).slice(0, limit);
-        for (const trial of trials) {
+
+        // Enrich trials with detailed metadata in parallel
+        const enrichedTrials = await Promise.all(
+          trials.map(async (trial) => {
+            const nctId = asString(trial.nct_id);
+            if (!nctId) return null;
+
+            // Retry logic: try twice on failure
+            let detailsPayload: Record<string, unknown> | null = null;
+            let fetchError: string | null = null;
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const { payload: details, error: detailError } = await callTool(
+                tools,
+                "get_study_details",
+                { nctId },
+              );
+
+              if (!detailError && details) {
+                detailsPayload = details;
+                break;
+              }
+
+              fetchError = detailError || null;
+              if (attempt === 0) {
+                console.warn(`[trials] Fetch failed for ${nctId}, retrying...`);
+                await new Promise((resolve) => setTimeout(resolve, 500));
+              }
+            }
+
+            // Merge search result with detailed info
+            const merged: Record<string, unknown> = {
+              ...trial,
+              ...(detailsPayload || {}),
+            };
+
+            if (fetchError) {
+              merged._enrichment_error = fetchError;
+            }
+
+            return merged;
+          }),
+        );
+
+        for (const trial of enrichedTrials) {
+          if (!trial) continue;
+
           const nctId = asString(trial.nct_id);
           const title = asString(trial.title);
           if (!nctId || !title) continue;
@@ -923,10 +1048,17 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
               }),
             ],
             metadata: {
+              nct_id: nctId,
               status: trial.status,
               phase: trial.phase,
               conditions: trial.conditions,
               interventions: trial.interventions,
+              sponsor: trial.sponsor,
+              start_date: trial.start_date,
+              completion_date: trial.completion_date,
+              eligibility_criteria: trial.eligibility_criteria,
+              brief_summary: trial.brief_summary,
+              _enrichment_error: trial._enrichment_error,
             },
           });
         }
@@ -952,7 +1084,55 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
         }
 
         const patents = asRecordArray(payload?.patents).slice(0, limit);
-        for (const patent of patents) {
+
+        // Enrich patents with detailed information in parallel
+        const enrichedPatents = await Promise.all(
+          patents.map(async (patent) => {
+            const patentNumber = asString(patent.patent_number);
+            if (!patentNumber) return null;
+
+            // Retry logic: try twice on failure
+            let detailsPayload: Record<string, unknown> | null = null;
+            let fetchError: string | null = null;
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const { payload: details, error: detailError } = await callTool(
+                tools,
+                "get_patent_details",
+                { patentNumber },
+              );
+
+              if (!detailError && details) {
+                detailsPayload = details;
+                break;
+              }
+
+              fetchError = detailError || null;
+              if (attempt === 0) {
+                console.warn(
+                  `[patents] Fetch failed for ${patentNumber}, retrying...`,
+                );
+                await new Promise((resolve) => setTimeout(resolve, 500));
+              }
+            }
+
+            // Merge search result with detailed info
+            const merged: Record<string, unknown> = {
+              ...patent,
+              ...(detailsPayload || {}),
+            };
+
+            if (fetchError) {
+              merged._enrichment_error = fetchError;
+            }
+
+            return merged;
+          }),
+        );
+
+        for (const patent of enrichedPatents) {
+          if (!patent) continue;
+
           const patentNumber = asString(patent.patent_number);
           const title = asString(patent.title);
           if (!patentNumber || !title) continue;
@@ -971,9 +1151,16 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
               }),
             ],
             metadata: {
+              patent_number: patentNumber,
               date: patent.date,
+              filing_date: patent.filing_date,
+              patent_type: patent.patent_type,
               assignees: patent.assignees,
               inventors: patent.inventors,
+              classifications: patent.classifications,
+              cited_patents: patent.cited_patents,
+              cited_by_count: patent.cited_by_count,
+              _enrichment_error: patent._enrichment_error,
             },
           });
         }
@@ -1090,6 +1277,7 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
           : String(result.reason);
     }
   });
+
   const deduped = dedupeResults(items);
   await enrichCitationMetrics(deduped);
   const summary = await buildSummary(q, deduped);
@@ -1105,546 +1293,6 @@ async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
   };
 }
 
-type ManualSearchResult = {
-  id: string;
-  entityId: string;
-  entityType: string;
-  label: string;
-  source: string;
-  metadata: Record<string, unknown>;
-  helpfulness: {
-    score: number;
-    explanation: string;
-    gapsFilled: string[];
-  };
-  evidenceScore?: number;
-  indiaRelevant?: boolean;
-};
-
-function diversifyBySource(
-  results: ManualSearchResult[],
-  limit: number,
-): ManualSearchResult[] {
-  if (results.length <= limit) {
-    return results;
-  }
-
-  const bySource = new Map<string, ManualSearchResult[]>();
-  for (const result of results) {
-    const existing = bySource.get(result.source) ?? [];
-    existing.push(result);
-    bySource.set(result.source, existing);
-  }
-
-  const selected: ManualSearchResult[] = [];
-  for (const [, sourceResults] of bySource) {
-    if (sourceResults.length > 0) {
-      selected.push(sourceResults.shift() as ManualSearchResult);
-      if (selected.length === limit) {
-        return selected;
-      }
-    }
-  }
-
-  if (selected.length === limit) {
-    return selected;
-  }
-
-  const remaining = Array.from(bySource.values()).flat();
-  remaining.sort((a, b) => b.helpfulness.score - a.helpfulness.score);
-
-  for (const result of remaining) {
-    if (selected.length === limit) {
-      break;
-    }
-    selected.push(result);
-  }
-
-  return selected;
-}
-
-async function runManualSearch(
-  input: z.infer<typeof ManualSearchRequestSchema>,
-): Promise<{
-  results: ManualSearchResult[];
-  executionTime: number;
-  searchedSources: string[];
-  queryPlan: QueryPlan;
-  sourceDiagnostics?: Record<string, string>;
-}> {
-  const isBootstrap = input.graphSnapshot.nodeIds.length === 0;
-  const resultLimit = input.maxResults ?? (isBootstrap ? 25 : 10);
-  const startedAt = Date.now();
-  const queryPlan = await buildQueryPlan(input.query);
-
-  const rawResults: Array<Record<string, unknown>> = [];
-  const searchedSources: string[] = [];
-  const sourceDiagnostics: Record<string, string> = {};
-
-  function addSourceResults(
-    source: string,
-    results: Array<Record<string, unknown>>,
-  ) {
-    if (results.length === 0) {
-      return;
-    }
-
-    rawResults.push(...results);
-    if (!searchedSources.includes(source)) {
-      searchedSources.push(source);
-    }
-  }
-
-  function addSourceDiagnostic(source: string, message: string) {
-    if (!sourceDiagnostics[source]) {
-      sourceDiagnostics[source] = message;
-    }
-  }
-
-  const tasks: Array<Promise<void>> = [];
-
-  tasks.push(
-    (async () => {
-      const biologyTools = await getBiologyTools();
-      const maybeSearchTargets = (biologyTools.searchTargets ??
-        biologyTools.search_targets) as
-        | SearchTargetsTool
-        | SearchTargetsFn
-        | undefined;
-
-      const fallbackToValidateTarget = async () => {
-        const { payload, error } = await callTool(
-          biologyTools,
-          "validate_target",
-          {
-            geneSymbol: queryPlan.targetGeneSymbol,
-          },
-        );
-
-        if (error) {
-          addSourceDiagnostic(
-            "Open Targets",
-            `Tool 'searchTargets/search_targets' not available; validate_target failed: ${error}`,
-          );
-          return;
-        }
-
-        const targetId = asString(payload?.target_id);
-        const symbol = asString(payload?.gene_symbol) ?? targetId;
-
-        if (!targetId || !symbol) {
-          addSourceDiagnostic(
-            "Open Targets",
-            "validate_target returned no target_id/gene_symbol",
-          );
-          return;
-        }
-
-        addSourceResults("Open Targets", [
-          {
-            id: targetId,
-            type: "gene",
-            label: symbol,
-            metadata: {
-              ...payload,
-              query: input.query,
-            },
-            source: "Open Targets",
-          },
-        ]);
-      };
-
-      let targets: Record<string, unknown>[] = [];
-
-      if (
-        isRecord(maybeSearchTargets) &&
-        typeof maybeSearchTargets.execute === "function"
-      ) {
-        try {
-          const toolResult = await maybeSearchTargets.execute({
-            query: queryPlan.targetGeneSymbol,
-            limit: resultLimit,
-          });
-          const parsed = parseToolPayload(toolResult);
-          targets = asRecordArray(
-            parsed?.targets ?? parsed?.results ?? parsed?.items,
-          );
-        } catch (error) {
-          addSourceDiagnostic(
-            "Open Targets",
-            error instanceof Error ? error.message : String(error),
-          );
-          return;
-        }
-      } else if (typeof maybeSearchTargets === "function") {
-        try {
-          const fn = maybeSearchTargets as SearchTargetsFn;
-          const fnResults = await fn({
-            query: queryPlan.targetGeneSymbol,
-            limit: resultLimit,
-          });
-          if (Array.isArray(fnResults)) {
-            targets = fnResults.filter(isRecord);
-          }
-        } catch (error) {
-          addSourceDiagnostic(
-            "Open Targets",
-            error instanceof Error ? error.message : String(error),
-          );
-          return;
-        }
-      } else {
-        await fallbackToValidateTarget();
-        return;
-      }
-
-      const mappedTargets = targets
-        .map((target, index) => {
-          const entityId =
-            asString(target.id) ??
-            asString(target.entityId) ??
-            asString(target.target_id) ??
-            `open-target-${index}`;
-
-          return {
-            id: entityId,
-            type:
-              asString(target.type) ?? asString(target.entityType) ?? "protein",
-            label:
-              asString(target.label) ??
-              asString(target.name) ??
-              asString(target.title) ??
-              entityId,
-            metadata: isRecord(target.metadata)
-              ? target.metadata
-              : { ...target },
-            source: "Open Targets",
-          };
-        })
-        .filter(isRecord);
-
-      if (mappedTargets.length > 0) {
-        addSourceResults("Open Targets", mappedTargets);
-      } else {
-        await fallbackToValidateTarget();
-      }
-    })(),
-  );
-
-  tasks.push(
-    (async () => {
-      const biologyTools = await getBiologyTools();
-      const maybeSearchUniProt = biologyTools.search_uniprot as
-        | SearchTargetsTool
-        | undefined;
-
-      if (
-        !isRecord(maybeSearchUniProt) ||
-        typeof maybeSearchUniProt.execute !== "function"
-      ) {
-        addSourceDiagnostic("UniProt", "Tool 'search_uniprot' not available");
-        return;
-      }
-
-      try {
-        const toolResult = await maybeSearchUniProt.execute({
-          query: queryPlan.uniprotQuery,
-        });
-        const parsed = parseToolPayload(toolResult);
-        const proteins = asRecordArray(parsed?.results ?? parsed?.items)
-          .map((protein, index) => {
-            const accession =
-              asString(protein.accession) ??
-              asString(protein.primaryAccession) ??
-              asString(protein.id) ??
-              `uniprot-${index}`;
-
-            return {
-              id: accession,
-              type: "protein",
-              label:
-                asString(protein.protein_name) ??
-                asString(protein.label) ??
-                accession,
-              metadata: { ...protein },
-              source: "UniProt",
-            };
-          })
-          .filter(isRecord);
-
-        addSourceResults("UniProt", proteins);
-      } catch (error) {
-        addSourceDiagnostic(
-          "UniProt",
-          error instanceof Error ? error.message : String(error),
-        );
-      }
-    })(),
-  );
-
-  tasks.push(
-    (async () => {
-      const pubMedTools = await getPubMedTools();
-      const { payload, error } = await callTool(
-        pubMedTools,
-        "search_literature",
-        {
-          disease: queryPlan.pubmedDisease,
-          year: new Date().getUTCFullYear(),
-          limit: resultLimit,
-        },
-      );
-
-      if (error) {
-        addSourceDiagnostic("PubMed", error);
-        return;
-      }
-
-      const papers = asRecordArray(payload?.top_papers)
-        .slice(0, resultLimit)
-        .map((paper, index) => {
-          const pmid =
-            asString(paper.pmid) ?? asString(paper.id) ?? `pubmed-${index}`;
-          const title = asString(paper.title) ?? pmid;
-
-          return {
-            id: pmid,
-            type: "paper",
-            label: title,
-            metadata: { ...paper },
-            source: "PubMed",
-          };
-        })
-        .filter(isRecord);
-
-      addSourceResults("PubMed", papers);
-    })(),
-  );
-
-  tasks.push(
-    (async () => {
-      const europeTools = await getEuropePMCTools();
-      const { payload, error } = await callTool(
-        europeTools,
-        "search_europepmc",
-        {
-          query: queryPlan.europepmcQuery,
-          limit: resultLimit,
-          includePreprints: true,
-        },
-      );
-
-      if (error) {
-        addSourceDiagnostic("Europe PMC", error);
-        return;
-      }
-
-      const papers = asRecordArray(payload?.papers)
-        .slice(0, resultLimit)
-        .map((paper, index) => {
-          const paperId = asString(paper.id) ?? `europepmc-${index}`;
-          const title = asString(paper.title) ?? paperId;
-
-          return {
-            id: paperId,
-            type: "paper",
-            label: title,
-            metadata: { ...paper },
-            source: "Europe PMC",
-          };
-        })
-        .filter(isRecord);
-
-      addSourceResults("Europe PMC", papers);
-    })(),
-  );
-
-  tasks.push(
-    (async () => {
-      const trialTools = await getClinicalTrialsTools();
-      const { payload, error } = await callTool(trialTools, "search_studies", {
-        term: queryPlan.trialTerm,
-        limit: resultLimit,
-      });
-
-      if (error) {
-        addSourceDiagnostic("ClinicalTrials.gov", error);
-        return;
-      }
-
-      const trials = asRecordArray(payload?.studies)
-        .slice(0, resultLimit)
-        .map((trial, index) => {
-          const nctId =
-            asString(trial.nct_id) ?? asString(trial.id) ?? `trial-${index}`;
-          const title = asString(trial.title) ?? nctId;
-
-          return {
-            id: nctId,
-            type: "trial",
-            label: title,
-            metadata: { ...trial },
-            source: "ClinicalTrials.gov",
-          };
-        })
-        .filter(isRecord);
-
-      addSourceResults("ClinicalTrials.gov", trials);
-    })(),
-  );
-
-  tasks.push(
-    (async () => {
-      // PatentsView endpoint currently returns 410 Gone during USPTO ODP migration.
-      // Keep diagnostics visible in manual/query search and avoid blocking other sources.
-      addSourceDiagnostic(
-        "PatentsView",
-        "Temporarily disabled during USPTO ODP migration",
-      );
-    })(),
-  );
-
-  tasks.push(
-    (async () => {
-      const pubChemTools = await getPubChemTools();
-      const { payload, error } = await callTool(
-        pubChemTools,
-        "search_compounds",
-        {
-          compoundName: queryPlan.compoundName,
-          limit: resultLimit,
-        },
-      );
-
-      if (error) {
-        addSourceDiagnostic("PubChem", error);
-        return;
-      }
-
-      const compounds = asRecordArray(payload?.compounds)
-        .slice(0, resultLimit)
-        .map((compound, index) => {
-          const cid =
-            asString(compound.cid) ??
-            asString(compound.id) ??
-            `compound-${index}`;
-          const title = asString(compound.iupac_name) ?? `CID ${cid}`;
-
-          return {
-            id: cid,
-            type: "compound",
-            label: title,
-            metadata: { ...compound },
-            source: "PubChem",
-          };
-        })
-        .filter(isRecord);
-
-      addSourceResults("PubChem", compounds);
-    })(),
-  );
-
-  await Promise.all(tasks);
-
-  const nodeTypes = input.graphSnapshot.nodeIds.reduce(
-    (acc, nodeId) => {
-      const knownType = input.graphSnapshot.nodeTypes[nodeId];
-      acc[nodeId] = knownType || "unknown";
-      return acc;
-    },
-    {} as Record<string, string>,
-  );
-
-  const existingConcepts = new Set<string>(
-    input.graphSnapshot.existingConcepts.map((concept) =>
-      concept.toLowerCase(),
-    ),
-  );
-  for (const edge of input.graphSnapshot.edgeSummary) {
-    const sourceConcepts = isRecord(edge.sourceMetadata)
-      ? conceptTokensFromMetadata(edge.sourceMetadata)
-      : [];
-    const targetConcepts = isRecord(edge.targetMetadata)
-      ? conceptTokensFromMetadata(edge.targetMetadata)
-      : [];
-
-    sourceConcepts.forEach((concept) =>
-      existingConcepts.add(concept.toLowerCase()),
-    );
-    targetConcepts.forEach((concept) =>
-      existingConcepts.add(concept.toLowerCase()),
-    );
-  }
-
-  const scoredResults: ManualSearchResult[] = await Promise.all(
-    rawResults.map(async (raw, index) => {
-      const entityId =
-        asString(raw.id) ??
-        asString(raw.entityId) ??
-        asString(raw.target_id) ??
-        `unknown-${index}`;
-      const entityType =
-        asString(raw.type) ?? asString(raw.entityType) ?? "protein";
-      const label =
-        asString(raw.label) ??
-        asString(raw.name) ??
-        asString(raw.title) ??
-        entityId;
-      const metadata = isRecord(raw.metadata)
-        ? raw.metadata
-        : {
-            ...raw,
-          };
-      const source = asString(raw.source) ?? "Open Targets";
-
-      const helpfulness = await scoreHelpfulness({
-        result: {
-          entityId,
-          entityType,
-          label,
-          source,
-          metadata,
-        },
-        graphSnapshot: {
-          nodeIds: input.graphSnapshot.nodeIds,
-          nodeTypes,
-          existingConcepts: Array.from(existingConcepts),
-          edgeSummary: input.graphSnapshot.edgeSummary.map((edge) => ({
-            source: asString(edge.source) ?? "",
-            target: asString(edge.target) ?? "",
-            type: asString(edge.type) ?? "",
-          })),
-        },
-        queryContext: input.query,
-      });
-
-      return {
-        id: `result_${Date.now()}_${index}`,
-        entityId,
-        entityType,
-        label,
-        source,
-        metadata,
-        helpfulness,
-        evidenceScore: asNumber(raw.evidenceScore),
-        indiaRelevant: false,
-      };
-    }),
-  );
-
-  scoredResults.sort((a, b) => b.helpfulness.score - a.helpfulness.score);
-  const diversifiedResults = diversifyBySource(scoredResults, resultLimit);
-
-  return {
-    results: diversifiedResults,
-    executionTime: Date.now() - startedAt,
-    searchedSources,
-    queryPlan,
-    sourceDiagnostics:
-      Object.keys(sourceDiagnostics).length > 0 ? sourceDiagnostics : undefined,
-  };
-}
-
 function parsePostInput(body: unknown): unknown {
   if (!isRecord(body)) {
     return {
@@ -1654,7 +1302,12 @@ function parsePostInput(body: unknown): unknown {
     };
   }
 
-  const q = typeof body.q === "string" ? body.q : "";
+  const q =
+    typeof body.q === "string"
+      ? body.q
+      : typeof body.query === "string"
+        ? body.query
+        : "";
   const rawTypes = body.types;
   const rawLimit = body.limit;
 
@@ -1699,30 +1352,6 @@ entropy.post("/search", async (c) => {
     return errorResponse(c, 400, "BAD_REQUEST", "Invalid JSON body");
   }
 
-  const manualParsed = ManualSearchRequestSchema.safeParse(body);
-  if (manualParsed.success) {
-    const payload = await runManualSearch(manualParsed.data);
-    return c.json(payload);
-  }
-
-  const isLikelyManualRequest =
-    isRecord(body) &&
-    ("query" in body ||
-      "graphSnapshot" in body ||
-      "workspaceId" in body ||
-      "personaMode" in body ||
-      "indiaLens" in body);
-
-  if (isLikelyManualRequest) {
-    return c.json(
-      {
-        error: "Invalid request",
-        details: manualParsed.error.issues,
-      },
-      400,
-    );
-  }
-
   const parsed = SearchInputSchema.safeParse(parsePostInput(body));
   if (!parsed.success) {
     return errorResponse(c, 400, "VALIDATION_ERROR", "Invalid request body", {
@@ -1733,64 +1362,5 @@ entropy.post("/search", async (c) => {
   const payload = await runUnifiedSearch(parsed.data);
   return c.json(payload);
 });
-
-const workspace = new Hono();
-
-workspace.post("/add-nodes", async (c) => {
-  let body: unknown;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid request", details: [] }, 400);
-  }
-
-  const parsed = AddNodesRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return c.json(
-      {
-        error: "Invalid request",
-        details: parsed.error.issues,
-      },
-      400,
-    );
-  }
-
-  const seen = new Set<string>();
-  const uniqueResults = parsed.data.selectedResults.filter((result) => {
-    if (seen.has(result.entityId)) {
-      return false;
-    }
-    seen.add(result.entityId);
-    return true;
-  });
-
-  const duplicatesSkipped =
-    parsed.data.selectedResults.length - uniqueResults.length;
-
-  const addedNodes = uniqueResults.map((result) => ({
-    id: result.entityId,
-    label: result.label,
-    type: result.entityType,
-    source: result.source,
-    metadata: result.metadata,
-    evidenceScore: result.evidenceScore,
-    addedByQuery: parsed.data.queryId,
-    indiaRelevant: result.indiaRelevant ?? false,
-  }));
-
-  return c.json({
-    addedNodes,
-    addedEdges: [],
-    duplicatesSkipped,
-  });
-});
-
-export function createSearchRoute() {
-  return entropy;
-}
-
-export function createWorkspaceRoute() {
-  return workspace;
-}
 
 export { entropy };

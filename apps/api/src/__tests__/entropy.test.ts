@@ -119,6 +119,43 @@ describe("GET /api/entropy/search", () => {
 });
 
 describe("POST /api/entropy/search", () => {
+  it("accepts frontend payload using query field alias", async () => {
+    mockGetClinicalTrialsTools.mockResolvedValue({
+      search_studies: {
+        execute: vi.fn().mockResolvedValue(
+          toolPayload({
+            studies: [
+              {
+                nct_id: "NCT00000009",
+                title: "Alias payload trial",
+                status: "RECRUITING",
+                phase: ["PHASE1"],
+                conditions: ["Test condition"],
+                interventions: ["Test intervention"],
+              },
+            ],
+          }),
+        ),
+      },
+    });
+
+    const res = await app.request("/api/entropy/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: "metformin",
+        types: ["trials"],
+        limit: 3,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.query).toBe("metformin");
+    expect(body.total_results).toBe(1);
+    expect(body.results[0].id).toBe("NCT00000009");
+  });
+
   it("returns trial results for valid request", async () => {
     mockGetClinicalTrialsTools.mockResolvedValue({
       search_studies: {

@@ -590,6 +590,114 @@ describe("WorkspaceContext", () => {
     expect(mockWorkspaceApi.getWorkspaceQueries).toHaveBeenCalledWith("ws_backend_3");
   });
 
+  it("preserves local query report when backend hydration refreshes query metadata", async () => {
+    const now = new Date("2026-04-01T00:00:00.000Z");
+
+    mockStoreV2.getAll.mockResolvedValueOnce([
+      {
+        id: "ws_backend_report",
+        name: "Workspace With Report",
+        description: "from store",
+        mode: "Researcher",
+        indiaLens: false,
+        createdAt: now,
+        updatedAt: now,
+        nodes: [],
+        edges: [],
+        queries: [
+          {
+            id: "query_backend_1",
+            workspaceId: "ws_backend_report",
+            text: "local cached query",
+            mode: "Researcher",
+            indiaLens: false,
+            submittedAt: now,
+            status: "complete",
+            contributedNodes: [],
+            contributedEdges: [],
+            report: {
+              workspaceId: "ws_backend_report",
+              sections: [{ title: "Overview", content: "Persist me", citations: [] }],
+              generatedAt: new Date("2026-04-01T01:00:00.000Z"),
+              wordCount: 2,
+              graphNodeCountAtGeneration: 0,
+            },
+          },
+        ],
+        activeQueryId: "query_backend_1",
+        savedItems: [],
+      },
+    ]);
+
+    mockWorkspaceApi.getWorkspace.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: "ws_backend_report",
+        name: "Workspace With Report",
+        description: "from api",
+        mode: "Researcher",
+        indiaLens: false,
+        createdAt: "2026-04-01T00:00:00.000Z",
+      },
+    });
+    mockWorkspaceApi.getWorkspaceGraph.mockResolvedValueOnce({
+      success: true,
+      data: { nodes: [], edges: [] },
+    });
+    mockWorkspaceApi.getWorkspaceQueries.mockResolvedValueOnce({
+      success: true,
+      data: {
+        queries: [
+          {
+            id: "query_backend_1",
+            workspaceId: "ws_backend_report",
+            text: "backend refreshed query",
+            mode: "Researcher",
+            indiaLens: false,
+            submittedAt: "2026-04-02T00:00:00.000Z",
+            status: "complete",
+            contributedNodes: [],
+            contributedEdges: [],
+          },
+        ],
+      },
+    });
+
+    let latestCtx:
+      | {
+          actions: ReturnType<typeof useWorkspaceActions>;
+          state: ReturnType<typeof useWorkspace>;
+        }
+      | null = null;
+
+    renderWithProvider(
+      <Harness
+        onReady={(ctx) => {
+          latestCtx = ctx;
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(latestCtx?.state.workspaces[0]?.id).toBe("ws_backend_report");
+    });
+
+    act(() => {
+      latestCtx?.state.setCurrentWorkspace(latestCtx.state.workspaces[0]);
+    });
+
+    await waitFor(() => {
+      expect(latestCtx?.state.currentWorkspace?.queries[0]?.text).toBe(
+        "backend refreshed query",
+      );
+    });
+
+    expect(latestCtx?.state.currentWorkspace?.queries[0]?.report).toBeDefined();
+    expect(latestCtx?.state.currentWorkspace?.queries[0]?.report?.sections[0]?.content).toBe(
+      "Persist me",
+    );
+  });
+
   it("calls backend when removing a node", async () => {
     mockStoreV2.getAll.mockResolvedValueOnce([
       {
