@@ -1,30 +1,30 @@
 // Workspace data types for Entropy
 
-export type NodeType = 
-  | "disease" 
-  | "gene" 
-  | "protein" 
-  | "drug" 
-  | "compound" 
-  | "patent" 
-  | "trial" 
-  | "company" 
+export type NodeType =
+  | "disease"
+  | "gene"
+  | "protein"
+  | "drug"
+  | "compound"
+  | "patent"
+  | "trial"
+  | "company"
   | "paper";
 
-export type DataSource = 
-  | "Open Targets" 
-  | "STRING" 
-  | "PubMed" 
-  | "PatentsView" 
-  | "OpenFDA" 
-  | "ClinicalTrials.gov" 
+export type DataSource =
+  | "Open Targets"
+  | "STRING"
+  | "PubMed"
+  | "PatentsView"
+  | "OpenFDA"
+  | "ClinicalTrials.gov"
   | "Europe PMC";
 
-export type EdgeType = 
-  | "association" 
-  | "interaction" 
-  | "binding" 
-  | "ownership" 
+export type EdgeType =
+  | "association"
+  | "interaction"
+  | "binding"
+  | "ownership"
   | "sponsorship"
   | "inferred_relationship"; // NEW for LLM-inferred edges
 
@@ -58,6 +58,36 @@ export interface Query {
   id: string;
   workspaceId: string;
   text: string;
+  researchPrompt?: string;
+  strategistWorkflow?: {
+    stage: "draft" | "resources_gathered" | "strategy_complete";
+    gatheredAt?: Date;
+    strategizedAt?: Date;
+    searchedSources?: string[];
+    executionTimeMs?: number;
+    keptResourceIds?: string[];
+    removedResourceIds?: string[];
+    resources?: Array<{
+      id: string;
+      label: string;
+      source: string;
+      entityType: string;
+      summary?: string;
+    }>;
+    trustedWebFindings?: Array<{
+      title: string;
+      url: string;
+      source: string;
+      summary: string;
+    }>;
+    strategyMarkdown?: string;
+    chatHistory?: Array<{
+      id: string;
+      role: "user" | "assistant";
+      content: string;
+      createdAt: Date;
+    }>;
+  };
   mode: WorkspaceMode;
   indiaLens: boolean;
   timelineStart?: Date;
@@ -104,6 +134,16 @@ export interface Workspace {
   name: string;
   description?: string;
   mode?: WorkspaceMode;
+  strategistWorkspaceId?: string;
+  strategistOnboarding?: {
+    completed: boolean;
+    angle: string;
+    indication: string;
+    geography: string;
+    decisionHorizon: string;
+    objective: string;
+    completedAt?: Date;
+  };
   indiaLens?: boolean;
   createdAt: Date;
   updatedAt: Date;

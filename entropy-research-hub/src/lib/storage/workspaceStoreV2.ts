@@ -55,6 +55,25 @@ function reviveWorkspaceDates(ws: WorkspaceV2): WorkspaceV2 {
   const revivedQueries = (ws.queries ?? []).map((q) => ({
     ...q,
     submittedAt: new Date(q.submittedAt),
+    strategistWorkflow: q.strategistWorkflow
+      ? {
+          ...q.strategistWorkflow,
+          gatheredAt: q.strategistWorkflow.gatheredAt
+            ? new Date(q.strategistWorkflow.gatheredAt)
+            : undefined,
+          strategizedAt: q.strategistWorkflow.strategizedAt
+            ? new Date(q.strategistWorkflow.strategizedAt)
+            : undefined,
+          chatHistory: Array.isArray(q.strategistWorkflow.chatHistory)
+            ? q.strategistWorkflow.chatHistory.map((entry) => ({
+                ...entry,
+                createdAt: entry.createdAt
+                  ? new Date(entry.createdAt)
+                  : new Date(),
+              }))
+            : [],
+        }
+      : undefined,
     timelineStart: q.timelineStart ? new Date(q.timelineStart) : undefined,
     timelineEnd: q.timelineEnd ? new Date(q.timelineEnd) : undefined,
     report: q.report
@@ -100,6 +119,14 @@ function reviveWorkspaceDates(ws: WorkspaceV2): WorkspaceV2 {
     ...ws,
     createdAt: new Date(ws.createdAt),
     updatedAt: new Date(ws.updatedAt),
+    strategistOnboarding: ws.strategistOnboarding
+      ? {
+          ...ws.strategistOnboarding,
+          completedAt: ws.strategistOnboarding.completedAt
+            ? new Date(ws.strategistOnboarding.completedAt)
+            : undefined,
+        }
+      : undefined,
     queries: migratedQueries,
     activeQueryId: activeQueryId ?? migratedQueries[0]?.id,
     savedItems: (ws.savedItems ?? []).map((item) => ({
@@ -110,7 +137,10 @@ function reviveWorkspaceDates(ws: WorkspaceV2): WorkspaceV2 {
   };
 }
 
-function mergeNode(existing: WorkspaceNode, incoming: WorkspaceNode): WorkspaceNode {
+function mergeNode(
+  existing: WorkspaceNode,
+  incoming: WorkspaceNode,
+): WorkspaceNode {
   return {
     ...existing,
     ...incoming,
@@ -118,7 +148,10 @@ function mergeNode(existing: WorkspaceNode, incoming: WorkspaceNode): WorkspaceN
       ...existing.data,
       ...incoming.data,
     },
-    provenance: [...(existing.provenance ?? []), ...(incoming.provenance ?? [])],
+    provenance: [
+      ...(existing.provenance ?? []),
+      ...(incoming.provenance ?? []),
+    ],
     indiaContext: {
       ...(existing.indiaContext ?? {}),
       ...(incoming.indiaContext ?? {}),
@@ -253,7 +286,10 @@ export const workspaceStoreV2 = {
     return next;
   },
 
-  async removeNode(workspaceId: string, nodeId: string): Promise<WorkspaceV2 | null> {
+  async removeNode(
+    workspaceId: string,
+    nodeId: string,
+  ): Promise<WorkspaceV2 | null> {
     const all = await loadAll();
     const idx = all.findIndex((ws) => ws.id === workspaceId);
     if (idx < 0) return null;
@@ -279,7 +315,12 @@ export const workspaceStoreV2 = {
 
   async getGraphSnapshot(workspaceId: string): Promise<{
     nodeIds: string[];
-    edgeSummary: Array<{ id: string; source: string; target: string; type: string }>;
+    edgeSummary: Array<{
+      id: string;
+      source: string;
+      target: string;
+      type: string;
+    }>;
   }> {
     const ws = await this.getById(workspaceId);
     if (!ws) {

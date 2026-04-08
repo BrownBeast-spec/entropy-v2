@@ -1,7 +1,17 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Bot, FileText, Users, Building2, Zap, Settings, BookOpen, HelpCircle, ChevronDown,
-  LayoutGrid, Home
+  Bot,
+  FileText,
+  Users,
+  Building2,
+  Zap,
+  Settings,
+  BookOpen,
+  HelpCircle,
+  ChevronDown,
+  LayoutGrid,
+  Home,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +21,7 @@ const navItems = [
   { icon: Users, label: "People", path: "/people" },
   { icon: Building2, label: "Companies", path: "/companies" },
   { icon: LayoutGrid, label: "Workspaces", path: "/workspaces" },
+  { icon: Briefcase, label: "Strategist", path: "/strategist" },
   { icon: Zap, label: "Automations", path: "/automations" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
@@ -21,7 +32,9 @@ export default function LeftSidebar() {
 
   const isActive = (path: string) => {
     if (path === "/settings") return location.pathname.startsWith("/settings");
-    return location.pathname === path || location.pathname.startsWith(path + "/");
+    return (
+      location.pathname === path || location.pathname.startsWith(path + "/")
+    );
   };
 
   return (
@@ -44,7 +57,7 @@ export default function LeftSidebar() {
               "w-full flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors",
               isActive(item.path)
                 ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
             )}
           >
             <item.icon className="w-4 h-4" />
@@ -69,7 +82,9 @@ export default function LeftSidebar() {
           Help
         </button>
         <button className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-[13px] text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors">
-          <div className="w-5 h-5 rounded-full bg-destructive/80 flex items-center justify-center text-[10px] font-semibold text-foreground">A</div>
+          <div className="w-5 h-5 rounded-full bg-destructive/80 flex items-center justify-center text-[10px] font-semibold text-foreground">
+            A
+          </div>
           Alen
         </button>
       </div>

@@ -1,4 +1,4 @@
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Send,
   Lock,
@@ -15,11 +15,21 @@ import {
   FlaskConical,
   Sparkles,
   Library,
+  Bot,
+  Database,
+  Lightbulb,
+  Check,
+  X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 import { searchWorkspace, type SearchResult } from "@/lib/api/search";
 import { addNodesToWorkspace } from "@/lib/api/workspace";
+import {
+  chatWithStrategistContext,
+} from "@/lib/api/workflow";
 import SearchResultCard from "@/components/workspace/SearchResultCard";
 
 const pageNames: Record<string, string> = {
@@ -97,10 +107,15 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function RightChatPanel() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { queryId: routeQueryId } = useParams<{ queryId?: string }>();
-  const { currentWorkspace } = useWorkspace();
+  const { currentWorkspace, workspaces, setCurrentWorkspace } = useWorkspace();
   const { addNode, addEdge, updateWorkspace } = useWorkspaceActions();
 
   const [collapsed, setCollapsed] = useState(false);
@@ -112,10 +127,11 @@ export default function RightChatPanel() {
   );
   const [isSearching, setIsSearching] = useState(false);
   const [activeSearchCount, setActiveSearchCount] = useState(0);
-  const [indiaLensFilter, setIndiaLensFilter] = useState(false);
-  const [timelineStart, setTimelineStart] = useState("");
-  const [timelineEnd, setTimelineEnd] = useState("");
   const [showGraphAugmentedToast, setShowGraphAugmentedToast] = useState(false);
+  const [selectedStrategistWorkspaceId, setSelectedStrategistWorkspaceId] =
+    useState<string>("");
+  const [isAskingStrategist, setIsAskingStrategist] = useState(false);
+  const [strategistChatInput, setStrategistChatInput] = useState("");
 
   const isAgent = location.pathname === "/agent";
   const isWorkspaces =
@@ -129,6 +145,44 @@ export default function RightChatPanel() {
       ) ??
       currentWorkspace.queries[currentWorkspace.queries.length - 1])
     : undefined;
+
+  const strategistWorkspaces = useMemo(
+    () => workspaces.filter((ws) => ws.mode === "Strategist"),
+    [workspaces],
+  );
+
+  const selectedStrategistWorkspace = useMemo(() => {
+    if (selectedStrategistWorkspaceId) {
+      return (
+        strategistWorkspaces.find(
+          (ws) => ws.id === selectedStrategistWorkspaceId,
+        ) ?? null
+      );
+    }
+    return (
+      strategistWorkspaces.find((ws) => ws.id === currentWorkspace?.id) ?? null
+    );
+  }, [
+    selectedStrategistWorkspaceId,
+    strategistWorkspaces,
+    currentWorkspace?.id,
+  ]);
+
+  const strategistQuery = selectedStrategistWorkspace
+    ? (selectedStrategistWorkspace.queries.find((q) => q.id === routeQueryId) ??
+      selectedStrategistWorkspace.queries.find(
+        (q) => q.id === selectedStrategistWorkspace.activeQueryId,
+      ) ??
+      selectedStrategistWorkspace.queries[
+        selectedStrategistWorkspace.queries.length - 1
+      ])
+    : undefined;
+
+  const isStrategistSession =
+    isWorkspace &&
+    Boolean(selectedStrategistWorkspace) &&
+    (strategistQuery?.mode === "Strategist" ||
+      selectedStrategistWorkspace?.mode === "Strategist");
 
   const selectedResults = useMemo(() => {
     const selected: SearchResult[] = [];
@@ -203,14 +257,14 @@ export default function RightChatPanel() {
           })),
         },
         personaMode: activeQuery?.mode ?? currentWorkspace.mode,
-        indiaLens: indiaLensFilter,
+        indiaLens: false,
         workspaceId: currentWorkspace.id,
         queryId: activeQuery?.id,
-        timelineStart: timelineStart || undefined,
-        timelineEnd: timelineEnd || undefined,
       });
 
-      const safeResults = Array.isArray(response.results) ? response.results : [];
+      const safeResults = Array.isArray(response.results)
+        ? response.results
+        : [];
       const safeSearchedSources = Array.isArray(response.searchedSources)
         ? response.searchedSources
         : Array.from(
@@ -328,6 +382,110 @@ export default function RightChatPanel() {
     }
   };
 
+  const persistStrategistWorkflow = async (
+    updater: (
+      existing: NonNullable<typeof strategistQuery>,
+    ) => typeof strategistQuery,
+  ) => {
+    if (!selectedStrategistWorkspace || !strategistQuery) return;
+    const nextQueries = selectedStrategistWorkspace.queries.map((query) =>
+      query.id === strategistQuery.id
+        ? (updater(query) as typeof query)
+        : query,
+    );
+    const nextWorkspace = {
+      ...selectedStrategistWorkspace,
+      queries: nextQueries,
+      activeQueryId: strategistQuery.id,
+      updatedAt: new Date(),
+    };
+    await updateWorkspace(nextWorkspace);
+    if (currentWorkspace?.id !== selectedStrategistWorkspace.id) {
+      setCurrentWorkspace(nextWorkspace);
+    }
+  };
+
+
+
+  const handleStrategistAsk = async () => {
+    if (!selectedStrategistWorkspace || !strategistQuery) return;
+    const question = strategistChatInput.trim();
+    if (!question) return;
+    setIsAskingStrategist(true);
+    setStrategistChatInput("");
+
+    try {
+      await persistStrategistWorkflow((existing) => ({
+        ...existing,
+        strategistWorkflow: {
+          ...(existing.strategistWorkflow ?? {
+            stage: "draft" as const,
+            resources: [],
+          }),
+          chatHistory: [
+            ...(existing.strategistWorkflow?.chatHistory ?? []),
+            {
+              id: `chat-${Date.now()}-u`,
+              role: "user",
+              content: question,
+              createdAt: new Date(),
+            },
+          ],
+        },
+      }));
+
+      const workflow = strategistQuery.strategistWorkflow;
+      const storageKey = `strategist_resources_${selectedStrategistWorkspace.id}`;
+      let localCache: any[] = [];
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) localCache = JSON.parse(stored);
+      } catch {}
+
+      const response = await chatWithStrategistContext({
+        workspaceId: selectedStrategistWorkspace.id,
+        userQuestion: question,
+        gatheredResources: localCache.filter(r => r.kept),
+        strategyMarkdown: workflow?.strategyMarkdown,
+        trustedWebFindings: workflow?.trustedWebFindings,
+      });
+
+      if (response.newResources && response.newResources.length > 0) {
+        try {
+          const fresh = response.newResources.map(r => ({ ...r, kept: true, id: Math.random().toString(36).slice(2) }));
+          localCache = [...localCache, ...fresh];
+          localStorage.setItem(storageKey, JSON.stringify(localCache));
+          window.dispatchEvent(new Event('strategist_resources_updated'));
+        } catch {}
+      }
+
+      await persistStrategistWorkflow((existing) => ({
+        ...existing,
+        strategistWorkflow: {
+          ...(existing.strategistWorkflow ?? {
+            stage: "draft" as const,
+            resources: [],
+          }),
+          chatHistory: [
+            ...(existing.strategistWorkflow?.chatHistory ?? []),
+            {
+              id: `chat-${Date.now()}-a`,
+              role: "assistant",
+              content: response.answer,
+              createdAt: new Date(),
+            },
+          ],
+        },
+      }));
+    } catch (error) {
+      console.error(
+        error instanceof Error ? error.message : "Failed to ask strategist",
+      );
+    } finally {
+      setIsAskingStrategist(false);
+    }
+  };
+
   const renderCollapsedRail = (label: string) => (
     <div className="w-14 min-w-14 h-screen flex flex-col items-center justify-between border-l border-border bg-card px-2 py-3">
       <button
@@ -346,19 +504,44 @@ export default function RightChatPanel() {
 
   if (isWorkspace && currentWorkspace) {
     if (collapsed) {
-      return renderCollapsedRail("Notebook");
+      return renderCollapsedRail(
+        isStrategistSession ? "Strategist" : "Notebook",
+      );
     }
+
+    const strategistResources =
+      strategistQuery?.strategistWorkflow?.resources ?? [];
+    const keptIds = new Set(
+      strategistQuery?.strategistWorkflow?.keptResourceIds ??
+        strategistResources.map((resource) => resource.id),
+    );
+    const strategistChat =
+      strategistQuery?.strategistWorkflow?.chatHistory ?? [];
 
     return (
       <div className="w-[var(--chat-width)] min-w-[var(--chat-width)] h-screen flex flex-col border-l border-border bg-card">
-        <div className="h-14 flex items-center justify-between px-4 border-b border-border bg-gradient-to-r from-emerald-950/40 to-transparent">
+        <div
+          className={cn(
+            "h-14 flex items-center justify-between px-4 border-b border-border",
+            isStrategistSession
+              ? "bg-gradient-to-r from-amber-400/20 to-transparent"
+              : "bg-gradient-to-r from-emerald-400/20 to-transparent",
+          )}
+        >
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Library className="w-4 h-4 text-emerald-400" />
-              Lab Notebook
+              {isStrategistSession ? (
+                <Bot className="w-4 h-4 text-amber-300" />
+              ) : (
+                <Library className="w-4 h-4 text-emerald-400" />
+              )}
+              {isStrategistSession ? "Strategist Console" : "Lab Notebook"}
             </div>
             <p className="text-2xs text-muted-foreground truncate mt-0.5">
-              {activeQuery?.text || "Capture evidence as a conversation"}
+              {isStrategistSession
+                ? strategistQuery?.text ||
+                  "Run gather, then strategy, then follow-up"
+                : activeQuery?.text || "Capture evidence as a conversation"}
             </p>
           </div>
           <button
@@ -371,178 +554,238 @@ export default function RightChatPanel() {
         </div>
 
         <div className="border-b border-border px-3 py-2 bg-background/70">
-          {!hasOnboardingRun ? (
-            <div className="mb-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-2xs text-emerald-200">
+          {isStrategistSession ? (
+            <div className="space-y-2">
+              <label className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+                Select a Workspace to Design a Strategy
+              </label>
+              <select
+                value={selectedStrategistWorkspace?.id ?? ""}
+                onChange={(event) => {
+                  const id = event.target.value;
+                  setSelectedStrategistWorkspaceId(id);
+                  const target = strategistWorkspaces.find(
+                    (ws) => ws.id === id,
+                  );
+                  if (target) {
+                    setCurrentWorkspace(target);
+                    navigate(`/workspaces/${target.id}`);
+                  }
+                }}
+                className="w-full rounded-md border border-border bg-background px-2 py-2 text-xs"
+              >
+                {strategistWorkspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : !hasOnboardingRun ? (
+            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 text-2xs text-emerald-200">
               <p className="uppercase tracking-[0.12em] mb-1">
                 Quick onboarding
               </p>
               <p className="text-muted-foreground">
-                Enter query → Fetch from sources → Add evidence to graph.
+                Enter query, fetch from sources, then add evidence to graph.
               </p>
             </div>
           ) : null}
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-2xs text-muted-foreground flex items-center gap-2 rounded-md border border-border px-2 py-1 bg-accent/20">
-              <input
-                aria-label="India Lens"
-                type="checkbox"
-                checked={indiaLensFilter}
-                onChange={(e) => setIndiaLensFilter(e.target.checked)}
-                className="rounded border-border"
-              />
-              India Lens
-            </label>
-            <label className="text-2xs text-muted-foreground flex flex-col gap-1 rounded-md border border-border px-2 py-1 bg-accent/20">
-              Timeline Start
-              <input
-                aria-label="Timeline Start"
-                type="date"
-                value={timelineStart}
-                onChange={(e) => setTimelineStart(e.target.value)}
-                className="px-2 py-1 text-2xs bg-background border border-border rounded"
-              />
-            </label>
-            <label className="text-2xs text-muted-foreground flex flex-col gap-1 rounded-md border border-border px-2 py-1 bg-accent/20 col-span-2">
-              Timeline End
-              <input
-                aria-label="Timeline End"
-                type="date"
-                value={timelineEnd}
-                onChange={(e) => setTimelineEnd(e.target.value)}
-                className="px-2 py-1 text-2xs bg-background border border-border rounded"
-              />
-            </label>
-          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_55%)]">
-          {showGraphAugmentedToast ? (
-            <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs text-emerald-200">
-              Graph augmented with 1 evidence node.
-            </div>
-          ) : null}
-          {notebookEntries.length === 0 ? (
-            <div className="rounded-xl border border-border bg-background/80 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <FlaskConical className="h-4 w-4 text-emerald-400" />
-                Start a notebook run
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Ask a focused question, then review evidence cards and add
-                selected entities directly to your graph.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {notebookEntries.map((entry) => {
-                const successfulSourceCount = Array.isArray(entry.searchedSources)
-                  ? entry.searchedSources.length
-                  : 0;
-                const unavailableCount = Object.keys(
-                  entry.sourceDiagnostics,
-                ).length;
-
-                return (
-                  <article
-                    key={entry.id}
-                    className="relative rounded-xl border border-border bg-background/85 p-3"
-                  >
-                    <div className="absolute left-3 top-3 h-[calc(100%-24px)] w-px bg-border/70" />
-
-                    <div className="pl-5 space-y-3">
-                      <div className="flex justify-end">
-                        <div className="max-w-[92%] rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-                          <p className="text-2xs uppercase tracking-[0.14em] text-emerald-300/80 mb-1">
-                            You asked
-                          </p>
-                          <p className="text-sm text-foreground">
-                            {entry.query}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="max-w-[96%] rounded-lg border border-border bg-card px-3 py-3 space-y-2">
-                        <div className="flex items-center gap-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
-                          <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                          {entry.status === "complete"
-                            ? "Entropy found"
-                            : entry.status === "failed"
-                              ? "Entropy issue"
-                              : "Entropy searching"}
-                        </div>
-
-                        {entry.status === "running" ? (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            Gathering evidence across connected sources...
-                          </div>
-                        ) : null}
-
-                        {entry.status === "failed" ? (
-                          <p className="text-xs text-destructive">
-                            {entry.error || "Search failed"}
-                          </p>
-                        ) : null}
-
-                        {entry.status === "complete" ? (
-                          <>
-                            <div className="flex items-center justify-between text-2xs text-muted-foreground">
-                              <span>
-                                Fetching from sources complete. Sources:{" "}
-                                {successfulSourceCount} successful
-                                {unavailableCount > 0
-                                  ? `, ${unavailableCount} unavailable`
-                                  : ""}
-                              </span>
-                              {entry.executionTime ? (
-                                <span>{entry.executionTime} ms</span>
-                              ) : null}
-                            </div>
-
-                            <div className="space-y-2">
-                              {entry.results.map((result) => {
-                                const resultKey = keyForResult(
-                                  entry.id,
-                                  result.id,
-                                );
-
-                                return (
-                                  <SearchResultCard
-                                    key={resultKey}
-                                    result={{ ...result, id: resultKey }}
-                                    selected={selectedResultKeys.has(resultKey)}
-                                    onToggle={handleToggleResult}
-                                    onViewDetails={() => {
-                                      // Reuse EntityDetailDrawer in workspace context (follow-up).
-                                    }}
-                                  />
-                                );
-                              })}
-                            </div>
-
-                            {unavailableCount > 0 ? (
-                              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-2xs text-amber-200 space-y-1">
-                                {Object.entries(entry.sourceDiagnostics).map(
-                                  ([source, reason]) => (
-                                    <p key={`${entry.id}-${source}`}>
-                                      {source}: {reason}
-                                    </p>
-                                  ),
-                                )}
-                              </div>
-                            ) : null}
-                          </>
-                        ) : null}
+          {isStrategistSession ? (
+            <div className="space-y-3">
+              <div className="flex flex-col h-[calc(100vh-140px)] rounded-lg border border-border/60 bg-background/90 backdrop-blur-sm p-3 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <p className="text-2xs font-semibold uppercase tracking-widest text-amber-500/90">
+                    Strategist Chat
+                  </p>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-border hover:scrollbar-thumb-muted-foreground/50">
+                  {strategistChat.map((message) => (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        "rounded-xl px-3 py-2.5 shadow-sm text-[13px] leading-relaxed transition-all",
+                        message.role === "user"
+                          ? "bg-amber-500/10 border border-amber-500/20 text-foreground ml-4 rounded-tr-sm"
+                          : "bg-card/80 border border-border/80 text-foreground/90 mr-4 rounded-tl-sm",
+                      )}
+                    >
+                      <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-black/5 prose-pre:border prose-pre:border-border/50 prose-a:text-amber-500 hover:prose-a:underline">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
                       </div>
                     </div>
-                  </article>
-                );
-              })}
+                  ))}
+                </div>
+                
+                <div className="flex gap-2 pt-3 mt-2 border-t border-border/40 shrink-0 relative">
+                  <input
+                    value={strategistChatInput}
+                    onChange={(event) =>
+                      setStrategistChatInput(event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void handleStrategistAsk();
+                      }
+                    }}
+                    placeholder="Ask follow-up on this strategy..."
+                    className="flex-1 rounded-xl border border-border/80 bg-background/80 px-4 py-2.5 text-[13px] shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                  />
+                  <button
+                    onClick={() => void handleStrategistAsk()}
+                    disabled={isAskingStrategist || !strategistChatInput.trim()}
+                    className="rounded-xl bg-amber-500 hover:bg-amber-400 px-3.5 text-amber-950 transition-colors shadow-sm disabled:opacity-50 disabled:hover:bg-amber-500"
+                  >
+                    {isAskingStrategist ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-amber-950/70" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
+          ) : (
+            <>
+              {showGraphAugmentedToast ? (
+                <div className="mb-3 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs text-emerald-200">
+                  Graph augmented with 1 evidence node.
+                </div>
+              ) : null}
+              {notebookEntries.length === 0 ? (
+                <div className="rounded-xl border border-border bg-background/80 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <FlaskConical className="h-4 w-4 text-emerald-400" />
+                    Start a notebook run
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Ask a focused question, then review evidence cards and add
+                    selected entities directly to your graph.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {notebookEntries.map((entry) => {
+                    const successfulSourceCount = Array.isArray(
+                      entry.searchedSources,
+                    )
+                      ? entry.searchedSources.length
+                      : 0;
+                    const unavailableCount = Object.keys(
+                      entry.sourceDiagnostics,
+                    ).length;
+
+                    return (
+                      <article
+                        key={entry.id}
+                        className="relative rounded-xl border border-border bg-background/85 p-3"
+                      >
+                        <div className="absolute left-3 top-3 h-[calc(100%-24px)] w-px bg-border/70" />
+
+                        <div className="pl-5 space-y-3">
+                          <div className="flex justify-end">
+                            <div className="max-w-[92%] rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                              <p className="text-2xs uppercase tracking-[0.14em] text-emerald-300/80 mb-1">
+                                You asked
+                              </p>
+                              <p className="text-sm text-foreground">
+                                {entry.query}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="max-w-[96%] rounded-lg border border-border bg-card px-3 py-3 space-y-2">
+                            <div className="flex items-center gap-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+                              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                              {entry.status === "complete"
+                                ? "Entropy found"
+                                : entry.status === "failed"
+                                  ? "Entropy issue"
+                                  : "Entropy searching"}
+                            </div>
+
+                            {entry.status === "running" ? (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Gathering evidence across connected sources...
+                              </div>
+                            ) : null}
+
+                            {entry.status === "failed" ? (
+                              <p className="text-xs text-destructive">
+                                {entry.error || "Search failed"}
+                              </p>
+                            ) : null}
+
+                            {entry.status === "complete" ? (
+                              <>
+                                <div className="flex items-center justify-between text-2xs text-muted-foreground">
+                                  <span>
+                                    Fetching from sources complete. Sources:{" "}
+                                    {successfulSourceCount} successful
+                                    {unavailableCount > 0
+                                      ? `, ${unavailableCount} unavailable`
+                                      : ""}
+                                  </span>
+                                  {entry.executionTime ? (
+                                    <span>{entry.executionTime} ms</span>
+                                  ) : null}
+                                </div>
+
+                                <div className="space-y-2">
+                                  {entry.results.map((result) => {
+                                    const resultKey = keyForResult(
+                                      entry.id,
+                                      result.id,
+                                    );
+
+                                    return (
+                                      <SearchResultCard
+                                        key={resultKey}
+                                        result={{ ...result, id: resultKey }}
+                                        selected={selectedResultKeys.has(
+                                          resultKey,
+                                        )}
+                                        onToggle={handleToggleResult}
+                                        onViewDetails={() => {
+                                          // Reuse EntityDetailDrawer in workspace context (follow-up).
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+
+                                {unavailableCount > 0 ? (
+                                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-2xs text-amber-200 space-y-1">
+                                    {Object.entries(
+                                      entry.sourceDiagnostics,
+                                    ).map(([source, reason]) => (
+                                      <p key={`${entry.id}-${source}`}>
+                                        {source}: {reason}
+                                      </p>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {selectedResultKeys.size > 0 ? (
+        {!isStrategistSession && selectedResultKeys.size > 0 ? (
           <div className="px-3 py-2 border-t border-border bg-emerald-500/10">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-muted-foreground">
@@ -562,41 +805,43 @@ export default function RightChatPanel() {
           </div>
         ) : null}
 
-        <div className="p-3 border-t border-border bg-card/95">
-          <div className="bg-background rounded-xl border border-border px-2 py-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    void handleSearch();
-                  }
-                }}
-                placeholder="Search MCP data sources..."
-                className="flex-1 px-2 py-2 text-sm bg-transparent border-none focus:outline-none"
-              />
-              <button
-                onClick={() => void handleSearch()}
-                disabled={isSearching || (!searchQuery.trim() && !querySeed)}
-                className="px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm font-medium"
-                aria-label="Search"
-              >
-                {isSearching ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  "Search"
-                )}
-              </button>
+        {!isStrategistSession ? (
+          <div className="p-3 border-t border-border bg-card/95">
+            <div className="bg-background rounded-xl border border-border px-2 py-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      void handleSearch();
+                    }
+                  }}
+                  placeholder="Search MCP data sources..."
+                  className="flex-1 px-2 py-2 text-sm bg-transparent border-none focus:outline-none"
+                />
+                <button
+                  onClick={() => void handleSearch()}
+                  disabled={isSearching || (!searchQuery.trim() && !querySeed)}
+                  className="px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 text-sm font-medium"
+                  aria-label="Search"
+                >
+                  {isSearching ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "Search"
+                  )}
+                </button>
+              </div>
+              {activeSearchCount > 0 ? (
+                <p className="text-2xs text-muted-foreground mt-2 px-2">
+                  Notebook search in progress...
+                </p>
+              ) : null}
             </div>
-            {activeSearchCount > 0 ? (
-              <p className="text-2xs text-muted-foreground mt-2 px-2">
-                Notebook search in progress...
-              </p>
-            ) : null}
           </div>
-        </div>
+        ) : null}
       </div>
     );
   }

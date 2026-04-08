@@ -158,9 +158,9 @@ export default function WorkspacesPage() {
   };
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_15%_10%,rgba(16,185,129,0.16),transparent_38%),radial-gradient(circle_at_88%_20%,rgba(245,158,11,0.15),transparent_35%),linear-gradient(180deg,rgba(12,13,18,0.85),rgba(12,13,18,0.96))]">
-      <div className="px-6 py-6 space-y-6">
-        <section className="rounded-2xl border border-border/70 bg-card/80 p-5 shadow-[0_28px_65px_-42px_rgba(16,185,129,0.65)]">
+    <div className="min-h-full bg-[radial-gradient(circle_at_15%_10%,rgba(16,185,129,0.05),transparent_38%),radial-gradient(circle_at_88%_20%,rgba(245,158,11,0.05),transparent_35%)]">
+      <div className="py-8 px-6 lg:px-12 max-w-7xl mx-auto space-y-6">
+        <section className="rounded-2xl border border-border/70 bg-card/80 p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-2xs uppercase tracking-[0.22em] text-emerald-300/90 mb-2">
@@ -202,7 +202,7 @@ export default function WorkspacesPage() {
               {filteredCards.map((workspace) => (
                 <article
                   key={workspace.id}
-                  className="group rounded-xl border border-border/80 bg-background/65 px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-foreground/25 hover:shadow-[0_22px_42px_-34px_rgba(251,191,36,0.6)]"
+                  className="group rounded-xl border border-border/80 bg-background px-4 py-4 transition-all hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -268,7 +268,7 @@ export default function WorkspacesPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/70 bg-card/90 p-5 shadow-[0_24px_60px_-42px_rgba(245,158,11,0.65)]">
+          <div className="rounded-2xl border border-border/70 bg-card/90 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <div className="h-7 w-7 rounded-full bg-amber-300/20 flex items-center justify-center">
                 <Plus className="h-4 w-4 text-amber-300" />

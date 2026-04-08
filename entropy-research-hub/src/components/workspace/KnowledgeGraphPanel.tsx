@@ -148,7 +148,7 @@ export default function KnowledgeGraphPanel({
           width: size,
           height: size,
           label: node.label,
-          color: "#fff",
+          color: "#111827",
           "text-valign": "center",
           "text-halign": "center",
           fontSize: 10,

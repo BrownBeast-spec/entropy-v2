@@ -10,8 +10,14 @@ import { gapAnalystAgent } from "../agents/gap-analyst.js";
 import { verifierAgent } from "../agents/verifier.js";
 import { queryPlannerAgent } from "../agents/query-planner.js";
 import { evidenceSummarizerAgent } from "../agents/evidence-summarizer.js";
+import { strategistPlannerAgent } from "../agents/strategist-planner.js";
+import { patentStrategistAgent } from "../agents/patent-strategist.js";
+import { commercialAnalystAgent } from "../agents/commercial-analyst.js";
+import { pipelineCiAnalystAgent } from "../agents/pipeline-ci-analyst.js";
+import { strategistSynthesizerAgent } from "../agents/strategist-synthesizer.js";
 import { researchPipelineWorkflow } from "../workflows/research-pipeline.js";
 import { graphSynthesisPipeline } from "../workflows/graph-synthesis-pipeline.js";
+import { strategistPipelineWorkflow } from "../workflows/strategist-pipeline.js";
 import { getAuditStore, isAuditEnabled } from "../lib/audit.js";
 
 export const mastra = new Mastra({
@@ -25,10 +31,16 @@ export const mastra = new Mastra({
     verifierAgent,
     queryPlannerAgent,
     evidenceSummarizerAgent,
+    strategistPlannerAgent,
+    patentStrategistAgent,
+    commercialAnalystAgent,
+    pipelineCiAnalystAgent,
+    strategistSynthesizerAgent,
   },
   workflows: {
     researchPipelineWorkflow,
     graphSynthesisPipeline,
+    strategistPipelineWorkflow,
   },
   storage: new InMemoryStore({ id: "entropy-storage" }),
 });

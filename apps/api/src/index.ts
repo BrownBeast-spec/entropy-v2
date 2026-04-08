@@ -7,6 +7,7 @@ import entity from "./routes/entity.js";
 import workspace from "./routes/workspace.js";
 import workflow from "./routes/workflow.js";
 import { causaly } from "./routes/causaly.js";
+import { strategist } from "./routes/strategist.js";
 
 const app = new Hono();
 
@@ -27,6 +28,7 @@ app.route("/api/entity", entity);
 app.route("/api/workspace", workspace);
 app.route("/api/workflow", workflow);
 app.route("/api/causaly", causaly);
+app.route("/api/strategist", strategist);
 
 // Dynamically import the chat route so a missing @copilotkit/runtime install
 // doesn't crash the entire API server on startup

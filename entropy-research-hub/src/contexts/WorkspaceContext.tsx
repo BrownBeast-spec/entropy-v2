@@ -1,5 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Workspace, WorkspaceMode, GraphNode, GraphEdge, Query, SavedItem } from "@/types/workspace";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import {
+  Workspace,
+  WorkspaceMode,
+  GraphNode,
+  GraphEdge,
+  Query,
+  SavedItem,
+} from "@/types/workspace";
 import { workspaceStorage } from "@/lib/storage/workspaceStorage";
 import { workspaceStoreV2 } from "@/lib/storage/workspaceStoreV2";
 import { createDemoWorkspaceSeed } from "@/lib/data/demoWorkspaceSeed";
@@ -14,7 +27,12 @@ import {
 
 export interface WorkspaceGraphSnapshot {
   nodeIds: string[];
-  edgeSummary: Array<{ id: string; source: string; target: string; type: string }>;
+  edgeSummary: Array<{
+    id: string;
+    source: string;
+    target: string;
+    type: string;
+  }>;
 }
 
 interface WorkspaceContextValue {
@@ -25,7 +43,11 @@ interface WorkspaceContextValue {
 }
 
 interface WorkspaceActionsContextValue {
-  createWorkspace: (name: string, description: string, mode: WorkspaceMode) => Promise<Workspace>;
+  createWorkspace: (
+    name: string,
+    description: string,
+    mode: WorkspaceMode,
+  ) => Promise<Workspace>;
   updateWorkspace: (workspace: Workspace) => Promise<void>;
   deleteWorkspace: (id: string) => Promise<void>;
   addNode: (node: GraphNode) => void;
@@ -40,17 +62,40 @@ interface WorkspaceActionsContextValue {
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
-const WorkspaceActionsContext = createContext<WorkspaceActionsContextValue | null>(null);
+const WorkspaceActionsContext =
+  createContext<WorkspaceActionsContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
+  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(
+    null,
+  );
 
   const normalizeWorkspace = (ws: any): Workspace => {
     const normalizedQueries = (() => {
       const queries = (ws.queries ?? []).map((q: any) => ({
         ...q,
         submittedAt: q.submittedAt ? new Date(q.submittedAt) : new Date(),
+        researchPrompt: q.researchPrompt,
+        strategistWorkflow: q.strategistWorkflow
+          ? {
+              ...q.strategistWorkflow,
+              gatheredAt: q.strategistWorkflow.gatheredAt
+                ? new Date(q.strategistWorkflow.gatheredAt)
+                : undefined,
+              strategizedAt: q.strategistWorkflow.strategizedAt
+                ? new Date(q.strategistWorkflow.strategizedAt)
+                : undefined,
+              chatHistory: Array.isArray(q.strategistWorkflow.chatHistory)
+                ? q.strategistWorkflow.chatHistory.map((entry: any) => ({
+                    ...entry,
+                    createdAt: entry.createdAt
+                      ? new Date(entry.createdAt)
+                      : new Date(),
+                  }))
+                : [],
+            }
+          : undefined,
         timelineStart: q.timelineStart ? new Date(q.timelineStart) : undefined,
         timelineEnd: q.timelineEnd ? new Date(q.timelineEnd) : undefined,
         report: q.report
@@ -97,37 +142,46 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return {
       ...ws,
       nodes: (ws.nodes ?? []).map((n: any) => ({
-      id: n.id,
-      label: n.label,
-      type: n.type,
-      source: n.source ?? "Open Targets",
-      metadata: n.metadata ?? n.data ?? {},
-      evidenceScore: n.evidenceScore,
-      addedByQuery: n.addedByQuery ?? n.provenance?.[0]?.query ?? "initial",
-      indiaRelevant:
-        n.indiaRelevant ??
-        Boolean(
-          n.indiaContext?.isCDSCO ||
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        source: n.source ?? "Open Targets",
+        metadata: n.metadata ?? n.data ?? {},
+        evidenceScore: n.evidenceScore,
+        addedByQuery: n.addedByQuery ?? n.provenance?.[0]?.query ?? "initial",
+        indiaRelevant:
+          n.indiaRelevant ??
+          Boolean(
+            n.indiaContext?.isCDSCO ||
             n.indiaContext?.isNPPA ||
             n.indiaContext?.isIndianPatent ||
             n.indiaContext?.isIndianSponsor,
-        ),
-    })),
-    edges: (ws.edges ?? []).map((e: any) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: e.type,
-      confidence: e.confidence,
-      metadata: e.metadata ?? {},
-    })),
-    queries: normalizedQueries,
-    activeQueryId: ws.activeQueryId ?? normalizedQueries[0]?.id,
-    savedItems: (ws.savedItems ?? []).map((item: any) => ({
-      ...item,
-      savedAt: item.savedAt ? new Date(item.savedAt) : new Date(),
-    })),
-  };
+          ),
+      })),
+      edges: (ws.edges ?? []).map((e: any) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: e.type,
+        confidence: e.confidence,
+        metadata: e.metadata ?? {},
+      })),
+      queries: normalizedQueries,
+      activeQueryId: ws.activeQueryId ?? normalizedQueries[0]?.id,
+      strategistWorkspaceId: ws.strategistWorkspaceId,
+      strategistOnboarding: ws.strategistOnboarding
+        ? {
+            ...ws.strategistOnboarding,
+            completedAt: ws.strategistOnboarding.completedAt
+              ? new Date(ws.strategistOnboarding.completedAt)
+              : undefined,
+          }
+        : undefined,
+      savedItems: (ws.savedItems ?? []).map((item: any) => ({
+        ...item,
+        savedAt: item.savedAt ? new Date(item.savedAt) : new Date(),
+      })),
+    };
   };
 
   const denormalizeNode = (node: GraphNode) => ({
@@ -346,6 +400,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         name: workspaceMeta.data.name,
         description: workspaceMeta.data.description,
         mode: workspaceMeta.data.mode,
+        strategistWorkspaceId:
+          workspaceMeta.data.mode === "Strategist"
+            ? `WS-Strategist-${workspaceMeta.data.id}`
+            : undefined,
         indiaLens: workspaceMeta.data.indiaLens,
         createdAt: workspaceMeta.data.createdAt,
         updatedAt: workspaceMeta.data.updatedAt ?? workspaceMeta.data.createdAt,
@@ -364,11 +422,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       await refreshWorkspaces();
       return normalized;
     } catch {
+      const fallbackWorkspaceId = `ws_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       const workspace: Workspace = {
-        id: `ws_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        id: fallbackWorkspaceId,
         name,
         description,
         mode,
+        strategistWorkspaceId:
+          mode === "Strategist"
+            ? `WS-Strategist-${fallbackWorkspaceId}`
+            : undefined,
         indiaLens: false,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -446,7 +509,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       ...currentWorkspace,
       nodes: currentWorkspace.nodes.filter((n) => n.id !== nodeId),
       edges: currentWorkspace.edges.filter(
-        (e) => e.source !== nodeId && e.target !== nodeId
+        (e) => e.source !== nodeId && e.target !== nodeId,
       ),
     };
     setCurrentWorkspace(updated);
@@ -506,19 +569,25 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (!currentWorkspace) return;
     const updated = {
       ...currentWorkspace,
-      queries: currentWorkspace.queries.map((q) => (q.id === query.id ? query : q)),
+      queries: currentWorkspace.queries.map((q) =>
+        q.id === query.id ? query : q,
+      ),
     };
     void updateWorkspace(updated);
   };
 
   const toggleSavedItem = (nodeId: string) => {
     if (!currentWorkspace) return;
-    const existing = currentWorkspace.savedItems.find((item) => item.nodeId === nodeId);
-    
+    const existing = currentWorkspace.savedItems.find(
+      (item) => item.nodeId === nodeId,
+    );
+
     const updated = existing
       ? {
           ...currentWorkspace,
-          savedItems: currentWorkspace.savedItems.filter((item) => item.nodeId !== nodeId),
+          savedItems: currentWorkspace.savedItems.filter(
+            (item) => item.nodeId !== nodeId,
+          ),
         }
       : {
           ...currentWorkspace,
@@ -532,7 +601,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             },
           ],
         };
-    
+
     void updateWorkspace(updated);
   };
 
@@ -618,7 +687,9 @@ export function useWorkspace() {
 export function useWorkspaceActions() {
   const context = useContext(WorkspaceActionsContext);
   if (!context) {
-    throw new Error("useWorkspaceActions must be used within WorkspaceProvider");
+    throw new Error(
+      "useWorkspaceActions must be used within WorkspaceProvider",
+    );
   }
   return context;
 }

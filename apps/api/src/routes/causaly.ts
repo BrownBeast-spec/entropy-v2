@@ -179,12 +179,9 @@ async function callTool(
   }
 }
 
-function normalizeMissingType(missing: string):
-  | "target"
-  | "trial"
-  | "compound"
-  | "patent"
-  | null {
+function normalizeMissingType(
+  missing: string,
+): "target" | "trial" | "compound" | "patent" | null {
   const value = missing.toLowerCase();
   if (
     value.includes("target") ||
@@ -234,8 +231,8 @@ function parseSnapshotFromQuery(raw: string): {
       : [];
 
     const edgeSummary = Array.isArray(parsed.edgeSummary)
-      ? parsed.edgeSummary.filter(
-          (entry): entry is Record<string, unknown> => isRecord(entry),
+      ? parsed.edgeSummary.filter((entry): entry is Record<string, unknown> =>
+          isRecord(entry),
         )
       : [];
 
@@ -263,11 +260,16 @@ function escapeLatex(value: string): string {
     .replaceAll("^", "\\textasciicircum{}");
 }
 
-function renderDossierLatex(input: z.infer<typeof DossierRequestSchema>): string {
+function renderDossierLatex(
+  input: z.infer<typeof DossierRequestSchema>,
+): string {
   const sections = input.reportSections
     .map((section: DossierSection) => {
       const citations = section.citations
-        .map((citation) => `\\item ${escapeLatex(citation.source)}: ${escapeLatex(citation.label)}`)
+        .map(
+          (citation) =>
+            `\\item ${escapeLatex(citation.source)}: ${escapeLatex(citation.label)}`,
+        )
         .join("\n");
 
       const citationBlock = citations.length
@@ -314,10 +316,16 @@ async function fetchCompoundNodes(query: string): Promise<ToolCall> {
 
 async function fetchPatentNodes(query: string): Promise<ToolCall> {
   const tools = await getPatentsTools();
-  return callTool(tools, "search_patents_by_drug", { drugName: query, limit: 6 });
+  return callTool(tools, "search_patents_by_drug", {
+    drugName: query,
+    limit: 6,
+  });
 }
 
-function toTargetNodes(payload: Record<string, unknown>, query: string): GraphNode[] {
+function toTargetNodes(
+  payload: Record<string, unknown>,
+  query: string,
+): GraphNode[] {
   const targetId = asString(payload.target_id);
   const symbol = asString(payload.gene_symbol);
   if (!targetId || !symbol) return [];
@@ -336,7 +344,10 @@ function toTargetNodes(payload: Record<string, unknown>, query: string): GraphNo
   ];
 }
 
-function toTrialNodes(payload: Record<string, unknown>, query: string): GraphNode[] {
+function toTrialNodes(
+  payload: Record<string, unknown>,
+  query: string,
+): GraphNode[] {
   const studies = asRecordArray(payload.studies).slice(0, 6);
   const nodes: GraphNode[] = [];
   for (const trial of studies) {
@@ -378,7 +389,10 @@ function toCompoundNodes(
   return nodes;
 }
 
-function toPatentNodes(payload: Record<string, unknown>, query: string): GraphNode[] {
+function toPatentNodes(
+  payload: Record<string, unknown>,
+  query: string,
+): GraphNode[] {
   const patents = asRecordArray(payload.patents).slice(0, 6);
   const nodes: GraphNode[] = [];
   for (const patent of patents) {
@@ -536,8 +550,43 @@ causaly.post("/synthesise", async (c) => {
     });
   }
 
+  const normalizedNodes = parsed.data.graphSnapshot.nodes.map((node, index) => {
+    const n = isRecord(node) ? node : {};
+    const metadata = isRecord(n.metadata)
+      ? n.metadata
+      : (Object.fromEntries(
+          Object.entries(n).filter(
+            ([key]) =>
+              !["id", "label", "type", "source", "metadata"].includes(key),
+          ),
+        ) as Record<string, unknown>);
+
+    return {
+      id: asString(n.id) ?? `node_${index + 1}`,
+      label: asString(n.label) ?? asString(n.name) ?? `Node ${index + 1}`,
+      type: asString(n.type) ?? "unknown",
+      source: asString(n.source) ?? "Unknown",
+      metadata,
+      indiaRelevant: Boolean(n.indiaRelevant),
+    };
+  });
+
+  const normalizedEdges = parsed.data.graphSnapshot.edges.map((edge, index) => {
+    const e = isRecord(edge) ? edge : {};
+    return {
+      id: asString(e.id) ?? `edge_${index + 1}`,
+      source: asString(e.source) ?? "unknown_source",
+      target: asString(e.target) ?? "unknown_target",
+      type: asString(e.type) ?? "inferred_relationship",
+      confidence: asNumber(e.confidence),
+    };
+  });
+
   const result = await summariseFromGraph({
-    graphSnapshot: parsed.data.graphSnapshot,
+    graphSnapshot: {
+      nodes: normalizedNodes,
+      edges: normalizedEdges,
+    },
     personaMode: parsed.data.personaMode,
     reportSections: parsed.data.reportSections,
   });

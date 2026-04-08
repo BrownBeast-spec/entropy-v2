@@ -229,7 +229,7 @@ function canUseQueryPlannerLlm(): boolean {
   const modelId =
     process.env.QUERY_PLANNER_MODEL ??
     process.env.LLM_MODEL ??
-    "google:gemini-2.5-pro-preview-05-06";
+    "google:gemini-2.5-flash";
   return hasApiKeyForProvider(modelProviderFromId(modelId));
 }
 
@@ -241,7 +241,7 @@ function canUseSummaryLlm(): boolean {
   const modelId =
     process.env.EVIDENCE_SUMMARIZER_MODEL ??
     process.env.LLM_MODEL ??
-    "google:gemini-2.5-pro-preview-05-06";
+    "google:gemini-2.5-flash";
   return hasApiKeyForProvider(modelProviderFromId(modelId));
 }
 
@@ -556,7 +556,9 @@ async function enrichCitationMetrics(items: SearchResult[]): Promise<void> {
   );
 }
 
-async function runUnifiedSearch(input: z.infer<typeof SearchInputSchema>) {
+export async function runUnifiedSearch(
+  input: z.infer<typeof SearchInputSchema>,
+) {
   const { q, types, limit } = input;
   const queryPlan = await buildQueryPlan(q);
   const items: SearchResult[] = [];

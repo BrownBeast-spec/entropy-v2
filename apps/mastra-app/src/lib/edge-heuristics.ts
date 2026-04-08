@@ -1,4 +1,10 @@
-import type { GraphNode } from "@entropy/api/src/schemas/graph-schema";
+type GraphNode = {
+  id: string;
+  label: string;
+  type: string;
+  source: string;
+  metadata: Record<string, unknown>;
+};
 
 export interface EdgeCandidate {
   sourceId: string;

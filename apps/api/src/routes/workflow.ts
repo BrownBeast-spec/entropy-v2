@@ -16,18 +16,18 @@ const SynthesizeWorkflowRequestSchema = z
     reportSections: z.array(z.string()).default([]),
     performSearch: z.boolean().default(false),
     searchResults: z.array(z.unknown()).optional(),
-    queryId: z.string().optional(), // Optional: if provided, use existing query
+    queryId: z.string().optional(),
   })
   .refine(
     (data) => {
-      // If performSearch is false, searchResults must be provided and non-empty
       if (data.performSearch === false) {
         return data.searchResults && data.searchResults.length > 0;
       }
       return true;
     },
     {
-      message: "searchResults must be provided and non-empty when performSearch is false",
+      message:
+        "searchResults must be provided and non-empty when performSearch is false",
     },
   );
 
@@ -49,13 +49,9 @@ workflow.post("/synthesize", async (c) => {
   const input = parsed.data;
 
   try {
-    // Get the workflow from Mastra
-    const workflow = mastra.getWorkflow("graphSynthesisPipeline");
-    
-    // Create a new run
-    const run = await workflow.createRun();
+    const graphWorkflow = mastra.getWorkflow("graphSynthesisPipeline");
+    const run = await graphWorkflow.createRun();
 
-    // Execute the graph synthesis pipeline workflow
     const result = await run.start({
       inputData: {
         workspaceId: input.workspaceId,
@@ -95,11 +91,8 @@ workflow.post("/synthesize", async (c) => {
   }
 });
 
-// Get workflow status (for long-running workflows)
 workflow.get("/status/:executionId", async (c) => {
   const executionId = c.req.param("executionId");
-
-  // TODO: Implement execution tracking in Mastra
 
   return c.json({
     executionId,

@@ -16,6 +16,7 @@ import SettingsMcpServers from "@/pages/settings/SettingsMcpServers";
 import NotFound from "@/pages/NotFound";
 import WorkspaceQueriesPage from "@/pages/WorkspaceQueriesPage";
 import WorkspaceQueryView from "@/pages/WorkspaceQueryView";
+import StrategistPage from "@/pages/StrategistPage";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 
 const queryClient = new QueryClient();
@@ -34,17 +35,30 @@ const App = () => (
               <Route path="/people" element={<PeoplePage />} />
               <Route path="/companies" element={<CompaniesPage />} />
               <Route path="/workspaces" element={<WorkspacesPage />} />
-              <Route path="/workspaces/:workspaceId" element={<WorkspaceQueriesPage />} />
+              <Route path="/strategist" element={<StrategistPage />} />
+              <Route
+                path="/workspaces/:workspaceId"
+                element={<WorkspaceQueriesPage />}
+              />
               <Route
                 path="/workspaces/:workspaceId/queries/:queryId"
                 element={<WorkspaceQueryView />}
               />
               <Route path="/automations" element={<AutomationsPage />} />
               <Route path="/settings" element={<SettingsOrganization />} />
-              <Route path="/settings/organization" element={<SettingsOrganization />} />
+              <Route
+                path="/settings/organization"
+                element={<SettingsOrganization />}
+              />
               <Route path="/settings/members" element={<SettingsMembers />} />
-              <Route path="/settings/integrations" element={<SettingsIntegrations />} />
-              <Route path="/settings/mcp-servers" element={<SettingsMcpServers />} />
+              <Route
+                path="/settings/integrations"
+                element={<SettingsIntegrations />}
+              />
+              <Route
+                path="/settings/mcp-servers"
+                element={<SettingsMcpServers />}
+              />
               <Route path="/settings/*" element={<SettingsOrganization />} />
             </Route>
             <Route path="*" element={<NotFound />} />

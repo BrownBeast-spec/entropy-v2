@@ -5,6 +5,7 @@ import WorkspaceQueryView from "./WorkspaceQueryView";
 
 const mockSetCurrentWorkspace = vi.fn();
 const mockUseWorkspace = vi.fn();
+const mockUseWorkspaceActions = vi.fn();
 
 vi.mock("./WorkspaceView", () => ({
   default: () => <div data-testid="workspace-view">Workspace View</div>,
@@ -12,11 +13,16 @@ vi.mock("./WorkspaceView", () => ({
 
 vi.mock("@/contexts/WorkspaceContext", () => ({
   useWorkspace: () => mockUseWorkspace(),
+  useWorkspaceActions: () => mockUseWorkspaceActions(),
 }));
 
 describe("WorkspaceQueryView onboarding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockUseWorkspaceActions.mockReturnValue({
+      updateWorkspace: vi.fn(),
+    });
 
     mockUseWorkspace.mockReturnValue({
       currentWorkspace: null,
@@ -64,7 +70,9 @@ describe("WorkspaceQueryView onboarding", () => {
   it("does not show first-query onboarding banner in query view", () => {
     renderView();
 
-    expect(screen.queryByText(/ready to run your first query/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/ready to run your first query/i),
+    ).not.toBeInTheDocument();
   });
 
   it("continues to render workspace view once query has evidence", () => {

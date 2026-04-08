@@ -1,11 +1,24 @@
 import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
-import { getSynthesisModel } from "../lib/nvidia-nim-provider.js";
+import { getModelForAgent } from "../lib/llm.js";
 import { getNvidiaRateLimiter } from "../lib/rate-limiter.js";
-import type {
-  GraphNode,
-  GraphEdge,
-} from "@entropy/api/src/schemas/graph-schema";
+
+type GraphNode = {
+  id: string;
+  label: string;
+  type: string;
+  source: string;
+  metadata: Record<string, unknown>;
+  indiaRelevant?: boolean;
+};
+
+type GraphEdge = {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  confidence?: number;
+};
 
 // Keep existing schemas
 const CitationSchema = z.object({
@@ -106,7 +119,7 @@ Identify:
 4. Gaps (missing connections, underexplored areas)
 
 Focus on actionable insights, not just statistics.`,
-    model: getSynthesisModel(),
+    model: getModelForAgent("evidence-summarizer"),
   });
 }
 
@@ -128,7 +141,7 @@ For Strategist mode:
 - Strategic gaps and opportunities
 
 Provide specific node IDs as evidence for each pattern.`,
-    model: getSynthesisModel(),
+    model: getModelForAgent("evidence-summarizer"),
   });
 }
 
@@ -154,7 +167,7 @@ CITATION FORMAT EXAMPLES:
 - "The PALOMA-2 trial [trial-101] demonstrated significant progression-free survival benefit [trial-101]."
 
 EVERY paragraph must contain multiple citations. If you write a sentence without a citation, you are doing it wrong.`,
-    model: getSynthesisModel(),
+    model: getModelForAgent("evidence-summarizer"),
   });
 }
 

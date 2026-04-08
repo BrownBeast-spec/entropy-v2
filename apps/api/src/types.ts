@@ -17,7 +17,12 @@ export type AgentName =
   | "hawk-safety"
   | "librarian"
   | "gap-analyst"
-  | "verifier";
+  | "verifier"
+  | "strategist-planner"
+  | "patent-strategist"
+  | "commercial-analyst"
+  | "pipeline-ci-analyst"
+  | "strategist-synthesizer";
 
 export interface AgentStatus {
   status: "pending" | "running" | "completed" | "failed";

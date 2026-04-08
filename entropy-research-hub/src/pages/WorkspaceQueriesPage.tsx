@@ -1,6 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MessageSquare, ArrowUpRight, SendHorizonal, Clock3 } from "lucide-react";
+import {
+  MessageSquare,
+  ArrowUpRight,
+  SendHorizonal,
+  Clock3,
+} from "lucide-react";
 import { useWorkspace, useWorkspaceActions } from "@/contexts/WorkspaceContext";
 import type { Query, WorkspaceMode } from "@/types/workspace";
 import {
@@ -26,14 +31,35 @@ export default function WorkspaceQueriesPage() {
   const { currentWorkspace, setCurrentWorkspace, workspaces } = useWorkspace();
   const { updateWorkspace } = useWorkspaceActions();
 
+  const workspace = workspaces.find((ws) => ws.id === workspaceId);
+
   const [queryDraft, setQueryDraft] = useState("");
   const [modeDraft, setModeDraft] = useState<WorkspaceMode>("Researcher");
+  const [strategistOnboarding, setStrategistOnboarding] = useState({
+    angle: "competitive-landscape",
+    indication: "",
+    geography: "US",
+    decisionHorizon: "12 months",
+    objective: "",
+  });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshingQueries, setIsRefreshingQueries] = useState(false);
   const [isExecutingWorkflow, setIsExecutingWorkflow] = useState(false);
 
-  const workspace = workspaces.find((ws) => ws.id === workspaceId);
+  useEffect(() => {
+    if (!workspace) return;
+    setModeDraft(workspace.mode ?? "Researcher");
+    if (workspace.strategistOnboarding) {
+      setStrategistOnboarding({
+        angle: workspace.strategistOnboarding.angle,
+        indication: workspace.strategistOnboarding.indication,
+        geography: workspace.strategistOnboarding.geography,
+        decisionHorizon: workspace.strategistOnboarding.decisionHorizon,
+        objective: workspace.strategistOnboarding.objective,
+      });
+    }
+  }, [workspace]);
 
   const sortedQueries = useMemo(() => {
     if (!workspace) return [];
@@ -54,6 +80,25 @@ export default function WorkspaceQueriesPage() {
     const trimmed = queryDraft.trim();
     if (!trimmed) return;
 
+    const strategistPrompt =
+      modeDraft === "Strategist"
+        ? [
+            `Strategist workspace context`,
+            `Angle: ${strategistOnboarding.angle}`,
+            strategistOnboarding.indication
+              ? `Indication: ${strategistOnboarding.indication}`
+              : null,
+            `Geography: ${strategistOnboarding.geography}`,
+            `Decision horizon: ${strategistOnboarding.decisionHorizon}`,
+            strategistOnboarding.objective
+              ? `Business objective: ${strategistOnboarding.objective}`
+              : null,
+            `User query: ${trimmed}`,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : trimmed;
+
     setSubmitError(null);
     setIsSubmitting(true);
 
@@ -69,6 +114,14 @@ export default function WorkspaceQueriesPage() {
         id: created.data.id,
         workspaceId: created.data.workspaceId,
         text: created.data.text,
+        researchPrompt: strategistPrompt,
+        strategistWorkflow:
+          modeDraft === "Strategist"
+            ? {
+                stage: "draft",
+                resources: [],
+              }
+            : undefined,
         mode: created.data.mode,
         indiaLens: created.data.indiaLens,
         submittedAt: new Date(created.data.submittedAt),
@@ -85,9 +138,20 @@ export default function WorkspaceQueriesPage() {
       const syncedQueries = await getWorkspaceQueriesApi(workspace.id)
         .then((response) =>
           response.data.queries.map((item) => ({
+            ...(workspace.queries.find((q) => q.id === item.id) ?? {}),
             id: item.id,
             workspaceId: item.workspaceId,
             text: item.text,
+            researchPrompt:
+              item.id === query.id
+                ? strategistPrompt
+                : workspace.queries.find((q) => q.id === item.id)
+                    ?.researchPrompt,
+            strategistWorkflow:
+              item.id === query.id
+                ? query.strategistWorkflow
+                : workspace.queries.find((q) => q.id === item.id)
+                    ?.strategistWorkflow,
             mode: item.mode,
             indiaLens: item.indiaLens,
             submittedAt: new Date(item.submittedAt),
@@ -106,6 +170,19 @@ export default function WorkspaceQueriesPage() {
 
       const updatedWorkspace = {
         ...workspace,
+        strategistWorkspaceId:
+          workspace.strategistWorkspaceId ??
+          (modeDraft === "Strategist"
+            ? `WS-Strategist-${workspace.id}`
+            : undefined),
+        strategistOnboarding:
+          modeDraft === "Strategist"
+            ? {
+                completed: true,
+                ...strategistOnboarding,
+                completedAt: new Date(),
+              }
+            : workspace.strategistOnboarding,
         queries: syncedQueries,
         activeQueryId,
         updatedAt: new Date(),
@@ -116,6 +193,14 @@ export default function WorkspaceQueriesPage() {
         setCurrentWorkspace(updatedWorkspace);
       }
 
+      if (modeDraft === "Strategist") {
+        setIsSubmitting(false);
+        setIsRefreshingQueries(false);
+        setQueryDraft("");
+        navigate(`/workspaces/${workspace.id}/queries/${activeQueryId}`);
+        return;
+      }
+
       // Clear submission states before starting workflow
       setIsSubmitting(false);
       setIsRefreshingQueries(false);
@@ -124,7 +209,7 @@ export default function WorkspaceQueriesPage() {
       setIsExecutingWorkflow(true);
       try {
         const searchResults = await searchWorkspace({
-          query: trimmed,
+          query: strategistPrompt,
           workspaceId: workspace.id,
           personaMode: modeDraft,
           indiaLens: false,
@@ -140,7 +225,7 @@ export default function WorkspaceQueriesPage() {
 
         const workflowResult = await executeWorkflow({
           workspaceId: workspace.id,
-          queryText: trimmed,
+          queryText: strategistPrompt,
           mode: modeDraft,
           indiaLens: false,
           searchTypes: ["paper", "trial", "company"],
@@ -194,9 +279,9 @@ export default function WorkspaceQueriesPage() {
   };
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_15%_8%,rgba(16,185,129,0.14),transparent_34%),radial-gradient(circle_at_85%_16%,rgba(245,158,11,0.12),transparent_32%),linear-gradient(180deg,rgba(10,12,16,0.88),rgba(10,12,16,0.97))]">
+    <div className="min-h-full bg-[radial-gradient(circle_at_15%_8%,rgba(16,185,129,0.05),transparent_34%),radial-gradient(circle_at_85%_16%,rgba(245,158,11,0.05),transparent_32%)]">
       <div className="px-6 py-6 space-y-5">
-        <section className="rounded-2xl border border-border/70 bg-card/85 p-5 shadow-[0_30px_70px_-44px_rgba(16,185,129,0.7)]">
+        <section className="rounded-2xl border border-border/70 bg-card/85 p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <p className="text-2xs uppercase tracking-[0.2em] text-emerald-300/85 mb-2">
@@ -247,7 +332,12 @@ export default function WorkspaceQueriesPage() {
               </button>
               <button
                 onClick={() => void createQuery()}
-                disabled={!queryDraft.trim() || isSubmitting || isRefreshingQueries || isExecutingWorkflow}
+                disabled={
+                  !queryDraft.trim() ||
+                  isSubmitting ||
+                  isRefreshingQueries ||
+                  isExecutingWorkflow
+                }
                 className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
               >
                 {isExecutingWorkflow
@@ -260,6 +350,97 @@ export default function WorkspaceQueriesPage() {
                 <SendHorizonal className="h-3.5 w-3.5" />
               </button>
             </div>
+
+            {modeDraft === "Strategist" ? (
+              <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/5 p-3 space-y-2">
+                <p className="text-2xs uppercase tracking-[0.14em] text-amber-300">
+                  Strategist Onboarding
+                </p>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <select
+                    aria-label="Strategist angle"
+                    value={strategistOnboarding.angle}
+                    onChange={(event) =>
+                      setStrategistOnboarding((prev) => ({
+                        ...prev,
+                        angle: event.target.value,
+                      }))
+                    }
+                    className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                  >
+                    <option value="competitive-landscape">
+                      Competitive landscape
+                    </option>
+                    <option value="patent-risk">
+                      Patent / exclusivity risk
+                    </option>
+                    <option value="pricing-reimbursement">
+                      Pricing & reimbursement
+                    </option>
+                    <option value="clinical-whitespace">
+                      Clinical whitespace
+                    </option>
+                    <option value="portfolio-prioritization">
+                      Portfolio prioritization
+                    </option>
+                  </select>
+                  <input
+                    aria-label="Strategist indication"
+                    value={strategistOnboarding.indication}
+                    onChange={(event) =>
+                      setStrategistOnboarding((prev) => ({
+                        ...prev,
+                        indication: event.target.value,
+                      }))
+                    }
+                    placeholder="Indication (e.g. ALS)"
+                    className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                  />
+                  <input
+                    aria-label="Strategist geography"
+                    value={strategistOnboarding.geography}
+                    onChange={(event) =>
+                      setStrategistOnboarding((prev) => ({
+                        ...prev,
+                        geography: event.target.value,
+                      }))
+                    }
+                    placeholder="Geography (e.g. US, EU5)"
+                    className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                  />
+                  <input
+                    aria-label="Strategist decision horizon"
+                    value={strategistOnboarding.decisionHorizon}
+                    onChange={(event) =>
+                      setStrategistOnboarding((prev) => ({
+                        ...prev,
+                        decisionHorizon: event.target.value,
+                      }))
+                    }
+                    placeholder="Decision horizon (e.g. 12 months)"
+                    className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <textarea
+                  aria-label="Strategist objective"
+                  value={strategistOnboarding.objective}
+                  onChange={(event) =>
+                    setStrategistOnboarding((prev) => ({
+                      ...prev,
+                      objective: event.target.value,
+                    }))
+                  }
+                  rows={2}
+                  placeholder="Business objective (e.g. Decide launch/no-launch for 2027)"
+                  className="w-full rounded border border-border bg-background px-2 py-1.5 text-xs resize-none"
+                />
+                <p className="text-2xs text-muted-foreground">
+                  Strategist Workspace ID:{" "}
+                  {workspace.strategistWorkspaceId ??
+                    `WS-Strategist-${workspace.id}`}
+                </p>
+              </div>
+            ) : null}
 
             {submitError ? (
               <p role="alert" className="mt-2 text-xs text-destructive">
@@ -286,14 +467,18 @@ export default function WorkspaceQueriesPage() {
               sortedQueries.map((query) => (
                 <button
                   key={query.id}
-                  onClick={() => navigate(`/workspaces/${workspace.id}/queries/${query.id}`)}
+                  onClick={() =>
+                    navigate(`/workspaces/${workspace.id}/queries/${query.id}`)
+                  }
                   className="w-full rounded-lg border border-border bg-background/65 px-3 py-3 text-left transition-all hover:border-foreground/25 hover:bg-accent/35"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2 min-w-0">
                       <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm text-foreground truncate">{query.text}</p>
+                        <p className="text-sm text-foreground truncate">
+                          {query.text}
+                        </p>
                         <div className="mt-1 flex items-center gap-2 text-2xs text-muted-foreground">
                           <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5">
                             {query.mode}

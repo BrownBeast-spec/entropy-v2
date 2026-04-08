@@ -1,9 +1,16 @@
 import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
-import { getEdgeConstructorModel } from "../lib/nvidia-nim-provider.js";
+import { getModelForAgent } from "../lib/llm.js";
 import { getNvidiaRateLimiter } from "../lib/rate-limiter.js";
-import type { GraphNode } from "@entropy/api/src/schemas/graph-schema";
 import type { EdgeCandidate } from "../lib/edge-heuristics.js";
+
+type GraphNode = {
+  id: string;
+  label: string;
+  type: string;
+  source: string;
+  metadata: Record<string, unknown>;
+};
 
 // Zod schema for a single inferred edge
 const InferredEdgeSchema = z.object({
@@ -53,7 +60,7 @@ Consider:
 - Literature evidence and co-occurrence patterns
 
 Return ONLY high-confidence relationships (>0.7) with clear, concise reasoning.`,
-    model: getEdgeConstructorModel(),
+    model: getModelForAgent("gap-analyst"),
   });
 }
 

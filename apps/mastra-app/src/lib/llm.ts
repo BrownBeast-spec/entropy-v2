@@ -175,8 +175,7 @@ function withToolInterception(
 }
 
 export function getModel(modelId?: string): LanguageModelV3 {
-  const id =
-    modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-pro-preview-05-06";
+  const id = modelId ?? process.env.LLM_MODEL ?? "google:gemini-2.5-flash";
   const [provider, ...rest] = id.split(":");
   const model = rest.join(":");
 
@@ -249,7 +248,7 @@ export function getModelForAgent(agentId: string): LanguageModelV3 {
   const [provider, ...rest] = (
     agentModelId ??
     process.env.LLM_MODEL ??
-    "google:gemini-2.5-pro-preview-05-06"
+    "google:gemini-2.5-flash"
   ).split(":");
   const model = rest.join(":");
 

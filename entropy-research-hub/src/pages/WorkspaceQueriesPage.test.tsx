@@ -55,6 +55,7 @@ vi.mock("@/contexts/WorkspaceContext", () => ({
           },
         ],
         activeQueryId: "q_1",
+        strategistWorkspaceId: "WS-Strategist-ws_1",
         savedItems: [],
       },
     ],
@@ -119,7 +120,10 @@ describe("WorkspaceQueriesPage", () => {
     render(
       <MemoryRouter initialEntries={["/workspaces/ws_1"]}>
         <Routes>
-          <Route path="/workspaces/:workspaceId" element={<WorkspaceQueriesPage />} />
+          <Route
+            path="/workspaces/:workspaceId"
+            element={<WorkspaceQueriesPage />}
+          />
         </Routes>
       </MemoryRouter>,
     );
@@ -134,11 +138,16 @@ describe("WorkspaceQueriesPage", () => {
   it("creates a researcher query from multiline composer and navigates", async () => {
     renderPage();
 
-    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-      target: { value: "new query from composer" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your research question/i),
+      {
+        target: { value: "new query from composer" },
+      },
+    );
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /run query/i }),
+      ).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -213,11 +222,16 @@ describe("WorkspaceQueriesPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /strategist/i }));
-    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-      target: { value: "strategic framing" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your research question/i),
+      {
+        target: { value: "strategic framing" },
+      },
+    );
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /run query/i }),
+      ).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -234,18 +248,29 @@ describe("WorkspaceQueriesPage", () => {
     expect(mockUpdateWorkspace).toHaveBeenCalled();
 
     const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
-    const newestQuery = updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
+    const newestQuery =
+      updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
     expect(newestQuery.mode).toBe("Strategist");
     expect(newestQuery.text).toBe("strategic framing");
+    expect(newestQuery.researchPrompt).toContain(
+      "Strategist workspace context",
+    );
+    expect(updatedWorkspace.strategistWorkspaceId).toBe("WS-Strategist-ws_1");
   });
 
   it("renders editorial composer and no large create-query cards", () => {
     renderPage();
 
     expect(screen.getByText(/Query Composer/i)).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: /query prompt/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /new researcher query/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /new strategist query/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /query prompt/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /new researcher query/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /new strategist query/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("requires typed input before enabling run query action", () => {
@@ -254,9 +279,12 @@ describe("WorkspaceQueriesPage", () => {
     const runButton = screen.getByRole("button", { name: /run query/i });
     expect(runButton).toBeDisabled();
 
-    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-      target: { value: "AMPK for NASH" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your research question/i),
+      {
+        target: { value: "AMPK for NASH" },
+      },
+    );
 
     expect(runButton).not.toBeDisabled();
   });
@@ -297,11 +325,16 @@ describe("WorkspaceQueriesPage", () => {
       },
     });
 
-    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-      target: { value: "AMPK for NASH" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your research question/i),
+      {
+        target: { value: "AMPK for NASH" },
+      },
+    );
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /run query/i }),
+      ).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -318,7 +351,8 @@ describe("WorkspaceQueriesPage", () => {
     expect(mockUpdateWorkspace).toHaveBeenCalled();
 
     const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
-    const newestQuery = updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
+    const newestQuery =
+      updatedWorkspace.queries[updatedWorkspace.queries.length - 1];
     expect(newestQuery.text).toBe("AMPK for NASH");
     expect(mockNavigate).toHaveBeenCalledWith(
       "/workspaces/ws_1/queries/query_backend_3",
@@ -328,13 +362,20 @@ describe("WorkspaceQueriesPage", () => {
   it("does not fall back to local query creation when API create fails", async () => {
     renderPage();
 
-    mockCreateQuery.mockRejectedValueOnce(new Error("Workspace API unavailable"));
+    mockCreateQuery.mockRejectedValueOnce(
+      new Error("Workspace API unavailable"),
+    );
 
-    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-      target: { value: "retry this" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your research question/i),
+      {
+        target: { value: "retry this" },
+      },
+    );
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /run query/i }),
+      ).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -374,11 +415,16 @@ describe("WorkspaceQueriesPage", () => {
       new Error("Unable to refresh query list"),
     );
 
-    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-      target: { value: "fallback query" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your research question/i),
+      {
+        target: { value: "fallback query" },
+      },
+    );
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /run query/i }),
+      ).not.toBeDisabled();
     });
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -389,10 +435,14 @@ describe("WorkspaceQueriesPage", () => {
     expect(mockUpdateWorkspace).toHaveBeenCalled();
     const updatedWorkspace = mockUpdateWorkspace.mock.calls[0][0];
     expect(
-      updatedWorkspace.queries.some((query: { id: string }) => query.id === "query_backend_4"),
+      updatedWorkspace.queries.some(
+        (query: { id: string }) => query.id === "query_backend_4",
+      ),
     ).toBe(true);
     expect(updatedWorkspace.activeQueryId).toBe("query_backend_4");
-    expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_4");
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/workspaces/ws_1/queries/query_backend_4",
+    );
   });
 
   it("shows syncing state while refreshing query list after create", async () => {
@@ -439,11 +489,16 @@ describe("WorkspaceQueriesPage", () => {
         }),
     );
 
-    fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-      target: { value: "sync me" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/enter your research question/i),
+      {
+        target: { value: "sync me" },
+      },
+    );
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /run query/i }),
+      ).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /run query/i }));
@@ -472,10 +527,14 @@ describe("WorkspaceQueriesPage", () => {
     });
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_sync");
+      expect(mockNavigate).toHaveBeenCalledWith(
+        "/workspaces/ws_1/queries/query_backend_sync",
+      );
     });
 
-    expect(screen.queryByRole("button", { name: /syncing/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /syncing/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("navigates when existing query row is clicked", () => {
@@ -527,11 +586,16 @@ describe("WorkspaceQueriesPage", () => {
     it("triggers workflow after successful query creation", async () => {
       renderPage();
 
-      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-        target: { value: "AMPK for NASH" },
-      });
+      fireEvent.change(
+        screen.getByPlaceholderText(/enter your research question/i),
+        {
+          target: { value: "AMPK for NASH" },
+        },
+      );
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /run query/i }),
+        ).not.toBeDisabled();
       });
       fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -584,7 +648,9 @@ describe("WorkspaceQueriesPage", () => {
 
       // Should navigate to query view
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_1");
+        expect(mockNavigate).toHaveBeenCalledWith(
+          "/workspaces/ws_1/queries/query_backend_1",
+        );
       });
     });
 
@@ -597,7 +663,13 @@ describe("WorkspaceQueriesPage", () => {
             queryId: string;
             addedNodesCount: number;
             addedEdgesCount: number;
-            synthesis: { sections: Array<{ title: string; content: string; citations: unknown[] }> };
+            synthesis: {
+              sections: Array<{
+                title: string;
+                content: string;
+                citations: unknown[];
+              }>;
+            };
           }) => void)
         | null = null;
 
@@ -608,17 +680,24 @@ describe("WorkspaceQueriesPage", () => {
           }),
       );
 
-      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-        target: { value: "test query" },
-      });
+      fireEvent.change(
+        screen.getByPlaceholderText(/enter your research question/i),
+        {
+          target: { value: "test query" },
+        },
+      );
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /run query/i }),
+        ).not.toBeDisabled();
       });
       fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
       // Should show "Researching..." while workflow runs
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /researching/i })).toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /researching/i }),
+        ).toBeDisabled();
       });
 
       // Resolve workflow
@@ -644,11 +723,16 @@ describe("WorkspaceQueriesPage", () => {
         new Error("Workflow execution failed: Neo4j connection timeout"),
       );
 
-      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-        target: { value: "error case" },
-      });
+      fireEvent.change(
+        screen.getByPlaceholderText(/enter your research question/i),
+        {
+          target: { value: "error case" },
+        },
+      );
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /run query/i }),
+        ).not.toBeDisabled();
       });
       fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -659,7 +743,9 @@ describe("WorkspaceQueriesPage", () => {
 
       // Should still navigate even if workflow fails
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_1");
+        expect(mockNavigate).toHaveBeenCalledWith(
+          "/workspaces/ws_1/queries/query_backend_1",
+        );
       });
 
       // Error should be logged but not block navigation
@@ -669,13 +755,20 @@ describe("WorkspaceQueriesPage", () => {
     it("handles search failure and continues without workflow", async () => {
       renderPage();
 
-      mockSearchWorkspace.mockRejectedValueOnce(new Error("Search service unavailable"));
+      mockSearchWorkspace.mockRejectedValueOnce(
+        new Error("Search service unavailable"),
+      );
 
-      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-        target: { value: "search fails" },
-      });
+      fireEvent.change(
+        screen.getByPlaceholderText(/enter your research question/i),
+        {
+          target: { value: "search fails" },
+        },
+      );
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /run query/i }),
+        ).not.toBeDisabled();
       });
       fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -689,7 +782,9 @@ describe("WorkspaceQueriesPage", () => {
 
       // Should still navigate to query view
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith("/workspaces/ws_1/queries/query_backend_1");
+        expect(mockNavigate).toHaveBeenCalledWith(
+          "/workspaces/ws_1/queries/query_backend_1",
+        );
       });
     });
 
@@ -712,11 +807,16 @@ describe("WorkspaceQueriesPage", () => {
       });
 
       fireEvent.click(screen.getByRole("button", { name: /strategist/i }));
-      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-        target: { value: "strategic query" },
-      });
+      fireEvent.change(
+        screen.getByPlaceholderText(/enter your research question/i),
+        {
+          target: { value: "strategic query" },
+        },
+      );
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /run query/i }),
+        ).not.toBeDisabled();
       });
       fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -724,7 +824,7 @@ describe("WorkspaceQueriesPage", () => {
         expect(mockExecuteWorkflow).toHaveBeenCalledWith(
           expect.objectContaining({
             mode: "Strategist",
-            queryText: "strategic query",
+            queryText: expect.stringContaining("Strategist workspace context"),
           }),
         );
       });
@@ -733,11 +833,16 @@ describe("WorkspaceQueriesPage", () => {
     it("updates query with report after workflow completes", async () => {
       renderPage();
 
-      fireEvent.change(screen.getByPlaceholderText(/enter your research question/i), {
-        target: { value: "test query" },
-      });
+      fireEvent.change(
+        screen.getByPlaceholderText(/enter your research question/i),
+        {
+          target: { value: "test query" },
+        },
+      );
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /run query/i })).not.toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: /run query/i }),
+        ).not.toBeDisabled();
       });
       fireEvent.click(screen.getByRole("button", { name: /run query/i }));
 
@@ -752,13 +857,17 @@ describe("WorkspaceQueriesPage", () => {
 
       const updateCalls = mockUpdateWorkspace.mock.calls;
       const lastUpdate = updateCalls[updateCalls.length - 1][0];
-      const updatedQuery = lastUpdate.queries.find((q: { id: string }) => q.id === "query_backend_1");
+      const updatedQuery = lastUpdate.queries.find(
+        (q: { id: string }) => q.id === "query_backend_1",
+      );
 
       expect(updatedQuery).toBeDefined();
       expect(updatedQuery.report).toBeDefined();
       expect(updatedQuery.report.sections).toHaveLength(1);
       expect(updatedQuery.report.sections[0].title).toBe("Background");
-      expect(updatedQuery.report.sections[0].content).toBe("AMPK research overview");
+      expect(updatedQuery.report.sections[0].content).toBe(
+        "AMPK research overview",
+      );
     });
   });
 });

@@ -8,6 +8,11 @@ const AGENT_NAMES: AgentName[] = [
   "librarian",
   "gap-analyst",
   "verifier",
+  "strategist-planner",
+  "patent-strategist",
+  "commercial-analyst",
+  "pipeline-ci-analyst",
+  "strategist-synthesizer",
 ];
 
 function defaultAgents(): Record<
